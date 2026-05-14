@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>ヤドカリさん - ひとりチャットメモ</title>
+<title>ひとりメモ - ひとりチャットメモ</title>
 <style>
   :root{
     --bg:#f7f0e8;
@@ -269,6 +269,56 @@
     margin-top:18px;
     animation:pulse 4s ease-in-out infinite;
   }
+
+  .catParts{
+    position:absolute;
+    width:220px;
+    height:120px;
+    top:calc(50% - 96px);
+    left:50%;
+    transform:translateX(-50%);
+    pointer-events:none;
+  }
+  .ear{
+    position:absolute;
+    top:0;
+    width:0;height:0;
+    border-left:28px solid transparent;
+    border-right:28px solid transparent;
+    border-bottom:58px solid rgba(255,255,255,.16);
+    filter:drop-shadow(0 0 12px rgba(255,255,255,.08));
+  }
+  .leftEar{left:34px; transform:rotate(-18deg)}
+  .rightEar{right:34px; transform:rotate(18deg)}
+  .bell{
+    position:absolute;
+    left:50%;
+    top:102px;
+    transform:translateX(-50%);
+    font-size:24px;
+    opacity:.38;
+    animation:pulse 4s ease-in-out infinite;
+  }
+  .lockMood{
+    position:absolute;
+    top:calc(50% + 64px);
+    color:rgba(255,255,255,.42);
+    font-size:22px;
+    letter-spacing:.2em;
+  }
+  .lock.eyesOnly .catParts{display:none}
+  .lock.noBell .bell{display:none}
+  .lock.half .eye{height:15px; top:35px; opacity:.86}
+  .lock.teary .eye::after{
+    content:"";
+    position:absolute;
+    width:9px;height:16px;
+    background:rgba(135,211,255,.7);
+    border-radius:999px;
+    bottom:-18px;right:9px;
+    box-shadow:0 0 12px rgba(135,211,255,.45);
+  }
+
   .lockHint{
     position:absolute;
     bottom:calc(26px + env(safe-area-inset-bottom));
@@ -338,7 +388,7 @@
       <button class="btn" id="newBtn">新規</button>
     </div>
     <div class="title">
-      ヤドカリさん
+      <span id="appTitle">ひとりメモ</span>
       <small>ひとりチャットメモ</small>
     </div>
     <div class="topBtns right">
@@ -362,7 +412,14 @@
       <div class="eye left"></div>
       <div class="eye right"></div>
     </div>
-    <div class="shell">🐚</div>
+    
+    <div class="catParts" id="catParts">
+      <div class="ear leftEar"></div>
+      <div class="ear rightEar"></div>
+      <div class="bell" id="bell">🔔</div>
+    </div>
+    <div class="lockMood" id="lockMood"></div>
+
     <div class="passBox" id="passBox">
       <input id="passInput" type="password" inputmode="numeric" placeholder="PASS" />
       <div class="passErr" id="passErr"></div>
@@ -405,12 +462,16 @@ let isLocked = false;
 
 function defaultSettings(){
   return {
+    appName: "ひとりメモ",
     reply: true,
     lockAnim: true,
     pass: false,
     passCode: "0000",
     lockSeconds: 60,
-    botMode: "keyword"
+    botMode: "hai",
+    lockLook: "cat",
+    catBell: true,
+    eyeMood: "normal"
   };
 }
 function loadSettings(){
@@ -437,12 +498,32 @@ function nowTime(){
   const d = new Date();
   return d.toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"});
 }
+
+function applySettingsToUI(){
+  const titleEl = document.getElementById("appTitle");
+  if(titleEl) titleEl.textContent = settings.appName || "ひとりメモ";
+
+  lock.classList.toggle("eyesOnly", settings.lockLook === "eyes");
+  lock.classList.toggle("noBell", !settings.catBell || settings.lockLook !== "cat");
+  lock.classList.toggle("half", settings.eyeMood === "half");
+  lock.classList.toggle("teary", settings.eyeMood === "teary");
+
+  const mood = document.getElementById("lockMood");
+  if(mood){
+    if(settings.lockLook === "cat") mood.textContent = "";
+    else if(settings.eyeMood === "half") mood.textContent = "眠";
+    else if(settings.eyeMood === "teary") mood.textContent = "…";
+    else mood.textContent = "";
+  }
+}
+
 function render(){
+  applySettingsToUI();
   chat.innerHTML = '<div class="day">きょう</div>';
   if(current.messages.length === 0){
     const emp = document.createElement("div");
     emp.className = "empty";
-    emp.textContent = "ひとりLINEみたいに、ここへ投げる。";
+    emp.textContent = "ひとりチャットみたいに、ここへ投げる。";
     chat.appendChild(emp);
   }
   current.messages.forEach(m => addMessageEl(m.role, m.text, m.time, false));
@@ -461,7 +542,7 @@ function addMessageEl(role,text,time,scroll=true){
   if(role === "bot"){
     const av = document.createElement("div");
     av.className = "avatar";
-    av.textContent = "🐚";
+    av.textContent = settings.lockLook === "cat" ? "🐱" : "👀";
     row.appendChild(av);
   }
   const bubble = document.createElement("div");
@@ -495,13 +576,13 @@ function send(){
   resetLockTimer();
 }
 function makeReply(text){
-  if(settings.botMode === "simple"){
-    const arr = ["うん","メモった","なるほど","続けて"];
+  // このアプリの返事は、考えずに受けるだけ。
+  if(settings.botMode === "off") return "";
+  if(settings.botMode === "random"){
+    const arr = ["はーい","了解","メモった","うん","🫡"];
     return arr[Math.floor(Math.random()*arr.length)];
   }
-  const words = extractWords(text);
-  if(words.length) return words[0] + "？";
-  return "うん";
+  return "はーい";
 }
 function extractWords(text){
   const stop = ["これ","それ","あれ","今日","明日","昨日","あと","また","かな","やわ","する","した","して","行く","行かない","思う","かも","ちょっと"];
@@ -637,21 +718,53 @@ function showList(){
 function showSettings(){
   openModal(`
     <h2>設定</h2>
+
+    <div class="field">
+      <label>この子に名前をつけてね</label>
+      <input id="appName" value="${escapeHtml(settings.appName || "ひとりメモ")}" placeholder="例：メモさん、ねこメモ、ひとりごと" />
+    </div>
+
     <div class="switchRow">
-      <span>返事<small>オンなら短く相槌します</small></span>
+      <span>返事<small>オフなら完全に1人チャットメモ</small></span>
       <button class="toggle ${settings.reply?'on':''}" id="replyToggle"></button>
     </div>
+
     <div class="field">
-      <label>返事タイプ</label>
+      <label>相槌タイプ</label>
       <select id="botMode">
-        <option value="keyword" ${settings.botMode==="keyword"?"selected":""}>拾った言葉を返す</option>
-        <option value="simple" ${settings.botMode==="simple"?"selected":""}>相槌だけ</option>
+        <option value="hai" ${settings.botMode==="hai"?"selected":""}>固定：はーい</option>
+        <option value="random" ${settings.botMode==="random"?"selected":""}>ランダム：はーい / 了解 / メモった / うん / 🫡</option>
+        <option value="off" ${settings.botMode==="off"?"selected":""}>返事なし</option>
       </select>
     </div>
+
     <div class="switchRow">
       <span>ロック風アニメ<small>放置時にテキストを全部隠します</small></span>
       <button class="toggle ${settings.lockAnim?'on':''}" id="lockToggle"></button>
     </div>
+
+    <div class="field">
+      <label>ロック画面の見た目</label>
+      <select id="lockLook">
+        <option value="cat" ${settings.lockLook==="cat"?"selected":""}>猫：耳つき</option>
+        <option value="eyes" ${settings.lockLook==="eyes"?"selected":""}>目だけ</option>
+      </select>
+    </div>
+
+    <div class="switchRow">
+      <span>猫の鈴<small>猫モードの時だけ表示</small></span>
+      <button class="toggle ${settings.catBell?'on':''}" id="catBellToggle"></button>
+    </div>
+
+    <div class="field">
+      <label>目だけモードの表情</label>
+      <select id="eyeMood">
+        <option value="normal" ${settings.eyeMood==="normal"?"selected":""}>通常</option>
+        <option value="half" ${settings.eyeMood==="half"?"selected":""}>半目</option>
+        <option value="teary" ${settings.eyeMood==="teary"?"selected":""}>涙目</option>
+      </select>
+    </div>
+
     <div class="field">
       <label>自動ロックまで</label>
       <select id="lockSeconds">
@@ -661,19 +774,23 @@ function showSettings(){
         <option value="600" ${settings.lockSeconds==600?"selected":""}>10分</option>
       </select>
     </div>
+
     <div class="switchRow">
       <span>パスコード<small>オンなら復帰時に入力</small></span>
       <button class="toggle ${settings.pass?'on':''}" id="passToggle"></button>
     </div>
+
     <div class="field">
       <label>パスコード</label>
       <input id="passCode" value="${escapeHtml(settings.passCode)}" inputmode="numeric" />
     </div>
+
     <div class="modalActions">
       <button class="btn" id="saveSettings">設定を保存</button>
       <button class="btn" id="cancelSettings">閉じる</button>
     </div>
   `);
+
   document.getElementById("replyToggle").onclick = e => {
     settings.reply = !settings.reply; e.currentTarget.classList.toggle("on", settings.reply);
   };
@@ -683,11 +800,19 @@ function showSettings(){
   document.getElementById("passToggle").onclick = e => {
     settings.pass = !settings.pass; e.currentTarget.classList.toggle("on", settings.pass);
   };
+  document.getElementById("catBellToggle").onclick = e => {
+    settings.catBell = !settings.catBell; e.currentTarget.classList.toggle("on", settings.catBell);
+  };
+
   document.getElementById("saveSettings").onclick = () => {
+    settings.appName = document.getElementById("appName").value.trim() || "ひとりメモ";
     settings.botMode = document.getElementById("botMode").value;
+    settings.lockLook = document.getElementById("lockLook").value;
+    settings.eyeMood = document.getElementById("eyeMood").value;
     settings.lockSeconds = Number(document.getElementById("lockSeconds").value);
     settings.passCode = document.getElementById("passCode").value || "0000";
     saveSettings();
+    applySettingsToUI();
     closeModal();
     resetLockTimer();
     showToast("設定した");
@@ -695,6 +820,7 @@ function showSettings(){
   document.getElementById("cancelSettings").onclick = closeModal;
 }
 function lockNow(){
+  applySettingsToUI();
   if(!settings.lockAnim || overlay.style.display === "flex") return;
   isLocked = true;
   lock.classList.add("show");
@@ -757,6 +883,7 @@ passInput.addEventListener("keydown", e=>{
     }
   }
 });
+applySettingsToUI();
 render();
 resetLockTimer();
 </script>
