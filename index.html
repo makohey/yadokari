@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>ヤドカリさん - ひとりチャットメモ</title>
+<style>
+  :root{
+    --bg:#f7f0e8;
+    --panel:#fffaf3;
+    --ink:#3a2c24;
+    --muted:#8b786b;
+    --line:#eadccc;
+    --accent:#f3a7a2;
+    --accent2:#bfe0c1;
+    --bubble:#dcf4d8;
+    --left:#ffffff;
+    --shadow:0 12px 32px rgba(72,45,28,.14);
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",Meiryo,sans-serif;
+    background:linear-gradient(180deg,#f9f2ea,#efe2d6);
+    color:var(--ink);
+    height:100svh;
+    overflow:hidden;
+  }
+  button,input,textarea{font:inherit}
+  .app{
+    height:100svh;
+    max-width:720px;
+    margin:0 auto;
+    background:var(--bg);
+    display:flex;
+    flex-direction:column;
+    position:relative;
+    overflow:hidden;
+    box-shadow:0 0 0 1px rgba(0,0,0,.04);
+  }
+  header{
+    height:62px;
+    padding:10px 12px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    background:rgba(255,250,243,.92);
+    backdrop-filter: blur(10px);
+    border-bottom:1px solid var(--line);
+    z-index:5;
+  }
+  .title{
+    text-align:center;
+    line-height:1.1;
+    font-weight:800;
+    letter-spacing:.02em;
+  }
+  .title small{
+    display:block;
+    font-size:11px;
+    color:var(--muted);
+    font-weight:600;
+    margin-top:3px;
+  }
+  .topBtns{
+    display:flex;
+    gap:6px;
+    min-width:130px;
+  }
+  .topBtns.right{justify-content:flex-end}
+  .btn{
+    border:1px solid var(--line);
+    background:#fffaf5;
+    color:var(--ink);
+    border-radius:999px;
+    padding:8px 10px;
+    font-size:13px;
+    cursor:pointer;
+    box-shadow:0 3px 10px rgba(0,0,0,.04);
+  }
+  .btn:active{transform:scale(.98)}
+  .chat{
+    flex:1;
+    overflow:auto;
+    padding:16px 12px 96px;
+    scroll-behavior:smooth;
+  }
+  .day{
+    width:max-content;
+    margin:4px auto 18px;
+    padding:5px 12px;
+    border-radius:999px;
+    color:var(--muted);
+    background:#efe4d8;
+    font-size:12px;
+  }
+  .row{
+    display:flex;
+    gap:8px;
+    margin:10px 0;
+    align-items:flex-end;
+  }
+  .row.user{justify-content:flex-end}
+  .avatar{
+    width:34px;height:34px;border-radius:50%;
+    display:grid;place-items:center;
+    background:#fff5ec;
+    box-shadow:0 3px 10px rgba(0,0,0,.08);
+    flex:0 0 34px;
+    font-size:21px;
+    user-select:none;
+  }
+  .bubble{
+    max-width:min(78%,520px);
+    padding:10px 12px;
+    border-radius:18px;
+    line-height:1.55;
+    white-space:pre-wrap;
+    word-break:break-word;
+    box-shadow:0 4px 14px rgba(0,0,0,.06);
+  }
+  .user .bubble{
+    background:var(--bubble);
+    border-bottom-right-radius:5px;
+  }
+  .bot .bubble{
+    background:var(--left);
+    border-bottom-left-radius:5px;
+  }
+  .meta{
+    font-size:10px;
+    color:var(--muted);
+    margin:0 4px 2px;
+  }
+  .composer{
+    position:absolute;
+    left:0;right:0;bottom:0;
+    padding:10px 10px calc(10px + env(safe-area-inset-bottom));
+    background:rgba(255,250,243,.94);
+    backdrop-filter: blur(12px);
+    border-top:1px solid var(--line);
+    display:flex;
+    gap:8px;
+    align-items:flex-end;
+    z-index:6;
+  }
+  textarea{
+    flex:1;
+    min-height:44px;
+    max-height:132px;
+    resize:none;
+    border:1px solid var(--line);
+    outline:none;
+    border-radius:18px;
+    padding:11px 12px;
+    background:white;
+    color:var(--ink);
+    box-shadow:inset 0 1px 0 rgba(0,0,0,.02);
+  }
+  .send{
+    min-width:64px;
+    border:none;
+    color:white;
+    background:#d9857e;
+    border-radius:16px;
+    padding:12px 14px;
+    font-weight:800;
+    cursor:pointer;
+  }
+  .send:active{transform:scale(.98)}
+  .overlay{
+    position:absolute; inset:0;
+    background:rgba(26,20,18,.28);
+    display:none;
+    z-index:20;
+    padding:18px;
+    align-items:center;
+    justify-content:center;
+  }
+  .modal{
+    width:min(560px,100%);
+    max-height:86svh;
+    overflow:auto;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:24px;
+    box-shadow:var(--shadow);
+    padding:16px;
+  }
+  .modal h2{margin:0 0 10px;font-size:18px}
+  .modalActions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .field{
+    margin:12px 0;
+  }
+  .field label{
+    display:block;
+    font-size:13px;
+    color:var(--muted);
+    margin-bottom:6px;
+    font-weight:700;
+  }
+  .field input,.field select{
+    width:100%;
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:10px 12px;
+    background:white;
+    color:var(--ink);
+  }
+  .switchRow{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:11px 0;border-bottom:1px solid var(--line);
+    gap:12px;
+  }
+  .switchRow span small{display:block;color:var(--muted);margin-top:2px}
+  .toggle{
+    width:52px;height:30px;border-radius:999px;border:none;
+    background:#d6c7ba;position:relative;cursor:pointer;flex:0 0 52px;
+  }
+  .toggle::after{
+    content:"";position:absolute;top:4px;left:4px;
+    width:22px;height:22px;border-radius:50%;background:white;
+    transition:.18s;
+  }
+  .toggle.on{background:#80be86}
+  .toggle.on::after{left:26px}
+  .listItem{
+    border:1px solid var(--line);
+    background:white;
+    border-radius:16px;
+    padding:12px;
+    margin:8px 0;
+    cursor:pointer;
+  }
+  .listItem strong{display:block;margin-bottom:4px}
+  .listItem small{color:var(--muted)}
+  .lock{
+    position:absolute; inset:0;
+    background:#030303;
+    color:white;
+    display:none;
+    z-index:50;
+    align-items:center;
+    justify-content:center;
+    flex-direction:column;
+    overflow:hidden;
+    user-select:none;
+  }
+  .lock.show{display:flex}
+  .eyes{
+    width:220px;height:90px;
+    position:relative;
+    animation:floaty 5.8s ease-in-out infinite;
+  }
+  .eye{
+    position:absolute;top:25px;
+    width:54px;height:34px;
+    border-radius:50%;
+    background:radial-gradient(circle at 55% 45%,#fff 0 10%,#ffd06a 11% 35%,#111 36% 55%,#ffdc84 56% 100%);
+    box-shadow:0 0 18px rgba(255,208,106,.42),0 0 42px rgba(255,208,106,.18);
+    transform-origin:center;
+    animation:blink 7s infinite;
+  }
+  .eye.left{left:34px}
+  .eye.right{right:34px}
+  .shell{
+    font-size:34px;
+    opacity:.28;
+    margin-top:18px;
+    animation:pulse 4s ease-in-out infinite;
+  }
+  .lockHint{
+    position:absolute;
+    bottom:calc(26px + env(safe-area-inset-bottom));
+    color:rgba(255,255,255,.34);
+    font-size:12px;
+    letter-spacing:.12em;
+  }
+  .passBox{
+    display:none;
+    position:absolute;
+    bottom:calc(60px + env(safe-area-inset-bottom));
+    width:min(280px,80%);
+    background:rgba(255,255,255,.08);
+    border:1px solid rgba(255,255,255,.16);
+    border-radius:18px;
+    padding:12px;
+    backdrop-filter: blur(10px);
+  }
+  .passBox.show{display:block}
+  .passBox input{
+    width:100%;padding:11px;border-radius:12px;border:1px solid rgba(255,255,255,.18);
+    background:rgba(0,0,0,.35);color:white;outline:none;text-align:center;
+    letter-spacing:.2em;
+  }
+  .passErr{height:18px;color:#ffaaa4;text-align:center;font-size:12px;margin-top:7px}
+  @keyframes blink{
+    0%,4%,8%,100%{transform:scaleY(1)}
+    5%,6.4%{transform:scaleY(.06)}
+    58%,61%,64%{transform:scaleY(1)}
+    62%{transform:scaleY(.08)}
+  }
+  @keyframes floaty{
+    0%,100%{transform:translateY(0)}
+    50%{transform:translateY(-8px)}
+  }
+  @keyframes pulse{
+    0%,100%{opacity:.22;transform:scale(1)}
+    50%{opacity:.38;transform:scale(1.05)}
+  }
+  .empty{
+    color:var(--muted);
+    text-align:center;
+    padding:28px 8px;
+  }
+  .toast{
+    position:absolute;
+    left:50%;bottom:92px;
+    transform:translateX(-50%);
+    background:rgba(58,44,36,.9);
+    color:white;
+    padding:9px 13px;
+    border-radius:999px;
+    font-size:13px;
+    display:none;
+    z-index:60;
+  }
+  .toast.show{display:block}
+  @media (min-width:721px){
+    .app{height:96svh;margin-top:2svh;border-radius:24px}
+  }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <header>
+    <div class="topBtns">
+      <button class="btn" id="newBtn">新規</button>
+    </div>
+    <div class="title">
+      ヤドカリさん
+      <small>ひとりチャットメモ</small>
+    </div>
+    <div class="topBtns right">
+      <button class="btn" id="saveBtn">保存</button>
+      <button class="btn" id="listBtn">一覧</button>
+      <button class="btn" id="settingsBtn">⚙︎</button>
+    </div>
+  </header>
+
+  <main class="chat" id="chat">
+    <div class="day">きょう</div>
+  </main>
+
+  <div class="composer">
+    <textarea id="input" placeholder="メモを書く..." rows="1"></textarea>
+    <button class="send" id="sendBtn">送信</button>
+  </div>
+
+  <section class="lock" id="lock">
+    <div class="eyes">
+      <div class="eye left"></div>
+      <div class="eye right"></div>
+    </div>
+    <div class="shell">🐚</div>
+    <div class="passBox" id="passBox">
+      <input id="passInput" type="password" inputmode="numeric" placeholder="PASS" />
+      <div class="passErr" id="passErr"></div>
+    </div>
+    <div class="lockHint" id="lockHint">tap to wake</div>
+  </section>
+
+  <div class="overlay" id="overlay">
+    <div class="modal" id="modal"></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+const STORAGE_KEY = "yadokari_current_v1";
+const SAVED_KEY = "yadokari_saved_v1";
+const SETTINGS_KEY = "yadokari_settings_v1";
+
+const chat = document.getElementById("chat");
+const input = document.getElementById("input");
+const sendBtn = document.getElementById("sendBtn");
+const newBtn = document.getElementById("newBtn");
+const saveBtn = document.getElementById("saveBtn");
+const listBtn = document.getElementById("listBtn");
+const settingsBtn = document.getElementById("settingsBtn");
+const overlay = document.getElementById("overlay");
+const modal = document.getElementById("modal");
+const lock = document.getElementById("lock");
+const passBox = document.getElementById("passBox");
+const passInput = document.getElementById("passInput");
+const passErr = document.getElementById("passErr");
+const lockHint = document.getElementById("lockHint");
+const toast = document.getElementById("toast");
+
+let current = loadCurrent();
+let settings = loadSettings();
+let lockTimer = null;
+let isLocked = false;
+
+function defaultSettings(){
+  return {
+    reply: true,
+    lockAnim: true,
+    pass: false,
+    passCode: "0000",
+    lockSeconds: 60,
+    botMode: "keyword"
+  };
+}
+function loadSettings(){
+  try { return {...defaultSettings(), ...JSON.parse(localStorage.getItem(SETTINGS_KEY)||"{}")}; }
+  catch(e){ return defaultSettings(); }
+}
+function saveSettings(){ localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); }
+
+function loadCurrent(){
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {messages:[], dirty:false}; }
+  catch(e){ return {messages:[], dirty:false}; }
+}
+function persistCurrent(){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(current));
+}
+function loadSaved(){
+  try { return JSON.parse(localStorage.getItem(SAVED_KEY)) || []; }
+  catch(e){ return []; }
+}
+function saveSaved(items){
+  localStorage.setItem(SAVED_KEY, JSON.stringify(items));
+}
+function nowTime(){
+  const d = new Date();
+  return d.toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"});
+}
+function render(){
+  chat.innerHTML = '<div class="day">きょう</div>';
+  if(current.messages.length === 0){
+    const emp = document.createElement("div");
+    emp.className = "empty";
+    emp.textContent = "ひとりLINEみたいに、ここへ投げる。";
+    chat.appendChild(emp);
+  }
+  current.messages.forEach(m => addMessageEl(m.role, m.text, m.time, false));
+  chat.scrollTop = chat.scrollHeight;
+}
+function addMessage(role,text){
+  const msg = {role,text,time:nowTime()};
+  current.messages.push(msg);
+  current.dirty = true;
+  persistCurrent();
+  addMessageEl(role,text,msg.time,true);
+}
+function addMessageEl(role,text,time,scroll=true){
+  const row = document.createElement("div");
+  row.className = "row " + (role === "user" ? "user" : "bot");
+  if(role === "bot"){
+    const av = document.createElement("div");
+    av.className = "avatar";
+    av.textContent = "🐚";
+    row.appendChild(av);
+  }
+  const bubble = document.createElement("div");
+  bubble.className = "bubble";
+  bubble.textContent = text;
+  const meta = document.createElement("div");
+  meta.className = "meta";
+  meta.textContent = time || "";
+  if(role === "user"){
+    row.appendChild(meta);
+    row.appendChild(bubble);
+  }else{
+    row.appendChild(bubble);
+    row.appendChild(meta);
+  }
+  const empty = chat.querySelector(".empty");
+  if(empty) empty.remove();
+  chat.appendChild(row);
+  if(scroll) chat.scrollTop = chat.scrollHeight;
+}
+function send(){
+  const text = input.value.trim();
+  if(!text) return;
+  addMessage("user", text);
+  input.value = "";
+  autoGrow();
+  if(settings.reply){
+    const reply = makeReply(text);
+    if(reply) setTimeout(()=>addMessage("bot", reply), 260);
+  }
+  resetLockTimer();
+}
+function makeReply(text){
+  if(settings.botMode === "simple"){
+    const arr = ["うん","メモった","なるほど","続けて"];
+    return arr[Math.floor(Math.random()*arr.length)];
+  }
+  const words = extractWords(text);
+  if(words.length) return words[0] + "？";
+  return "うん";
+}
+function extractWords(text){
+  const stop = ["これ","それ","あれ","今日","明日","昨日","あと","また","かな","やわ","する","した","して","行く","行かない","思う","かも","ちょっと"];
+  const candidates = [];
+  const re = /[一-龠々ァ-ヶーA-Za-z0-9０-９]{2,}/g;
+  let m;
+  while((m = re.exec(text)) !== null){
+    let w = m[0];
+    if(stop.includes(w)) continue;
+    if(/^[0-9０-９]+$/.test(w)) continue;
+    candidates.push(w);
+  }
+  const priority = ["梅田ヨドバシ","ヨドバシ","病院","歯医者","ラズパイ","Raspberry","Pi5","note","仕事","買い物","牛乳"];
+  for(const p of priority){
+    if(text.includes(p)) return [p];
+  }
+  return candidates;
+}
+function autoGrow(){
+  input.style.height = "auto";
+  input.style.height = Math.min(input.scrollHeight,132) + "px";
+}
+function showToast(t){
+  toast.textContent = t;
+  toast.classList.add("show");
+  setTimeout(()=>toast.classList.remove("show"),1400);
+}
+function openModal(html){
+  modal.innerHTML = html;
+  overlay.style.display = "flex";
+}
+function closeModal(){
+  overlay.style.display = "none";
+  modal.innerHTML = "";
+}
+overlay.addEventListener("click", e => {
+  if(e.target === overlay) closeModal();
+});
+function suggestTitle(){
+  const firstUser = current.messages.find(m=>m.role==="user")?.text || "無題メモ";
+  const words = extractWords(firstUser);
+  return words[0] || firstUser.slice(0,18);
+}
+function saveCurrentThen(callback){
+  if(current.messages.length === 0){
+    showToast("まだメモがないよ");
+    return;
+  }
+  const title = suggestTitle();
+  openModal(`
+    <h2>保存</h2>
+    <div class="field">
+      <label>タイトル</label>
+      <input id="titleInput" value="${escapeHtml(title)}" />
+    </div>
+    <div class="modalActions">
+      <button class="btn" id="doSave">保存</button>
+      <button class="btn" id="cancel">戻る</button>
+    </div>
+  `);
+  document.getElementById("cancel").onclick = closeModal;
+  document.getElementById("doSave").onclick = () => {
+    const titleVal = document.getElementById("titleInput").value.trim() || "無題メモ";
+    const items = loadSaved();
+    items.unshift({
+      id: Date.now(),
+      title:titleVal,
+      created:new Date().toISOString(),
+      messages:[...current.messages]
+    });
+    saveSaved(items);
+    current.dirty = false;
+    persistCurrent();
+    closeModal();
+    showToast("保存した");
+    if(callback) callback();
+  };
+}
+function newFlow(){
+  if(current.messages.length && current.dirty){
+    openModal(`
+      <h2>新規メモ</h2>
+      <p>今の流れは未保存です。</p>
+      <div class="modalActions">
+        <button class="btn" id="saveNew">保存して新規</button>
+        <button class="btn" id="dropNew">保存せず新規</button>
+        <button class="btn" id="back">戻る</button>
+      </div>
+    `);
+    document.getElementById("saveNew").onclick = () => saveCurrentThen(()=>clearCurrent());
+    document.getElementById("dropNew").onclick = () => { closeModal(); clearCurrent(); };
+    document.getElementById("back").onclick = closeModal;
+  }else{
+    clearCurrent();
+  }
+}
+function clearCurrent(){
+  current = {messages:[], dirty:false};
+  persistCurrent();
+  render();
+  showToast("新規にした");
+}
+function showList(){
+  const items = loadSaved();
+  let body = `<h2>保存済みメモ</h2>`;
+  if(!items.length){
+    body += `<div class="empty">保存済みメモはまだないよ。</div>`;
+  }else{
+    body += items.map(item=>{
+      const preview = item.messages.filter(m=>m.role==="user").map(m=>m.text).join(" / ").slice(0,54);
+      const date = new Date(item.created).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"});
+      return `<div class="listItem" data-id="${item.id}">
+        <strong>${escapeHtml(item.title)}</strong>
+        <small>${escapeHtml(date)}　${escapeHtml(preview)}</small>
+      </div>`;
+    }).join("");
+  }
+  body += `<div class="modalActions"><button class="btn" id="closeList">閉じる</button></div>`;
+  openModal(body);
+  document.getElementById("closeList").onclick = closeModal;
+  modal.querySelectorAll(".listItem").forEach(el=>{
+    el.onclick = () => {
+      const id = Number(el.dataset.id);
+      const item = loadSaved().find(x=>x.id===id);
+      if(!item) return;
+      current = {messages:[...item.messages], dirty:false};
+      persistCurrent();
+      closeModal();
+      render();
+    };
+  });
+}
+function showSettings(){
+  openModal(`
+    <h2>設定</h2>
+    <div class="switchRow">
+      <span>返事<small>オンなら短く相槌します</small></span>
+      <button class="toggle ${settings.reply?'on':''}" id="replyToggle"></button>
+    </div>
+    <div class="field">
+      <label>返事タイプ</label>
+      <select id="botMode">
+        <option value="keyword" ${settings.botMode==="keyword"?"selected":""}>拾った言葉を返す</option>
+        <option value="simple" ${settings.botMode==="simple"?"selected":""}>相槌だけ</option>
+      </select>
+    </div>
+    <div class="switchRow">
+      <span>ロック風アニメ<small>放置時にテキストを全部隠します</small></span>
+      <button class="toggle ${settings.lockAnim?'on':''}" id="lockToggle"></button>
+    </div>
+    <div class="field">
+      <label>自動ロックまで</label>
+      <select id="lockSeconds">
+        <option value="30" ${settings.lockSeconds==30?"selected":""}>30秒</option>
+        <option value="60" ${settings.lockSeconds==60?"selected":""}>1分</option>
+        <option value="300" ${settings.lockSeconds==300?"selected":""}>5分</option>
+        <option value="600" ${settings.lockSeconds==600?"selected":""}>10分</option>
+      </select>
+    </div>
+    <div class="switchRow">
+      <span>パスコード<small>オンなら復帰時に入力</small></span>
+      <button class="toggle ${settings.pass?'on':''}" id="passToggle"></button>
+    </div>
+    <div class="field">
+      <label>パスコード</label>
+      <input id="passCode" value="${escapeHtml(settings.passCode)}" inputmode="numeric" />
+    </div>
+    <div class="modalActions">
+      <button class="btn" id="saveSettings">設定を保存</button>
+      <button class="btn" id="cancelSettings">閉じる</button>
+    </div>
+  `);
+  document.getElementById("replyToggle").onclick = e => {
+    settings.reply = !settings.reply; e.currentTarget.classList.toggle("on", settings.reply);
+  };
+  document.getElementById("lockToggle").onclick = e => {
+    settings.lockAnim = !settings.lockAnim; e.currentTarget.classList.toggle("on", settings.lockAnim);
+  };
+  document.getElementById("passToggle").onclick = e => {
+    settings.pass = !settings.pass; e.currentTarget.classList.toggle("on", settings.pass);
+  };
+  document.getElementById("saveSettings").onclick = () => {
+    settings.botMode = document.getElementById("botMode").value;
+    settings.lockSeconds = Number(document.getElementById("lockSeconds").value);
+    settings.passCode = document.getElementById("passCode").value || "0000";
+    saveSettings();
+    closeModal();
+    resetLockTimer();
+    showToast("設定した");
+  };
+  document.getElementById("cancelSettings").onclick = closeModal;
+}
+function lockNow(){
+  if(!settings.lockAnim || overlay.style.display === "flex") return;
+  isLocked = true;
+  lock.classList.add("show");
+  passErr.textContent = "";
+  passInput.value = "";
+  passBox.classList.toggle("show", settings.pass);
+  lockHint.textContent = settings.pass ? "tap / pass" : "tap to wake";
+}
+function unlockTry(){
+  if(!isLocked) return;
+  if(settings.pass){
+    passBox.classList.add("show");
+    passInput.focus();
+    return;
+  }
+  unlock();
+}
+function unlock(){
+  isLocked = false;
+  lock.classList.remove("show");
+  passBox.classList.remove("show");
+  resetLockTimer();
+  input.focus();
+}
+function resetLockTimer(){
+  clearTimeout(lockTimer);
+  if(settings.lockAnim){
+    lockTimer = setTimeout(lockNow, settings.lockSeconds * 1000);
+  }
+}
+function escapeHtml(str){
+  return String(str).replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[s]));
+}
+
+sendBtn.onclick = send;
+input.addEventListener("input", () => { autoGrow(); resetLockTimer(); });
+input.addEventListener("keydown", e => {
+  resetLockTimer();
+  if(e.key === "Enter" && !e.shiftKey){
+    e.preventDefault();
+    send();
+  }
+});
+newBtn.onclick = () => { resetLockTimer(); newFlow(); };
+saveBtn.onclick = () => { resetLockTimer(); saveCurrentThen(); };
+listBtn.onclick = () => { resetLockTimer(); showList(); };
+settingsBtn.onclick = () => { resetLockTimer(); showSettings(); };
+
+["click","touchstart","keydown","mousemove"].forEach(ev=>{
+  document.addEventListener(ev, () => { if(!isLocked) resetLockTimer(); }, {passive:true});
+});
+lock.addEventListener("click", unlockTry);
+passInput.addEventListener("keydown", e=>{
+  if(e.key === "Enter"){
+    if(passInput.value === settings.passCode){
+      unlock();
+    }else{
+      passErr.textContent = "ちがうみたい";
+      passInput.value = "";
+    }
+  }
+});
+render();
+resetLockTimer();
+</script>
+</body>
+</html>
