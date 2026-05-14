@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>ひとりメモ - ひとりチャットメモ</title>
+<title>ひとりメモ - 目だけロックのチャットメモ</title>
 <style>
   :root{
     --bg:#f7f0e8;
@@ -413,11 +413,6 @@
       <div class="eye right"></div>
     </div>
     
-    <div class="catParts" id="catParts">
-      <div class="ear leftEar"></div>
-      <div class="ear rightEar"></div>
-      <div class="bell" id="bell">🔔</div>
-    </div>
     <div class="lockMood" id="lockMood"></div>
 
     <div class="passBox" id="passBox">
@@ -469,8 +464,6 @@ function defaultSettings(){
     passCode: "0000",
     lockSeconds: 60,
     botMode: "hai",
-    lockLook: "cat",
-    catBell: true,
     eyeMood: "normal"
   };
 }
@@ -503,20 +496,17 @@ function applySettingsToUI(){
   const titleEl = document.getElementById("appTitle");
   if(titleEl) titleEl.textContent = settings.appName || "ひとりメモ";
 
-  lock.classList.toggle("eyesOnly", settings.lockLook === "eyes");
-  lock.classList.toggle("noBell", !settings.catBell || settings.lockLook !== "cat");
+  lock.classList.remove("half", "teary");
   lock.classList.toggle("half", settings.eyeMood === "half");
   lock.classList.toggle("teary", settings.eyeMood === "teary");
 
   const mood = document.getElementById("lockMood");
   if(mood){
-    if(settings.lockLook === "cat") mood.textContent = "";
-    else if(settings.eyeMood === "half") mood.textContent = "眠";
+    if(settings.eyeMood === "half") mood.textContent = "眠";
     else if(settings.eyeMood === "teary") mood.textContent = "…";
     else mood.textContent = "";
   }
 }
-
 function render(){
   applySettingsToUI();
   chat.innerHTML = '<div class="day">きょう</div>';
@@ -542,7 +532,7 @@ function addMessageEl(role,text,time,scroll=true){
   if(role === "bot"){
     const av = document.createElement("div");
     av.className = "avatar";
-    av.textContent = settings.lockLook === "cat" ? "🐱" : "👀";
+    av.textContent = "👀";
     row.appendChild(av);
   }
   const bubble = document.createElement("div");
@@ -721,7 +711,7 @@ function showSettings(){
 
     <div class="field">
       <label>この子に名前をつけてね</label>
-      <input id="appName" value="${escapeHtml(settings.appName || "ひとりメモ")}" placeholder="例：メモさん、ねこメモ、ひとりごと" />
+      <input id="appName" value="${escapeHtml(settings.appName || "ひとりメモ")}" placeholder="例：メモさん、ひとりごと、小みらい" />
     </div>
 
     <div class="switchRow">
@@ -744,20 +734,7 @@ function showSettings(){
     </div>
 
     <div class="field">
-      <label>ロック画面の見た目</label>
-      <select id="lockLook">
-        <option value="cat" ${settings.lockLook==="cat"?"selected":""}>猫：耳つき</option>
-        <option value="eyes" ${settings.lockLook==="eyes"?"selected":""}>目だけ</option>
-      </select>
-    </div>
-
-    <div class="switchRow">
-      <span>猫の鈴<small>猫モードの時だけ表示</small></span>
-      <button class="toggle ${settings.catBell?'on':''}" id="catBellToggle"></button>
-    </div>
-
-    <div class="field">
-      <label>目だけモードの表情</label>
+      <label>目の表情</label>
       <select id="eyeMood">
         <option value="normal" ${settings.eyeMood==="normal"?"selected":""}>通常</option>
         <option value="half" ${settings.eyeMood==="half"?"selected":""}>半目</option>
@@ -800,14 +777,10 @@ function showSettings(){
   document.getElementById("passToggle").onclick = e => {
     settings.pass = !settings.pass; e.currentTarget.classList.toggle("on", settings.pass);
   };
-  document.getElementById("catBellToggle").onclick = e => {
-    settings.catBell = !settings.catBell; e.currentTarget.classList.toggle("on", settings.catBell);
-  };
 
   document.getElementById("saveSettings").onclick = () => {
     settings.appName = document.getElementById("appName").value.trim() || "ひとりメモ";
     settings.botMode = document.getElementById("botMode").value;
-    settings.lockLook = document.getElementById("lockLook").value;
     settings.eyeMood = document.getElementById("eyeMood").value;
     settings.lockSeconds = Number(document.getElementById("lockSeconds").value);
     settings.passCode = document.getElementById("passCode").value || "0000";
