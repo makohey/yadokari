@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>ひとりメモ - ひとりチャットメモ v6</title>
+<title>ひとりメモ - ひとりチャットメモ v7</title>
 <style>
   :root{
     --bg:#f7f0e8;
@@ -289,26 +289,14 @@
     filter:drop-shadow(0 0 12px rgba(255,255,255,.08));
   }
   .leftEar{left:34px; transform:rotate(-18deg)}
-  .rightEar{right:34px; transform:rotate(18deg)}
-  .bell{
-    position:absolute;
-    left:50%;
-    top:102px;
-    transform:translateX(-50%);
-    font-size:24px;
-    opacity:.38;
-    animation:pulse 4s ease-in-out infinite;
-  }
-  .lockMood{
+  .rightEar{right:34px; transform:rotate(18deg)}  .lockMood{
     position:absolute;
     top:calc(50% + 64px);
     color:rgba(255,255,255,.42);
     font-size:22px;
     letter-spacing:.2em;
   }
-  .lock.eyesOnly .catParts{display:none}
-  .lock.noBell .bell{display:none}
-  .lock.half .eye{height:15px; top:35px; opacity:.86}
+  .lock.eyesOnly .catParts{display:none}  .lock.half .eye{height:15px; top:35px; opacity:.86}
   .lock.teary .eye::after{
     content:"";
     position:absolute;
@@ -448,9 +436,7 @@
     
     <div class="catParts" id="catParts">
       <div class="ear leftEar"></div>
-      <div class="ear rightEar"></div>
-      <div class="bell" id="bell">🔔</div>
-    </div>
+      <div class="ear rightEar"></div>    </div>
     <div class="lockMood" id="lockMood"></div>
 
     <div class="passBox" id="passBox">
@@ -501,10 +487,8 @@ function defaultSettings(){
     lockSeconds: 60,
     botMode: "hai",
     lockLook: "cat",
-    catBell: true,
     eyeMood: "normal",
-    customLockImage: "",
-    lockImageMode: false
+    customLockImage: ""
   };
 }
 function loadSettings(){
@@ -560,9 +544,8 @@ function applySettingsToUI(){
   const titleEl = document.getElementById("appTitle");
   if(titleEl) titleEl.textContent = settings.appName || "ひとりメモ";
 
-  lock.classList.toggle("customImage", !!settings.lockImageMode && !!settings.customLockImage);
+  lock.classList.toggle("customImage", settings.lockLook === "image" && !!settings.customLockImage);
   lock.classList.toggle("eyesOnly", settings.lockLook === "eyes");
-  lock.classList.toggle("noBell", !settings.catBell || settings.lockLook !== "cat");
   lock.classList.toggle("half", settings.eyeMood === "half");
   lock.classList.toggle("teary", settings.eyeMood === "teary");
   const img = document.getElementById("customLockImage");
@@ -572,10 +555,7 @@ function applySettingsToUI(){
 
   const mood = document.getElementById("lockMood");
   if(mood){
-    if(settings.lockLook === "cat") mood.textContent = "";
-    else if(settings.eyeMood === "half") mood.textContent = "眠";
-    else if(settings.eyeMood === "teary") mood.textContent = "…";
-    else mood.textContent = "";
+    mood.textContent = "";
   }
 }
 
@@ -915,12 +895,8 @@ function showSettings(){
       <select id="lockLook">
         <option value="cat" ${settings.lockLook==="cat"?"selected":""}>猫：耳つき</option>
         <option value="eyes" ${settings.lockLook==="eyes"?"selected":""}>目だけ</option>
+        <option value="image" ${settings.lockLook==="image"?"selected":""}>好きな画像</option>
       </select>
-    </div>
-
-    <div class="switchRow">
-      <span>好きな画像を使う<small>端末内に保存。GitHubには送信しません</small></span>
-      <button class="toggle ${settings.lockImageMode?'on':''}" id="lockImageToggle"></button>
     </div>
 
     <div class="field">
@@ -929,12 +905,7 @@ function showSettings(){
       <div class="modalActions">
         <button class="btn" id="clearLockImage" type="button">画像を削除</button>
       </div>
-      <div class="tinyNote">家族写真や推し画像を使う場合も、画像はこの端末のブラウザ内に保存されます。端末やブラウザを変えると引き継がれません。</div>
-    </div>
-
-    <div class="switchRow">
-      <span>猫の鈴<small>猫モードの時だけ表示</small></span>
-      <button class="toggle ${settings.catBell?'on':''}" id="catBellToggle"></button>
+      <div class="tinyNote">画像を選ぶと、自動で「好きな画像」モードになります。画像はこの端末のブラウザ内に保存され、GitHubには送信されません。端末やブラウザを変えると引き継がれません。</div>
     </div>
 
     <div class="field">
