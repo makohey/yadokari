@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>ひとりメモ - ひとりチャットメモ v7</title>
+<title>ひとりメモ - ひとりチャットメモ v10</title>
 <style>
   :root{
     --bg:#f7f0e8;
@@ -188,6 +188,28 @@
     padding:16px;
   }
   .modal h2{margin:0 0 10px;font-size:18px}
+
+  .modalHead{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    margin-bottom:10px;
+  }
+  .modalHead h2{
+    margin:0;
+  }
+  .iconBtn{
+    border:1px solid var(--line);
+    background:#fff;
+    color:var(--ink);
+    width:36px;
+    height:36px;
+    border-radius:50%;
+    font-size:18px;
+    cursor:pointer;
+  }
+
   .modalActions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
   .field{
     margin:12px 0;
@@ -224,6 +246,33 @@
   }
   .toggle.on{background:#80be86}
   .toggle.on::after{left:26px}
+
+  .searchBox{
+    position:sticky;
+    top:0;
+    z-index:2;
+    background:var(--panel);
+    padding:4px 0 10px;
+  }
+  .searchInput{
+    width:100%;
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding:11px 12px;
+    background:white;
+    color:var(--ink);
+    outline:none;
+  }
+  .hitMark{
+    display:inline-block;
+    font-size:11px;
+    color:#9b675f;
+    background:#ffe7dc;
+    border-radius:999px;
+    padding:2px 8px;
+    margin-top:6px;
+  }
+
   .listItem{
     border:1px solid var(--line);
     background:white;
@@ -352,27 +401,6 @@
     padding:28px 8px;
   }
 
-  .customLockImage{
-    display:none;
-    width:min(58vw,260px);
-    height:min(58vw,260px);
-    max-width:260px;
-    max-height:260px;
-    object-fit:cover;
-    border-radius:28px;
-    box-shadow:0 0 0 1px rgba(255,255,255,.16),0 24px 80px rgba(0,0,0,.45);
-    opacity:.92;
-    animation:floaty 5.8s ease-in-out infinite;
-  }
-  .lock.customImage .eyes,
-  .lock.customImage .catParts,
-  .lock.customImage .lockMood{
-    display:none !important;
-  }
-  .lock.customImage .customLockImage{
-    display:block;
-  }
-  .bubble.editable{ cursor:pointer; }
   .tinyNote{
     font-size:12px;
     line-height:1.6;
@@ -428,7 +456,6 @@
   </div>
 
   <section class="lock" id="lock">
-    <img class="customLockImage" id="customLockImage" alt="lock image" />
     <div class="eyes">
       <div class="eye left"></div>
       <div class="eye right"></div>
@@ -487,8 +514,7 @@ function defaultSettings(){
     lockSeconds: 60,
     botMode: "hai",
     lockLook: "cat",
-    eyeMood: "normal",
-    customLockImage: ""
+    eyeMood: "normal"
   };
 }
 function loadSettings(){
@@ -544,14 +570,9 @@ function applySettingsToUI(){
   const titleEl = document.getElementById("appTitle");
   if(titleEl) titleEl.textContent = settings.appName || "ひとりメモ";
 
-  lock.classList.toggle("customImage", settings.lockLook === "image" && !!settings.customLockImage);
   lock.classList.toggle("eyesOnly", settings.lockLook === "eyes");
   lock.classList.toggle("half", settings.eyeMood === "half");
   lock.classList.toggle("teary", settings.eyeMood === "teary");
-  const img = document.getElementById("customLockImage");
-  if(img && settings.customLockImage){
-    img.src = settings.customLockImage;
-  }
 
   const mood = document.getElementById("lockMood");
   if(mood){
@@ -673,7 +694,7 @@ function openEditMessage(idx){
   if(!Number.isInteger(idx) || !current.messages[idx]) return;
   const msg = current.messages[idx];
   openModal(`
-    <h2>メモを修正</h2>
+    <div class="modalHead"><h2>メモを修正</h2><button class="iconBtn" type="button" data-close-modal>×</button></div>
     <div class="field">
       <label>内容</label>
       <textarea id="editMessageText" rows="7" style="width:100%;border:1px solid var(--line);border-radius:14px;padding:10px 12px;background:white;color:var(--ink);resize:vertical;">${escapeHtml(msg.text)}</textarea>
@@ -682,7 +703,7 @@ function openEditMessage(idx){
     <div class="modalActions">
       <button class="btn" id="saveEdit">修正する</button>
       <button class="btn" id="deleteMsg">この行を削除</button>
-      <button class="btn" id="cancelEdit">戻る</button>
+      <button type="button" class="btn" id="cancelEdit" data-close-modal>戻る</button>
     </div>
   `);
   document.getElementById("cancelEdit").onclick = closeModal;
@@ -723,9 +744,33 @@ function openModal(html){
 function closeModal(){
   overlay.style.display = "none";
   modal.innerHTML = "";
+  resetLockTimer();
 }
+
+document.addEventListener("click", e => {
+  const closeTarget = e.target.closest && e.target.closest("[data-close-modal]");
+  if(closeTarget){
+    e.preventDefault();
+    e.stopPropagation();
+    closeModal();
+  }
+}, true);
+
 overlay.addEventListener("click", e => {
   if(e.target === overlay) closeModal();
+});
+
+document.addEventListener("click", e => {
+  const closeTarget = e.target.closest && e.target.closest("[data-close-modal]");
+  if(closeTarget){
+    closeModal();
+  }
+});
+
+document.addEventListener("keydown", e => {
+  if(e.key === "Escape" && overlay.style.display === "flex"){
+    closeModal();
+  }
 });
 function suggestTitle(){
   const firstUser = current.messages.find(m=>m.role==="user")?.text || "無題メモ";
@@ -739,7 +784,7 @@ function saveCurrentThen(callback){
   }
   const title = suggestTitle();
   openModal(`
-    <h2>保存</h2>
+    <div class="modalHead"><h2>保存</h2><button class="iconBtn" type="button" data-close-modal>×</button></div>
     <div class="field">
       <label>タイトル</label>
       <input id="titleInput" value="${escapeHtml(title)}" />
@@ -747,7 +792,7 @@ function saveCurrentThen(callback){
     <div class="modalActions">
       <button class="btn" id="doSave">保存</button>
       <button class="btn" id="shareCurrent">共有 / コピー</button>
-      <button class="btn" id="cancel">戻る</button>
+      <button type="button" class="btn" id="cancel" data-close-modal>戻る</button>
     </div>
   `);
   document.getElementById("cancel").onclick = closeModal;
@@ -773,12 +818,12 @@ function saveCurrentThen(callback){
 function newFlow(){
   if(current.messages.length && current.dirty){
     openModal(`
-      <h2>新規メモ</h2>
+      <div class="modalHead"><h2>新規メモ</h2><button class="iconBtn" type="button" data-close-modal>×</button></div>
       <p>今の流れは未保存です。</p>
       <div class="modalActions">
         <button class="btn" id="saveNew">保存して新規</button>
         <button class="btn" id="dropNew">保存せず新規</button>
-        <button class="btn" id="back">戻る</button>
+        <button type="button" class="btn" id="back" data-close-modal>戻る</button>
       </div>
     `);
     document.getElementById("saveNew").onclick = () => saveCurrentThen(()=>clearCurrent());
@@ -820,12 +865,12 @@ async function shareText(text, title="ひとりチャットメモ"){
     showToast("コピーした");
   }catch(e){
     openModal(`
-      <h2>コピー</h2>
+      <div class="modalHead"><h2>コピー</h2><button class="iconBtn" type="button" data-close-modal>×</button></div>
       <div class="field">
         <label>この内容をコピーしてメモアプリに貼ってください</label>
         <textarea rows="10" style="width:100%;border:1px solid var(--line);border-radius:14px;padding:10px 12px;background:white;color:var(--ink);">${escapeHtml(text)}</textarea>
       </div>
-      <div class="modalActions"><button class="btn" id="closeCopy">閉じる</button></div>
+      <div class="modalActions"><button type="button" class="btn" id="closeCopy" data-close-modal>閉じる</button></div>
     `);
     document.getElementById("closeCopy").onclick = closeModal;
   }
@@ -833,38 +878,68 @@ async function shareText(text, title="ひとりチャットメモ"){
 
 function showList(){
   const items = loadSaved();
-  let body = `<h2>保存済みメモ</h2>`;
-  if(!items.length){
-    body += `<div class="empty">保存済みメモはまだないよ。</div>`;
-  }else{
-    body += items.map(item=>{
-      const preview = item.messages.filter(m=>m.role==="user").map(m=>m.text).join(" / ").slice(0,54);
+  let body = `<div class="modalHead"><h2>保存済みメモ</h2><button class="iconBtn" type="button" data-close-modal>×</button></div>
+    <div class="searchBox">
+      <input id="memoSearch" class="searchInput" placeholder="保存済みメモを検索..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+    </div>
+    <div id="memoListResults"></div>
+    <div class="tinyNote">タイトルと本文から検索できます。タップするとそのメモを開きます。</div>
+    <div class="tinyNote">公式メモアプリへ直接保存はブラウザからはできません。保存画面の「共有 / コピー」から、共有先にメモアプリを選ぶか、コピーして貼り付けてください。</div>
+    <div class="modalActions"><button type="button" class="btn" id="closeList" data-close-modal>閉じる</button></div>`;
+  openModal(body);
+
+  const inputEl = document.getElementById("memoSearch");
+  const resultsEl = document.getElementById("memoListResults");
+
+  function itemText(item){
+    return [
+      item.title || "",
+      ...(item.messages || []).map(m => m.text || "")
+    ].join(" ");
+  }
+
+  function renderResults(query=""){
+    const q = query.trim().toLowerCase();
+    let filtered = items;
+    if(q){
+      filtered = items.filter(item => itemText(item).toLowerCase().includes(q));
+    }
+
+    if(!filtered.length){
+      resultsEl.innerHTML = `<div class="empty">${q ? "見つからなかったよ。" : "保存済みメモはまだないよ。"}</div>`;
+      return;
+    }
+
+    resultsEl.innerHTML = filtered.map(item=>{
+      const preview = (item.messages || []).filter(m=>m.role==="user").map(m=>m.text).join(" / ").slice(0,72);
       const date = new Date(item.created).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"});
+      const hit = q ? `<span class="hitMark">検索一致</span>` : "";
       return `<div class="listItem" data-id="${item.id}">
         <strong>${escapeHtml(item.title)}</strong>
-        <small>${escapeHtml(date)}　${escapeHtml(preview)}</small>
+        <small>${escapeHtml(date)}　${escapeHtml(preview)}</small><br>${hit}
       </div>`;
     }).join("");
+
+    resultsEl.querySelectorAll(".listItem").forEach(el=>{
+      el.onclick = () => {
+        const id = Number(el.dataset.id);
+        const item = items.find(x=>x.id===id);
+        if(!item) return;
+        current = {messages:[...(item.messages || [])], dirty:false};
+        persistCurrent();
+        closeModal();
+        render();
+      };
+    });
   }
-  body += `<div class="tinyNote">公式メモアプリへ直接保存はブラウザからはできません。保存画面の「共有 / コピー」から、共有先にメモアプリを選ぶか、コピーして貼り付けてください。</div>`;
-  body += `<div class="modalActions"><button class="btn" id="closeList">閉じる</button></div>`;
-  openModal(body);
+
+  inputEl.addEventListener("input", () => renderResults(inputEl.value));
   document.getElementById("closeList").onclick = closeModal;
-  modal.querySelectorAll(".listItem").forEach(el=>{
-    el.onclick = () => {
-      const id = Number(el.dataset.id);
-      const item = loadSaved().find(x=>x.id===id);
-      if(!item) return;
-      current = {messages:[...item.messages], dirty:false};
-      persistCurrent();
-      closeModal();
-      render();
-    };
-  });
+  renderResults();
 }
 function showSettings(){
   openModal(`
-    <h2>設定</h2>
+    <div class="modalHead"><h2>設定</h2><button class="iconBtn" type="button" data-close-modal>×</button></div>
 
     <div class="field">
       <label>この子に名前をつけてね</label>
@@ -895,17 +970,7 @@ function showSettings(){
       <select id="lockLook">
         <option value="cat" ${settings.lockLook==="cat"?"selected":""}>猫：耳つき</option>
         <option value="eyes" ${settings.lockLook==="eyes"?"selected":""}>目だけ</option>
-        <option value="image" ${settings.lockLook==="image"?"selected":""}>好きな画像</option>
       </select>
-    </div>
-
-    <div class="field">
-      <label>ロック画面画像</label>
-      <input id="lockImageFile" type="file" accept="image/*" />
-      <div class="modalActions">
-        <button class="btn" id="clearLockImage" type="button">画像を削除</button>
-      </div>
-      <div class="tinyNote">画像を選ぶと、自動で「好きな画像」モードになります。画像はこの端末のブラウザ内に保存され、GitHubには送信されません。端末やブラウザを変えると引き継がれません。</div>
     </div>
 
     <div class="field">
@@ -937,7 +1002,7 @@ function showSettings(){
 
     <div class="modalActions">
       <button class="btn" id="saveSettings">設定を保存</button>
-      <button class="btn" id="cancelSettings">閉じる</button>
+      <button type="button" class="btn" id="cancelSettings" data-close-modal>閉じる</button>
     </div>
   `);
 
@@ -961,7 +1026,8 @@ function showSettings(){
     resetLockTimer();
     showToast("設定した");
   };
-  document.getElementById("cancelSettings").onclick = closeModal;
+  const cancelSettings = document.getElementById("cancelSettings");
+  if(cancelSettings) cancelSettings.onclick = closeModal;
 }
 function lockNow(){
   applySettingsToUI();
