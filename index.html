@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>ひとりメモ - ひとりチャットメモ v10</title>
+<title>ひとりメモ - ひとりチャットメモ v11</title>
 <style>
   :root{
     --bg:#f7f0e8;
@@ -513,6 +513,7 @@ function defaultSettings(){
     lockAnim: true,
     lockSeconds: 60,
     botMode: "hai",
+    tipReply: true,
     lockLook: "cat",
     eyeMood: "normal"
   };
@@ -644,11 +645,43 @@ function send(){
 function makeReply(text){
   // このアプリの返事は、考えずに受けるだけ。
   if(settings.botMode === "off") return "";
+
+  let base = "はーい";
   if(settings.botMode === "random"){
     const arr = ["はーい","了解","メモった","うん","🫡"];
-    return arr[Math.floor(Math.random()*arr.length)];
+    base = arr[Math.floor(Math.random()*arr.length)];
   }
-  return "はーい";
+
+  if(settings.tipReply){
+    const tip = pickFeatureTip();
+    if(tip){
+      return `${base}\n${tip}`;
+    }
+  }
+  return base;
+}
+
+function pickFeatureTip(){
+  // うるさくならないよう、たまにだけ出す。
+  // 最初の数回は少し出やすく、その後は約25%。
+  const userCount = current.messages.filter(m => m.role === "user").length;
+  const shouldShow = userCount <= 3 || Math.random() < 0.25;
+  if(!shouldShow) return "";
+
+  const tips = [
+    "長押しで修正できるよー",
+    "保存したメモは一覧から検索できるよー",
+    "保存は自分で押した時だけだよー",
+    "放置すると画面が隠れるよー",
+    "名前は設定から変えられるよー",
+    "改行もそのままできるよー"
+  ];
+
+  // 直近の返事と同じヒントを避ける
+  const lastBot = [...current.messages].reverse().find(m => m.role === "bot");
+  const lastText = lastBot ? lastBot.text : "";
+  const candidates = tips.filter(t => !lastText.includes(t));
+  return candidates[Math.floor(Math.random() * candidates.length)] || "";
 }
 function extractWords(text){
   const stop = ["これ","それ","あれ","今日","明日","昨日","あと","また","かな","やわ","する","した","して","行く","行かない","思う","かも","ちょっと"];
@@ -961,6 +994,11 @@ function showSettings(){
     </div>
 
     <div class="switchRow">
+      <span>機能ヒント<small>たまに使い方を短く教えます</small></span>
+      <button class="toggle ${settings.tipReply?'on':''}" id="tipReplyToggle"></button>
+    </div>
+
+    <div class="switchRow">
       <span>ロック風アニメ<small>放置時にテキストを全部隠します</small></span>
       <button class="toggle ${settings.lockAnim?'on':''}" id="lockToggle"></button>
     </div>
@@ -1009,6 +1047,14 @@ function showSettings(){
   document.getElementById("replyToggle").onclick = e => {
     settings.reply = !settings.reply; e.currentTarget.classList.toggle("on", settings.reply);
   };
+  const tipReplyToggle = document.getElementById("tipReplyToggle");
+  if(tipReplyToggle){
+    tipReplyToggle.onclick = e => {
+      settings.tipReply = !settings.tipReply;
+      e.currentTarget.classList.toggle("on", settings.tipReply);
+    };
+  }
+
   document.getElementById("lockToggle").onclick = e => {
     settings.lockAnim = !settings.lockAnim; e.currentTarget.classList.toggle("on", settings.lockAnim);
   };  document.getElementById("catBellToggle").onclick = e => {
