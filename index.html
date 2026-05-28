@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>ひとりメモ - ひとりチャットメモ v11</title>
+<title>ひとりメモ - ひとりチャットメモ v12</title>
 <style>
   :root{
     --bg:#f7f0e8;
@@ -542,6 +542,29 @@ function nowTime(){
   const d = new Date();
   return d.toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"});
 }
+function nowDateKey(){
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,"0");
+  const day = String(d.getDate()).padStart(2,"0");
+  return `${y}-${m}-${day}`;
+}
+function dateLabel(dateKey){
+  if(!dateKey) dateKey = nowDateKey();
+  const parts = dateKey.split("-");
+  const y = Number(parts[0]);
+  const m = Number(parts[1]);
+  const d = Number(parts[2]);
+  const dt = new Date(y, m-1, d);
+  const week = ["日","月","火","水","木","金","土"][dt.getDay()];
+  return `${m}/${d}（${week}）`;
+}
+function addDayLabel(label){
+  const div = document.createElement("div");
+  div.className = "day";
+  div.textContent = label;
+  chat.appendChild(div);
+}
 
 
 function resizeImageToDataUrl(file, maxSize=900, quality=0.82){
@@ -583,22 +606,40 @@ function applySettingsToUI(){
 
 function render(){
   applySettingsToUI();
-  chat.innerHTML = '<div class="day">きょう</div>';
+  chat.innerHTML = "";
   if(current.messages.length === 0){
+    addDayLabel(dateLabel(nowDateKey()));
     const emp = document.createElement("div");
     emp.className = "empty";
     emp.textContent = "ひとりチャットみたいに、ここへ投げる。";
     chat.appendChild(emp);
   }
-  current.messages.forEach((m,i) => addMessageEl(m.role, m.text, m.time, false, i));
+
+  let lastDate = "";
+  current.messages.forEach((m,i) => {
+    const d = m.date || nowDateKey();
+    if(d !== lastDate){
+      addDayLabel(dateLabel(d));
+      lastDate = d;
+    }
+    addMessageEl(m.role, m.text, m.time, false, i);
+  });
   chat.scrollTop = chat.scrollHeight;
 }
 function addMessage(role,text){
-  const msg = {role,text,time:nowTime()};
+  const msg = {role,text,time:nowTime(),date:nowDateKey()};
+  const prev = current.messages[current.messages.length - 1];
   current.messages.push(msg);
   current.dirty = true;
   persistCurrent();
-  addMessageEl(role,text,msg.time,true);
+
+  const empty = chat.querySelector(".empty");
+  if(empty) empty.remove();
+
+  if(!prev || (prev.date || nowDateKey()) !== msg.date){
+    addDayLabel(dateLabel(msg.date));
+  }
+  addMessageEl(role,text,msg.time,true,current.messages.length - 1);
 }
 function addMessageEl(role,text,time,scroll=true,indexOverride=null){
   const row = document.createElement("div");
