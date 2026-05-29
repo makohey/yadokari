@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>ひとりメモ - ひとりチャットメモ v12</title>
+<title>ひとりメモ - ひとりチャットメモ v13</title>
 <style>
   :root{
     --bg:#f7f0e8;
@@ -424,6 +424,124 @@
     z-index:60;
   }
   .toast.show{display:block}
+  .bubble img.msgImg{
+    display:block;
+    max-width:100%;
+    max-height:320px;
+    border-radius:12px;
+    margin:2px 0;
+    cursor:zoom-in;
+    background:#eadccc;
+  }
+  .bubble img.msgImg + .bubbleText{
+    margin-top:6px;
+  }
+  .bubbleText{
+    white-space:pre-wrap;
+    word-break:break-word;
+  }
+  .attachBtn{
+    border:1px solid var(--line);
+    background:#fffaf5;
+    color:var(--ink);
+    width:44px;
+    height:44px;
+    border-radius:50%;
+    font-size:20px;
+    cursor:pointer;
+    flex:0 0 44px;
+    display:grid;
+    place-items:center;
+  }
+  .attachBtn:active{transform:scale(.96)}
+  .imgPreview{
+    position:absolute;
+    left:10px;
+    bottom:calc(100% + 6px);
+    background:#fffaf3;
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:6px;
+    box-shadow:0 6px 18px rgba(0,0,0,.1);
+    display:none;
+    z-index:7;
+  }
+  .imgPreview.show{display:block}
+  .imgPreview img{
+    display:block;
+    width:72px;
+    height:72px;
+    object-fit:cover;
+    border-radius:10px;
+  }
+  .imgPreview .removeImg{
+    position:absolute;
+    top:-8px;
+    right:-8px;
+    width:24px;
+    height:24px;
+    border-radius:50%;
+    background:#3a2c24;
+    color:white;
+    border:2px solid #fffaf3;
+    font-size:14px;
+    line-height:1;
+    cursor:pointer;
+    display:grid;
+    place-items:center;
+  }
+  .listItem{
+    position:relative;
+  }
+  .listItem.pinned{
+    background:#fff5ea;
+    border-color:#e8c9a8;
+  }
+  .pinBtn{
+    position:absolute;
+    top:8px;
+    right:8px;
+    width:32px;
+    height:32px;
+    border-radius:50%;
+    border:1px solid var(--line);
+    background:white;
+    cursor:pointer;
+    font-size:14px;
+    display:grid;
+    place-items:center;
+    opacity:.55;
+  }
+  .pinBtn.on{
+    background:#ffe7c7;
+    border-color:#e8c9a8;
+    opacity:1;
+  }
+  .pinDivider{
+    text-align:center;
+    color:var(--muted);
+    font-size:11px;
+    margin:14px 0 6px;
+    letter-spacing:.08em;
+  }
+  .imgViewer{
+    position:absolute;
+    inset:0;
+    background:rgba(15,10,8,.92);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:80;
+    padding:24px;
+    cursor:zoom-out;
+  }
+  .imgViewer.show{display:flex}
+  .imgViewer img{
+    max-width:100%;
+    max-height:100%;
+    border-radius:12px;
+    box-shadow:0 20px 60px rgba(0,0,0,.5);
+  }
   @media (min-width:721px){
     .app{height:96svh;margin-top:2svh;border-radius:24px}
   }
@@ -451,6 +569,12 @@
   </main>
 
   <div class="composer">
+    <div class="imgPreview" id="imgPreview">
+      <button type="button" class="removeImg" id="removeImgBtn" aria-label="画像を取り消す">×</button>
+      <img id="imgPreviewImg" alt="" />
+    </div>
+    <button class="attachBtn" id="attachBtn" type="button" aria-label="画像を添付">📎</button>
+    <input type="file" id="fileInput" accept="image/*" style="display:none" />
     <textarea id="input" placeholder="メモを書く...（改行OK）" rows="1"></textarea>
     <button class="send" id="sendBtn">送信</button>
   </div>
@@ -477,6 +601,10 @@
     <div class="modal" id="modal"></div>
   </div>
 
+  <div class="imgViewer" id="imgViewer">
+    <img id="imgViewerImg" alt="" />
+  </div>
+
   <div class="toast" id="toast"></div>
 </div>
 
@@ -500,11 +628,19 @@ const passInput = document.getElementById("passInput");
 const passErr = document.getElementById("passErr");
 const lockHint = document.getElementById("lockHint");
 const toast = document.getElementById("toast");
+const attachBtn = document.getElementById("attachBtn");
+const fileInput = document.getElementById("fileInput");
+const imgPreview = document.getElementById("imgPreview");
+const imgPreviewImg = document.getElementById("imgPreviewImg");
+const removeImgBtn = document.getElementById("removeImgBtn");
+const imgViewer = document.getElementById("imgViewer");
+const imgViewerImg = document.getElementById("imgViewerImg");
 
 let current = loadCurrent();
 let settings = loadSettings();
 let lockTimer = null;
 let isLocked = false;
+let pendingImage = null;
 
 function defaultSettings(){
   return {
@@ -590,6 +726,39 @@ function resizeImageToDataUrl(file, maxSize=900, quality=0.82){
   });
 }
 
+function setPendingImage(dataUrl){
+  pendingImage = dataUrl;
+  imgPreviewImg.src = dataUrl;
+  imgPreview.classList.add("show");
+}
+function clearPendingImage(){
+  pendingImage = null;
+  imgPreviewImg.src = "";
+  imgPreview.classList.remove("show");
+  fileInput.value = "";
+}
+async function handleImageFile(file){
+  if(!file || !file.type || !file.type.startsWith("image/")){
+    showToast("画像じゃないみたい");
+    return;
+  }
+  try{
+    const dataUrl = await resizeImageToDataUrl(file, 900, 0.8);
+    setPendingImage(dataUrl);
+    resetLockTimer();
+  }catch(e){
+    showToast("画像を読めなかった");
+  }
+}
+function openImgViewer(src){
+  imgViewerImg.src = src;
+  imgViewer.classList.add("show");
+}
+function closeImgViewer(){
+  imgViewer.classList.remove("show");
+  imgViewerImg.src = "";
+}
+
 function applySettingsToUI(){
   const titleEl = document.getElementById("appTitle");
   if(titleEl) titleEl.textContent = settings.appName || "ひとりメモ";
@@ -622,12 +791,13 @@ function render(){
       addDayLabel(dateLabel(d));
       lastDate = d;
     }
-    addMessageEl(m.role, m.text, m.time, false, i);
+    addMessageEl(m.role, m.text, m.time, false, i, m.image || null);
   });
   chat.scrollTop = chat.scrollHeight;
 }
-function addMessage(role,text){
+function addMessage(role,text,image){
   const msg = {role,text,time:nowTime(),date:nowDateKey()};
+  if(image) msg.image = image;
   const prev = current.messages[current.messages.length - 1];
   current.messages.push(msg);
   current.dirty = true;
@@ -639,9 +809,9 @@ function addMessage(role,text){
   if(!prev || (prev.date || nowDateKey()) !== msg.date){
     addDayLabel(dateLabel(msg.date));
   }
-  addMessageEl(role,text,msg.time,true,current.messages.length - 1);
+  addMessageEl(role,text,msg.time,true,current.messages.length - 1,msg.image);
 }
-function addMessageEl(role,text,time,scroll=true,indexOverride=null){
+function addMessageEl(role,text,time,scroll=true,indexOverride=null,image=null){
   const row = document.createElement("div");
   row.className = "row " + (role === "user" ? "user" : "bot");
   const msgIndex = indexOverride !== null ? indexOverride : current.messages.length - 1;
@@ -653,8 +823,27 @@ function addMessageEl(role,text,time,scroll=true,indexOverride=null){
   }
   const bubble = document.createElement("div");
   bubble.className = "bubble editable";
-  bubble.textContent = text;
   bubble.dataset.index = msgIndex;
+  if(image){
+    const imgEl = document.createElement("img");
+    imgEl.className = "msgImg";
+    imgEl.src = image;
+    imgEl.alt = "添付画像";
+    imgEl.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      openImgViewer(image);
+    });
+    bubble.appendChild(imgEl);
+  }
+  if(text){
+    const txtEl = document.createElement("div");
+    txtEl.className = "bubbleText";
+    txtEl.textContent = text;
+    bubble.appendChild(txtEl);
+  }
+  if(!image && !text){
+    bubble.textContent = "";
+  }
   attachEditHandlers(bubble);
   const meta = document.createElement("div");
   meta.className = "meta";
@@ -673,12 +862,14 @@ function addMessageEl(role,text,time,scroll=true,indexOverride=null){
 }
 function send(){
   const text = input.value.trim();
-  if(!text) return;
-  addMessage("user", text);
+  const image = pendingImage;
+  if(!text && !image) return;
+  addMessage("user", text, image);
   input.value = "";
+  clearPendingImage();
   autoGrow();
   if(settings.reply){
-    const reply = makeReply(text);
+    const reply = makeReply(text || (image ? "[画像]" : ""));
     if(reply) setTimeout(()=>addMessage("bot", reply), 260);
   }
   resetLockTimer();
@@ -767,11 +958,21 @@ function attachEditHandlers(el){
 function openEditMessage(idx){
   if(!Number.isInteger(idx) || !current.messages[idx]) return;
   const msg = current.messages[idx];
+  const hasImage = !!msg.image;
+  const imagePreviewHtml = hasImage
+    ? `<div class="field"><label>添付画像</label>
+        <div style="display:flex;gap:10px;align-items:flex-start;">
+          <img src="${escapeHtml(msg.image)}" alt="" style="width:96px;height:96px;object-fit:cover;border-radius:12px;border:1px solid var(--line);" />
+          <button type="button" class="btn" id="removeMsgImage">画像を外す</button>
+        </div>
+      </div>`
+    : "";
   openModal(`
     <div class="modalHead"><h2>メモを修正</h2><button class="iconBtn" type="button" data-close-modal>×</button></div>
+    ${imagePreviewHtml}
     <div class="field">
       <label>内容</label>
-      <textarea id="editMessageText" rows="7" style="width:100%;border:1px solid var(--line);border-radius:14px;padding:10px 12px;background:white;color:var(--ink);resize:vertical;">${escapeHtml(msg.text)}</textarea>
+      <textarea id="editMessageText" rows="7" style="width:100%;border:1px solid var(--line);border-radius:14px;padding:10px 12px;background:white;color:var(--ink);resize:vertical;">${escapeHtml(msg.text || "")}</textarea>
     </div>
     <div class="tinyNote">長押し、またはダブルクリックでこの修正画面を開けます。</div>
     <div class="modalActions">
@@ -781,15 +982,29 @@ function openEditMessage(idx){
     </div>
   `);
   document.getElementById("cancelEdit").onclick = closeModal;
+  const removeImageBtn = document.getElementById("removeMsgImage");
+  if(removeImageBtn){
+    removeImageBtn.onclick = () => {
+      delete current.messages[idx].image;
+      current.dirty = true;
+      persistCurrent();
+      closeModal();
+      render();
+      showToast("画像を外した");
+    };
+  }
   document.getElementById("saveEdit").onclick = () => {
-    const val = document.getElementById("editMessageText").value.trim();
-    if(val){
+    const val = document.getElementById("editMessageText").value;
+    const stillHasImage = !!current.messages[idx].image;
+    if(val.trim() || stillHasImage){
       current.messages[idx].text = val;
       current.dirty = true;
       persistCurrent();
       closeModal();
       render();
       showToast("修正した");
+    }else{
+      showToast("テキストか画像が必要");
     }
   };
   document.getElementById("deleteMsg").onclick = () => {
@@ -910,6 +1125,7 @@ function newFlow(){
 function clearCurrent(){
   current = {messages:[], dirty:false};
   persistCurrent();
+  clearPendingImage();
   render();
   showToast("新規にした");
 }
@@ -917,8 +1133,12 @@ function clearCurrent(){
 function messagesToText(messages=current.messages){
   return messages.map(m => {
     const who = m.role === "user" ? "自分" : (settings.appName || "ひとりメモ");
-    return `${who}: ${m.text}`;
-  }).join("\\n");
+    let body = m.text || "";
+    if(m.image){
+      body = body ? `[画像] ${body}` : "[画像]";
+    }
+    return `${who}: ${body}`;
+  }).join("\n");
 }
 
 async function shareText(text, title="ひとりチャットメモ"){
@@ -957,7 +1177,7 @@ function showList(){
       <input id="memoSearch" class="searchInput" placeholder="保存済みメモを検索..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
     </div>
     <div id="memoListResults"></div>
-    <div class="tinyNote">タイトルと本文から検索できます。タップするとそのメモを開きます。</div>
+    <div class="tinyNote">タイトルと本文から検索できます。タップするとそのメモを開きます。右上の📌でトップに固定。</div>
     <div class="tinyNote">公式メモアプリへ直接保存はブラウザからはできません。保存画面の「共有 / コピー」から、共有先にメモアプリを選ぶか、コピーして貼り付けてください。</div>
     <div class="modalActions"><button type="button" class="btn" id="closeList" data-close-modal>閉じる</button></div>`;
   openModal(body);
@@ -971,6 +1191,22 @@ function showList(){
       ...(item.messages || []).map(m => m.text || "")
     ].join(" ");
   }
+  function itemPreview(item){
+    const parts = (item.messages || []).filter(m=>m.role==="user").map(m=>{
+      if(m.image && !m.text) return "[画像]";
+      if(m.image && m.text) return "[画像] " + m.text;
+      return m.text || "";
+    });
+    return parts.join(" / ").slice(0,72);
+  }
+  function sortItems(list){
+    return [...list].sort((a,b) => {
+      const ap = a.pinned ? 1 : 0;
+      const bp = b.pinned ? 1 : 0;
+      if(ap !== bp) return bp - ap;
+      return (b.id || 0) - (a.id || 0);
+    });
+  }
 
   function renderResults(query=""){
     const q = query.trim().toLowerCase();
@@ -978,24 +1214,50 @@ function showList(){
     if(q){
       filtered = items.filter(item => itemText(item).toLowerCase().includes(q));
     }
+    filtered = sortItems(filtered);
 
     if(!filtered.length){
       resultsEl.innerHTML = `<div class="empty">${q ? "見つからなかったよ。" : "保存済みメモはまだないよ。"}</div>`;
       return;
     }
 
-    resultsEl.innerHTML = filtered.map(item=>{
-      const preview = (item.messages || []).filter(m=>m.role==="user").map(m=>m.text).join(" / ").slice(0,72);
+    let html = "";
+    let dividerShown = false;
+    filtered.forEach(item => {
+      if(!item.pinned && !dividerShown && filtered.some(x => x.pinned)){
+        html += `<div class="pinDivider">─ そのほか ─</div>`;
+        dividerShown = true;
+      }
+      const preview = itemPreview(item);
       const date = new Date(item.created).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"});
       const hit = q ? `<span class="hitMark">検索一致</span>` : "";
-      return `<div class="listItem" data-id="${item.id}">
+      html += `<div class="listItem ${item.pinned ? "pinned" : ""}" data-id="${item.id}">
+        <button type="button" class="pinBtn ${item.pinned ? "on" : ""}" data-pin-id="${item.id}" aria-label="${item.pinned ? "ピンを外す" : "トップに固定"}">📌</button>
         <strong>${escapeHtml(item.title)}</strong>
         <small>${escapeHtml(date)}　${escapeHtml(preview)}</small><br>${hit}
       </div>`;
-    }).join("");
+    });
+    resultsEl.innerHTML = html;
+
+    resultsEl.querySelectorAll(".pinBtn").forEach(btn => {
+      btn.onclick = (ev) => {
+        ev.stopPropagation();
+        const id = Number(btn.dataset.pinId);
+        const all = loadSaved();
+        const target = all.find(x => x.id === id);
+        if(!target) return;
+        target.pinned = !target.pinned;
+        saveSaved(all);
+        const idx = items.findIndex(x => x.id === id);
+        if(idx >= 0) items[idx] = target;
+        renderResults(inputEl.value);
+        showToast(target.pinned ? "トップに固定した" : "ピンを外した");
+      };
+    });
 
     resultsEl.querySelectorAll(".listItem").forEach(el=>{
-      el.onclick = () => {
+      el.onclick = (ev) => {
+        if(ev.target.closest(".pinBtn")) return;
         const id = Number(el.dataset.id);
         const item = items.find(x=>x.id===id);
         if(!item) return;
@@ -1098,8 +1360,6 @@ function showSettings(){
 
   document.getElementById("lockToggle").onclick = e => {
     settings.lockAnim = !settings.lockAnim; e.currentTarget.classList.toggle("on", settings.lockAnim);
-  };  document.getElementById("catBellToggle").onclick = e => {
-    settings.catBell = !settings.catBell; e.currentTarget.classList.toggle("on", settings.catBell);
   };
 
   document.getElementById("saveSettings").onclick = () => {
@@ -1154,6 +1414,27 @@ input.addEventListener("keydown", e => {
   // 送信は右下の「送信」ボタンで行う。
   resetLockTimer();
 });
+input.addEventListener("paste", async (e) => {
+  const items = e.clipboardData && e.clipboardData.items;
+  if(!items) return;
+  for(const it of items){
+    if(it.type && it.type.startsWith("image/")){
+      const file = it.getAsFile();
+      if(file){
+        e.preventDefault();
+        await handleImageFile(file);
+        return;
+      }
+    }
+  }
+});
+attachBtn.onclick = () => { resetLockTimer(); fileInput.click(); };
+fileInput.onchange = async (e) => {
+  const file = e.target.files && e.target.files[0];
+  if(file) await handleImageFile(file);
+};
+removeImgBtn.onclick = () => { clearPendingImage(); resetLockTimer(); };
+imgViewer.addEventListener("click", closeImgViewer);
 newBtn.onclick = () => { resetLockTimer(); newFlow(); };
 saveBtn.onclick = () => { resetLockTimer(); saveCurrentThen(); };
 listBtn.onclick = () => { resetLockTimer(); showList(); };
