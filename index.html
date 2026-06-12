@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>ひとりメモ - ひとりチャットメモ v13</title>
+<title>ひとりメモ - ひとりチャットメモ v14</title>
 <style>
   :root{
     --bg:#f7f0e8;
@@ -118,6 +118,54 @@
     white-space:pre-wrap;
     word-break:break-word;
     box-shadow:0 4px 14px rgba(0,0,0,.06);
+    position:relative;
+  }
+  .reactBadge{
+    position:absolute;
+    bottom:-12px;
+    right:-2px;
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:999px;
+    padding:1px 6px;
+    font-size:13px;
+    line-height:1.4;
+    box-shadow:0 2px 8px rgba(0,0,0,.1);
+    pointer-events:none;
+  }
+  .row.hasReact{margin-bottom:18px}
+  .reactRow{
+    display:flex;
+    gap:8px;
+    justify-content:center;
+    margin:4px 0 10px;
+  }
+  .reactBtn{
+    width:46px;
+    height:46px;
+    border-radius:50%;
+    border:1px solid var(--line);
+    background:#fff;
+    font-size:21px;
+    cursor:pointer;
+  }
+  .reactBtn:active{transform:scale(.94)}
+  .reactBtn.on{
+    background:#ffe7c7;
+    border-color:#e8c9a8;
+  }
+  .menuPreview{
+    font-size:12px;
+    color:var(--muted);
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:8px 10px;
+    margin-bottom:10px;
+    max-height:64px;
+    overflow:hidden;
+    white-space:pre-wrap;
+    word-break:break-word;
   }
   .user .bubble{
     background:var(--bubble);
@@ -337,6 +385,20 @@
     border-bottom:58px solid rgba(255,255,255,.16);
     filter:drop-shadow(0 0 12px rgba(255,255,255,.08));
   }
+  .lockImg{
+    display:none;
+    max-width:min(72vw,420px);
+    max-height:46svh;
+    border-radius:22px;
+    object-fit:contain;
+    box-shadow:0 0 26px rgba(255,255,255,.16),0 0 70px rgba(255,208,106,.12);
+    animation:floaty 5.8s ease-in-out infinite;
+    user-select:none;
+    -webkit-user-drag:none;
+  }
+  .lock.customImg .eyes,
+  .lock.customImg .catParts{display:none}
+  .lock.customImg .lockImg{display:block}
   .leftEar{left:34px; transform:rotate(-18deg)}
   .rightEar{right:34px; transform:rotate(18deg)}  .lockMood{
     position:absolute;
@@ -395,6 +457,25 @@
     0%,100%{opacity:.22;transform:scale(1)}
     50%{opacity:.38;transform:scale(1.05)}
   }
+  .bubble.typing{
+    display:flex;
+    gap:5px;
+    align-items:center;
+    padding:15px 14px;
+  }
+  .bubble.typing .dot{
+    width:7px;
+    height:7px;
+    border-radius:50%;
+    background:#c9b8a8;
+    animation:typingDot 1.1s infinite ease-in-out;
+  }
+  .bubble.typing .dot:nth-child(2){animation-delay:.18s}
+  .bubble.typing .dot:nth-child(3){animation-delay:.36s}
+  @keyframes typingDot{
+    0%,60%,100%{transform:translateY(0);opacity:.5}
+    30%{transform:translateY(-4px);opacity:1}
+  }
   .empty{
     color:var(--muted);
     text-align:center;
@@ -439,6 +520,11 @@
   .bubbleText{
     white-space:pre-wrap;
     word-break:break-word;
+  }
+  .msgLink{
+    color:#b06a5f;
+    text-decoration:underline;
+    word-break:break-all;
   }
   .attachBtn{
     border:1px solid var(--line);
@@ -580,6 +666,7 @@
   </div>
 
   <section class="lock" id="lock">
+    <img class="lockImg" id="lockImg" alt="" draggable="false" />
     <div class="eyes">
       <div class="eye left"></div>
       <div class="eye right"></div>
@@ -651,14 +738,18 @@ function defaultSettings(){
     botMode: "hai",
     tipReply: true,
     lockLook: "cat",
-    eyeMood: "normal"
+    eyeMood: "normal",
+    lockImage: ""
   };
 }
 function loadSettings(){
   try { return {...defaultSettings(), ...JSON.parse(localStorage.getItem(SETTINGS_KEY)||"{}")}; }
   catch(e){ return defaultSettings(); }
 }
-function saveSettings(){ localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); }
+function saveSettings(){
+  try{ localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); }
+  catch(e){ showToast("保存容量がいっぱいかも…画像を小さくしてみて"); }
+}
 
 function loadCurrent(){
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {messages:[], dirty:false}; }
@@ -702,8 +793,32 @@ function addDayLabel(label){
   chat.appendChild(div);
 }
 
+function appendLinkified(el, text){
+  // URLだけ<a>にする。本文はtextNodeのままなのでHTML解釈されない（安全）。
+  const re = /(https?:\/\/[^\s<>"']+)/g;
+  let last = 0;
+  let m;
+  while((m = re.exec(text)) !== null){
+    if(m.index > last){
+      el.appendChild(document.createTextNode(text.slice(last, m.index)));
+    }
+    const a = document.createElement("a");
+    a.href = m[0];
+    a.textContent = m[0];
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    a.className = "msgLink";
+    a.addEventListener("click", ev => ev.stopPropagation());
+    el.appendChild(a);
+    last = m.index + m[0].length;
+  }
+  if(last < text.length){
+    el.appendChild(document.createTextNode(text.slice(last)));
+  }
+}
 
-function resizeImageToDataUrl(file, maxSize=900, quality=0.82){
+
+function resizeImageToDataUrl(file, maxSize=900, quality=0.82, format="image/jpeg"){
   return new Promise((resolve,reject)=>{
     const reader = new FileReader();
     reader.onerror = reject;
@@ -718,7 +833,7 @@ function resizeImageToDataUrl(file, maxSize=900, quality=0.82){
         canvas.width = w; canvas.height = h;
         const ctx = canvas.getContext("2d");
         ctx.drawImage(img, 0, 0, w, h);
-        resolve(canvas.toDataURL("image/jpeg", quality));
+        resolve(canvas.toDataURL(format, quality));
       };
       img.src = reader.result;
     };
@@ -764,6 +879,10 @@ function applySettingsToUI(){
   if(titleEl) titleEl.textContent = settings.appName || "ひとりメモ";
 
   lock.classList.toggle("eyesOnly", settings.lockLook === "eyes");
+  const useCustom = settings.lockLook === "custom" && !!settings.lockImage;
+  lock.classList.toggle("customImg", useCustom);
+  const lockImgEl = document.getElementById("lockImg");
+  if(lockImgEl) lockImgEl.src = useCustom ? settings.lockImage : "";
   lock.classList.toggle("half", settings.eyeMood === "half");
   lock.classList.toggle("teary", settings.eyeMood === "teary");
 
@@ -816,10 +935,7 @@ function addMessageEl(role,text,time,scroll=true,indexOverride=null,image=null){
   row.className = "row " + (role === "user" ? "user" : "bot");
   const msgIndex = indexOverride !== null ? indexOverride : current.messages.length - 1;
   if(role === "bot"){
-    const av = document.createElement("div");
-    av.className = "avatar";
-    av.textContent = settings.lockLook === "cat" ? "🐱" : "👀";
-    row.appendChild(av);
+    row.appendChild(makeAvatar());
   }
   const bubble = document.createElement("div");
   bubble.className = "bubble editable";
@@ -838,13 +954,21 @@ function addMessageEl(role,text,time,scroll=true,indexOverride=null,image=null){
   if(text){
     const txtEl = document.createElement("div");
     txtEl.className = "bubbleText";
-    txtEl.textContent = text;
+    appendLinkified(txtEl, text);
     bubble.appendChild(txtEl);
   }
   if(!image && !text){
     bubble.textContent = "";
   }
   attachEditHandlers(bubble);
+  const reactVal = (current.messages[msgIndex] || {}).react;
+  if(reactVal){
+    const badge = document.createElement("div");
+    badge.className = "reactBadge";
+    badge.textContent = reactVal;
+    bubble.appendChild(badge);
+    row.classList.add("hasReact");
+  }
   const meta = document.createElement("div");
   meta.className = "meta";
   meta.textContent = time || "";
@@ -870,7 +994,13 @@ function send(){
   autoGrow();
   if(settings.reply){
     const reply = makeReply(text || (image ? "[画像]" : ""));
-    if(reply) setTimeout(()=>addMessage("bot", reply), 260);
+    if(reply){
+      setTimeout(showTypingIndicator, 180);
+      setTimeout(() => {
+        hideTypingIndicator();
+        addMessage("bot", reply);
+      }, 760);
+    }
   }
   resetLockTimer();
 }
@@ -906,7 +1036,12 @@ function pickFeatureTip(){
     "保存は自分で押した時だけだよー",
     "放置すると画面が隠れるよー",
     "名前は設定から変えられるよー",
-    "改行もそのままできるよー"
+    "改行もそのままできるよー",
+    "目隠しの絵は設定から好きな画像にできるよー",
+    "📎で写真も貼れるよー",
+    "画像はコピペでも貼れるよー",
+    "一覧の📌で大事なメモを上に固定できるよー",
+    "長押しでコピーやリアクションができるよー"
   ];
 
   // 直近の返事と同じヒントを避ける
@@ -938,7 +1073,7 @@ function attachEditHandlers(el){
   const start = () => {
     timer = setTimeout(() => {
       const idx = Number(el.dataset.index);
-      openEditMessage(idx);
+      openActionMenu(idx);
     }, 650);
   };
   const cancel = () => {
@@ -951,8 +1086,70 @@ function attachEditHandlers(el){
   el.addEventListener("pointerleave", cancel);
   el.addEventListener("dblclick", () => {
     const idx = Number(el.dataset.index);
-    openEditMessage(idx);
+    openActionMenu(idx);
   });
+}
+
+const REACTIONS = ["✅","👍","❤️","😂","⭐"];
+
+function openActionMenu(idx){
+  if(!Number.isInteger(idx) || !current.messages[idx]) return;
+  const msg = current.messages[idx];
+  const reactRow = REACTIONS.map(e =>
+    `<button type="button" class="reactBtn ${msg.react===e?"on":""}" data-react="${e}">${e}</button>`
+  ).join("");
+  const previewText = (msg.text || (msg.image ? "[画像]" : "")).slice(0, 60);
+  openModal(`
+    <div class="modalHead"><h2>この行</h2><button class="iconBtn" type="button" data-close-modal>×</button></div>
+    <div class="menuPreview">${escapeHtml(previewText)}</div>
+    <div class="reactRow">${reactRow}</div>
+    <div class="modalActions">
+      <button class="btn" id="amCopy">コピー</button>
+      <button class="btn" id="amShare">この行を共有</button>
+      <button class="btn" id="amEdit">修正</button>
+      <button class="btn" id="amDelete">削除</button>
+    </div>
+  `);
+  modal.querySelectorAll(".reactBtn").forEach(b => {
+    b.onclick = () => {
+      const e = b.dataset.react;
+      if(current.messages[idx].react === e){
+        delete current.messages[idx].react;
+      }else{
+        current.messages[idx].react = e;
+      }
+      current.dirty = true;
+      persistCurrent();
+      closeModal();
+      render();
+    };
+  });
+  document.getElementById("amCopy").onclick = async () => {
+    const t = msg.text || "";
+    if(!t){ showToast("この行にテキストがないよ"); return; }
+    closeModal();
+    try{
+      await navigator.clipboard.writeText(t);
+      showToast("コピーした");
+    }catch(e){
+      shareText(t, "メモ");
+    }
+  };
+  document.getElementById("amShare").onclick = () => {
+    closeModal();
+    shareText(msg.text || "[画像]", "メモ");
+  };
+  document.getElementById("amEdit").onclick = () => {
+    openEditMessage(idx);
+  };
+  document.getElementById("amDelete").onclick = () => {
+    current.messages.splice(idx,1);
+    current.dirty = true;
+    persistCurrent();
+    closeModal();
+    render();
+    showToast("削除した");
+  };
 }
 
 function openEditMessage(idx){
@@ -974,7 +1171,7 @@ function openEditMessage(idx){
       <label>内容</label>
       <textarea id="editMessageText" rows="7" style="width:100%;border:1px solid var(--line);border-radius:14px;padding:10px 12px;background:white;color:var(--ink);resize:vertical;">${escapeHtml(msg.text || "")}</textarea>
     </div>
-    <div class="tinyNote">長押し、またはダブルクリックでこの修正画面を開けます。</div>
+    <div class="tinyNote">長押しメニューの「修正」からこの画面を開けます。</div>
     <div class="modalActions">
       <button class="btn" id="saveEdit">修正する</button>
       <button class="btn" id="deleteMsg">この行を削除</button>
@@ -1015,6 +1212,45 @@ function openEditMessage(idx){
     render();
     showToast("削除した");
   };
+}
+
+function makeAvatar(){
+  const av = document.createElement("div");
+  av.className = "avatar";
+  if(settings.lockLook === "custom" && settings.lockImage){
+    const im = document.createElement("img");
+    im.src = settings.lockImage;
+    im.alt = "";
+    im.style.cssText = "width:100%;height:100%;object-fit:cover;border-radius:50%;";
+    av.appendChild(im);
+  }else{
+    av.textContent = settings.lockLook === "eyes" ? "👀" : "🐱";
+  }
+  return av;
+}
+
+function showTypingIndicator(){
+  hideTypingIndicator();
+  const row = document.createElement("div");
+  row.className = "row bot";
+  row.id = "typingRow";
+  row.appendChild(makeAvatar());
+  const b = document.createElement("div");
+  b.className = "bubble typing";
+  for(let i = 0; i < 3; i++){
+    const d = document.createElement("span");
+    d.className = "dot";
+    b.appendChild(d);
+  }
+  row.appendChild(b);
+  const empty = chat.querySelector(".empty");
+  if(empty) empty.remove();
+  chat.appendChild(row);
+  chat.scrollTop = chat.scrollHeight;
+}
+function hideTypingIndicator(){
+  const t = document.getElementById("typingRow");
+  if(t) t.remove();
 }
 
 function autoGrow(){
@@ -1311,7 +1547,19 @@ function showSettings(){
       <select id="lockLook">
         <option value="cat" ${settings.lockLook==="cat"?"selected":""}>猫：耳つき</option>
         <option value="eyes" ${settings.lockLook==="eyes"?"selected":""}>目だけ</option>
+        <option value="custom" ${settings.lockLook==="custom"?"selected":""}>カスタム：好きな画像</option>
       </select>
+    </div>
+
+    <div class="field">
+      <label>カスタム画像（推しの絵など）</label>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <img id="lockImgPreview" src="${settings.lockImage || ""}" alt="" style="width:54px;height:54px;border-radius:12px;object-fit:cover;border:1px solid var(--line);background:#222;${settings.lockImage?"":"display:none;"}" />
+        <button type="button" class="btn" id="pickLockImg">画像を選ぶ</button>
+        <button type="button" class="btn" id="clearLockImg" style="${settings.lockImage?"":"display:none;"}">削除</button>
+      </div>
+      <input type="file" id="lockImgFile" accept="image/*" style="display:none;" />
+      <div style="font-size:11px;color:var(--muted);margin-top:6px;">この端末の中だけに保存されます。PNGの透過はそのまま残ります。相槌のアイコンにもなります。</div>
     </div>
 
     <div class="field">
@@ -1362,8 +1610,37 @@ function showSettings(){
     settings.lockAnim = !settings.lockAnim; e.currentTarget.classList.toggle("on", settings.lockAnim);
   };
 
+  let pendingLockImage = settings.lockImage || "";
+  const lockImgFile = document.getElementById("lockImgFile");
+  const lockImgPreview = document.getElementById("lockImgPreview");
+  const clearLockImgBtn = document.getElementById("clearLockImg");
+  document.getElementById("pickLockImg").onclick = () => lockImgFile.click();
+  lockImgFile.onchange = async () => {
+    const f = lockImgFile.files && lockImgFile.files[0];
+    if(!f) return;
+    try{
+      const fmt = f.type === "image/png" ? "image/png" : "image/jpeg";
+      pendingLockImage = await resizeImageToDataUrl(f, 640, 0.85, fmt);
+      lockImgPreview.src = pendingLockImage;
+      lockImgPreview.style.display = "";
+      clearLockImgBtn.style.display = "";
+      document.getElementById("lockLook").value = "custom";
+      showToast("画像を読み込んだ（保存で確定）");
+    }catch(e){
+      showToast("画像の読み込みに失敗した…");
+    }
+    lockImgFile.value = "";
+  };
+  clearLockImgBtn.onclick = () => {
+    pendingLockImage = "";
+    lockImgPreview.style.display = "none";
+    clearLockImgBtn.style.display = "none";
+    const look = document.getElementById("lockLook");
+    if(look.value === "custom") look.value = "cat";
+  };
   document.getElementById("saveSettings").onclick = () => {
     settings.appName = document.getElementById("appName").value.trim() || "ひとりメモ";
+    settings.lockImage = pendingLockImage;
     settings.botMode = document.getElementById("botMode").value;
     settings.lockLook = document.getElementById("lockLook").value;
     settings.eyeMood = document.getElementById("eyeMood").value;
