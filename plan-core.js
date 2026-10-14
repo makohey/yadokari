@@ -211,52 +211,71 @@ async function aiRead(text) {
   return out;
 }
 
-/* ---------- 画面：読み取り → 返事の一言 → 確認カード ---------- */
-let draft = null;
+/* ---------- 画面：読み取り → 返事の一言 → 確認カード（1行に1枚） ---------- */
+let drafts = [];
 function replyLine(o) {
   if (o.kind === "予定") return `→ ${DF(o.date)}${o.time ? " " + o.time : o.part ? " " + o.part : ""} 予定：${o.what}`;
   return `→ ${o.kind}：${o.what}`;
 }
-function card(o, who, sec) {
-  draft = { ...o, proposedAct: o.activity };
+function card(o, who, sec, i, n) {
   const opts = (list, v) => list.map(x => `<option${x === v ? " selected" : ""}>${esc(x)}</option>`).join("");
-  return `<div class="reply"><div class="av">🦀</div><div class="bb">${esc(replyLine(o))}</div></div>
-  ${o.notes?.length ? o.notes.map(n => `<div class="warn">${esc(n)}</div>`).join("") : ""}
+  const id = k => `${k}-${i}`;
+  return `<div class="pcard" id="${id("pc")}" style="${n > 1 ? "border-top:1px dashed var(--line);padding-top:6px;margin-top:6px" : ""}">
+  ${n > 1 ? `<div class="note">${i + 1} / ${n} 行目：${esc(o.src)}</div>` : ""}
+  <div class="reply"><div class="av">🦀</div><div class="bb">${esc(replyLine(o))}</div></div>
+  ${o.notes?.length ? o.notes.map(t => `<div class="warn">${esc(t)}</div>`).join("") : ""}
   <div class="note"><span class="chip">読み取った人：${esc(who)}${sec != null ? `・${sec.toFixed(1)}秒` : ""}</span></div>
-  <div class="pf"><span>種類</span><select id="pKind">${opts(KINDS, o.kind)}</select></div>
-  <div class="pf"><span>日付</span><input type="date" id="pDate" value="${esc(o.date)}"></div>
-  <div class="pf"><span>時刻</span><input type="time" id="pTime" value="${esc(o.time)}"></div>
-  <div class="pf"><span>何</span><input id="pWhat" value="${esc(o.what)}"></div>
-  <div class="pf"><span>場所</span><input id="pPlace" value="${esc(o.place)}"></div>
-  <div class="pf"><span>すること</span><select id="pAct">${opts(ACTS, o.activity)}</select></div>
-  <div class="pf"><span>備考</span><textarea id="pMemo" placeholder="空欄のままでも入れられます"></textarea></div>
-  <div class="ctrl"><button type="button" id="pOk" class="main">これで入れる</button><button type="button" id="pNo">やめる</button></div>
-  <p class="note">まちがっていたら、ここで直してから入れてください（AIはまちがえる前提）。「すること」を直すと、手本帳が覚えます。</p>`;
+  <div class="pf"><span>種類</span><select id="${id("pKind")}">${opts(KINDS, o.kind)}</select></div>
+  <div class="pf"><span>日付</span><input type="date" id="${id("pDate")}" value="${esc(o.date)}"></div>
+  <div class="pf"><span>時刻</span><input type="time" id="${id("pTime")}" value="${esc(o.time)}"></div>
+  <div class="pf"><span>何</span><input id="${id("pWhat")}" value="${esc(o.what)}"></div>
+  <div class="pf"><span>場所</span><input id="${id("pPlace")}" value="${esc(o.place)}"></div>
+  <div class="pf"><span>すること</span><select id="${id("pAct")}">${opts(ACTS, o.activity)}</select></div>
+  <div class="pf"><span>備考</span><textarea id="${id("pMemo")}" placeholder="空欄のままでも入れられます"></textarea></div>
+  <div class="ctrl"><button type="button" class="main" data-pok="${i}">これで入れる</button><button type="button" data-pno="${i}">やめる</button></div></div>`;
 }
-function wireCard() {
-  $("pNo").onclick = () => { $("pOut").innerHTML = ""; draft = null; };
-  $("pOk").onclick = () => {
-    const it = { id: Date.now().toString(36), kind: $("pKind").value, date: $("pDate").value, time: $("pTime").value, part: $("pTime").value ? "" : (draft.part || ""),
-      what: $("pWhat").value.trim(), place: $("pPlace").value.trim(), activity: $("pAct").value, memo: $("pMemo").value.trim(), src: draft.src, made: Date.now() };
-    if (!it.what) it.what = draft.src;
-    if (it.activity !== draft.proposedAct) rememberFix(fixKey(it), it.activity);
-    const items = load(); items.push(it); if (!save(items)) return;
-    $("pOut").innerHTML = `<div class="reply"><div class="av">🦀</div><div class="bb">入れたよ。${esc(replyLine(it))}</div></div>`;
-    $("pIn").value = ""; draft = null; dispatchEvent(new Event("yadokari:saved"));
+function takeCard(i) {
+  const d = drafts[i], v = k => $(`${k}-${i}`).value;
+  const it = { id: Date.now().toString(36) + i, kind: v("pKind"), date: v("pDate"), time: v("pTime"), part: v("pTime") ? "" : (d.part || ""),
+    what: v("pWhat").trim() || d.src, place: v("pPlace").trim(), activity: v("pAct"), memo: v("pMemo").trim(), src: d.src, made: Date.now() };
+  if (it.activity !== d.activity) rememberFix(fixKey(it), it.activity);
+  return it;
+}
+function finishCard(i, html) { const el = $(`pc-${i}`); if (el) el.outerHTML = html; drafts[i] = null; if (drafts.every(x => !x)) { $("pIn").value = ""; const a = $("pAll"); if (a) a.remove(); } }
+function saveCards(list) {
+  const items = load(), got = list.map(takeCard); items.push(...got); if (!save(items)) return;
+  list.forEach((i, k) => finishCard(i, `<div class="reply"><div class="av">🦀</div><div class="bb">入れたよ。${esc(replyLine(got[k]))}</div></div>`));
+  dispatchEvent(new Event("yadokari:saved"));
+}
+function showCards(list, who, secs) {
+  drafts = list.map(o => ({ ...o }));
+  const n = list.length;
+  $("pOut").innerHTML = (n > 1 ? `<p class="note">${n} 行あったので、1行ずつ読み取りました。</p>` : "")
+    + list.map((o, i) => card(o, who, secs ? secs[i] : null, i, n)).join("")
+    + (n > 1 ? `<div class="ctrl" id="pAll" style="margin-top:8px"><button type="button" class="main" data-pall>ぜんぶ入れる</button></div>` : "");
+  $("pOut").onclick = e => {
+    const ok = e.target.closest("[data-pok]"), no = e.target.closest("[data-pno]"), all = e.target.closest("[data-pall]");
+    if (ok) saveCards([+ok.dataset.pok]);
+    else if (no) finishCard(+no.dataset.pno, `<p class="note">やめました：${esc(drafts[+no.dataset.pno]?.src || "")}</p>`);
+    else if (all) saveCards(drafts.map((d, i) => d ? i : -1).filter(i => i >= 0));
   };
 }
+const splitLines = text => text.split(/\r?\n/).map(s => s.trim()).filter(Boolean).slice(0, 10);
 async function go(useAi) {
-  const text = $("pIn").value.trim(); if (!text) return;
-  if (!useAi) { const o = applyFixes({ ...ruleRead(text), notes: [] }, text); o.src = text; $("pOut").innerHTML = card(o, "AIなし"); wireCard(); return; }
-  setBusy(true); const t0 = performance.now();
+  const lines = splitLines($("pIn").value); if (!lines.length) return;
+  if (!useAi) { showCards(lines.map(t => { const o = applyFixes({ ...ruleRead(t), notes: [] }, t); o.src = t; return o; }), "AIなし"); return; }
+  setBusy(true); const t0 = performance.now(); let k = 0;
   $("pOut").innerHTML = '<p class="aiState wait" id="pWait">🤖 ローカルくんが読み取っています… 0秒</p>';
-  const tick = setInterval(() => { const el = $("pWait"); if (el) el.textContent = `🤖 ローカルくんが読み取っています… ${Math.round((performance.now() - t0) / 1000)}秒`; }, 1000);
+  const tick = setInterval(() => { const el = $("pWait"); if (el) el.textContent = `🤖 ローカルくんが読み取っています…${lines.length > 1 ? ` ${k + 1}/${lines.length}行目` : ""} ${Math.round((performance.now() - t0) / 1000)}秒`; }, 1000);
   try {
-    const o = await Promise.race([aiRead(text), new Promise((_, rej) => setTimeout(() => rej(new Error("90秒たっても返事がありませんでした。もう一度押すか、AIなしで読み取ってください")), 90000))]);
-    if (o.bad) { $("pOut").innerHTML = `<p class="ng">読み取れませんでした</p><details><summary>AIが書いたもの</summary><pre class="note" style="white-space:pre-wrap">${esc(o.raw)}</pre></details>`; return; }
-    applyFixes(o, text); o.src = text;
-    $("pOut").innerHTML = card(o, "AI（" + curId.split("-").slice(0, 2).join(" ") + "）", (performance.now() - t0) / 1000); wireCard();
+    const out = [], secs = [];
+    for (k = 0; k < lines.length; k++) {
+      const t = lines[k], s0 = performance.now();
+      let o = await Promise.race([aiRead(t), new Promise((_, rej) => setTimeout(() => rej(new Error("90秒たっても返事がありませんでした。もう一度押すか、AIなしで読み取ってください")), 90000))]);
+      if (o.bad) { o = { ...ruleRead(t), notes: ["AIが読み取れなかったので、この行はAIなしで読みました"] }; }
+      applyFixes(o, t); o.src = t; out.push(o); secs.push((performance.now() - s0) / 1000);
+    }
+    showCards(out, "AI（" + curId.split("-").slice(0, 2).join(" ") + "）", secs);
   } catch (e) { $("pOut").innerHTML = `<p class="ng">止まりました：${esc(e?.message || e)}</p>`; }
   finally { clearInterval(tick); setBusy(false); }
 }
-
