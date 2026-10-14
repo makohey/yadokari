@@ -56,6 +56,9 @@
   table{border-collapse:collapse;width:100%;font-size:13px}
   td,th{border-bottom:1px solid var(--line);padding:5px 4px;text-align:left;vertical-align:top}
   .tblbox{max-height:420px;overflow:auto;margin-top:6px}
+  .aiState{font-size:13px;margin:8px 0 0;padding:6px 10px;border-radius:10px;border:1px solid var(--line);background:#fff}
+  .aiState.on{background:#eaf6ea;border-color:#bfe0c1;color:var(--ok)}
+  .aiState.wait{background:#fff3dc;border-color:#f0d9ae;color:#8a5a14}
   details summary{cursor:pointer;font-size:13px;color:var(--muted)}
 </style>
 </head>
@@ -87,6 +90,7 @@
       <button type="button" id="pRule" class="main">読み取る（AIなし）</button>
       <button type="button" id="pAi" disabled>AIに読み取ってもらう</button>
     </div>
+    <p class="aiState" data-ai-state></p>
     <div id="pOut"></div>
     <div id="pList" style="margin-top:6px"></div>
   </section>
@@ -95,6 +99,7 @@
     <h2><span class="no">03</span>試しの文と成績</h2>
     <p class="what">決まった文を一気に流して、正しく読み取れた数を見ます。「AIが救った数」＝AIなしではまちがえて、AIでは合っていた数。ここが多いほど、AIを入れる意味があります。</p>
     <div class="ctrl"><button type="button" id="tRule">AIなしで流す</button><button type="button" id="tAi" disabled>AIで流す</button></div>
+    <p class="aiState" data-ai-state></p>
     <div id="tOut"></div>
     <p class="note" id="tStats"></p>
     <p class="note">試しの文はルミが作ったもの（AIなしの係に寄っているかもしれません）。まことの本物の書き方が来たら足します。</p>
@@ -223,16 +228,25 @@ async function modelFor(key) {
   if (!lib) throw new Error("この版の WebLLM に、TinySwallow を動かす部品が見つかりませんでした");
   return { id: s.id, appConfig: { ...base, model_list: [...base.model_list, { model: s.repo, model_id: s.id, model_lib: lib }] } };
 }
+let loadingAI = false;
+function showAIState() {
+  const name = curId ? curId.split("-").slice(0, 2).join(" ") : "";
+  const [cls, txt] = loadingAI ? ["wait", "🤖 AI：読み込み中…（終わるまでAIのボタンは押せません）"]
+    : engine ? ["on", `🤖 AI：あり・使えます（${name}）`]
+    : ["", "🤖 AI：なし（01で席を選ぶと使えます。AIなしの読み取りはそのまま使えます）"];
+  document.querySelectorAll("[data-ai-state]").forEach(el => { el.className = "aiState " + cls; el.textContent = txt; });
+}
 function setBusy(b) {
   for (const id of ["aiLight", "aiJp", "pRule", "tRule"]) $(id).disabled = b;
   for (const id of ["aiDel", "pAi", "tAi"]) $(id).disabled = b || !engine;
+  showAIState();
 }
 async function loadAI(key, auto = false) {
   if (!("gpu" in navigator)) { log("この端末のブラウザには WebGPU（ウェブジーピーユー）がないので、AIは動かせません。AIなしの読み取りはそのまま使えます。"); return; }
   const s = SEATS[key];
   if (!auto && key === "jp" && isPhone() && !confirm(`${s.label}は${s.size}あります。iPhone だとページが落ちることがあります（予定は消えません）。読み込みますか？`)) return;
   if (!auto && key === "light" && !confirm(`${s.label}（${s.size}）を Hugging Face から読み込みます（端末の中にあれば通信しません）。読み込みますか？`)) return;
-  setBusy(true); const t0 = performance.now();
+  loadingAI = true; setBusy(true); const t0 = performance.now();
   try {
     webllm = libs[key] ||= await import(LIBS[key]);
     const m = await modelFor(key); lastModel = m;
@@ -242,7 +256,7 @@ async function loadAI(key, auto = false) {
     curId = m.id; try { localStorage.setItem(K.seat, key); } catch (_) {}
     log(`読み込み完了：${m.id}（${((performance.now() - t0) / 1000).toFixed(0)} 秒）。「AIに読み取ってもらう」が押せます。`);
   } catch (e) { engine = null; log(`読み込めませんでした（${s.label}）：` + (e?.message || e)); }
-  finally { setBusy(false); }
+  finally { loadingAI = false; setBusy(false); }
 }
 async function delAI() {
   if (!curId || !webllm) return;
@@ -349,14 +363,16 @@ function wireCard() {
 async function go(useAi) {
   const text = $("pIn").value.trim(); if (!text) return;
   if (!useAi) { const o = applyFixes({ ...ruleRead(text), notes: [] }, text); o.src = text; $("pOut").innerHTML = card(o, "AIなし"); wireCard(); return; }
-  setBusy(true); $("pOut").innerHTML = '<p class="note">ローカルくんが読み取っています…</p>'; const t0 = performance.now();
+  setBusy(true); const t0 = performance.now();
+  $("pOut").innerHTML = '<p class="aiState wait" id="pWait">🤖 ローカルくんが読み取っています… 0秒</p>';
+  const tick = setInterval(() => { const el = $("pWait"); if (el) el.textContent = `🤖 ローカルくんが読み取っています… ${Math.round((performance.now() - t0) / 1000)}秒`; }, 1000);
   try {
-    const o = await aiRead(text);
+    const o = await Promise.race([aiRead(text), new Promise((_, rej) => setTimeout(() => rej(new Error("90秒たっても返事がありませんでした。もう一度押すか、AIなしで読み取ってください")), 90000))]);
     if (o.bad) { $("pOut").innerHTML = `<p class="ng">読み取れませんでした</p><details><summary>AIが書いたもの</summary><pre class="note" style="white-space:pre-wrap">${esc(o.raw)}</pre></details>`; return; }
     applyFixes(o, text); o.src = text;
     $("pOut").innerHTML = card(o, "AI（" + curId.split("-").slice(0, 2).join(" ") + "）", (performance.now() - t0) / 1000); wireCard();
   } catch (e) { $("pOut").innerHTML = `<p class="ng">止まりました：${esc(e?.message || e)}</p>`; }
-  finally { setBusy(false); }
+  finally { clearInterval(tick); setBusy(false); }
 }
 
 /* ---------- 直近の予定 ---------- */
