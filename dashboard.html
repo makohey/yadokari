@@ -148,7 +148,7 @@
   <p class="note">予定は上の「ひとこと入れる」か、実験室の練習台から入れます（どちらも同じ所に入ります）。数えるのは毎回コードが計算し直しています。まちがいに気づいたら ✏️ で直してください。</p>
 </div>
 
-<script src="./plan-core.js"></script>
+<script src="./plan-core.js?v=20261014c"></script>
 <script>
 (() => {
 "use strict";
@@ -217,7 +217,8 @@ function rowHtml(it) {
   }
   return `<div class="row"><button type="button" class="edit" data-edit="${esc(it.id)}" aria-label="直す">✏️</button>
     <div><b>${esc(DF(it.date))}</b> ${esc(it.time || it.part || "")} <span class="pk">${esc(it.kind)}</span><span class="pk">${esc(it.activity)}</span>${esc(it.what)}${it.place ? ` <small>＠${esc(it.place)}</small>` : ""}${isSudden(it) && it.activity === "出勤" ? ' <span class="pk">急</span>' : ""}</div>
-    ${it.memo ? `<div class="memo">📝 ${esc(it.memo)}</div>` : ""}</div>`;
+    ${it.memo ? `<div class="memo">📝 ${esc(it.memo)}</div>` : ""}
+    ${/出勤|仕事|シフト|夜勤|早番|遅番/.test((it.what || "") + (it.src || "")) && it.activity !== "出勤" ? `<div class="memo" style="color:#8a5a14">⚠ 「出勤」と書いてあるのに、すること＝${esc(it.activity)} になっています。✏️ で直すと、出勤の日数に入ります</div>` : ""}</div>`;
 }
 function dayCard(items) {
   const list = items.filter(it => it.date === sel).sort((a, b) => sortKey(a) < sortKey(b) ? -1 : 1);
@@ -241,7 +242,8 @@ function dups(items) {
     + (list.length > 8 ? `<p class="note">ほか ${list.length - 8} 組</p>` : "");
   $("dupAi").disabled = !engine || !list.some(x => !x.sure && aiVerdict[pairKey(x.a, x.b)] === undefined);
 }
-function render() { const items = load(); tiles(items); calendar(items); dups(items); dayCard(items); lists(items); }
+/* 1つの欄で止まっても、ほかの欄は出す */
+function render() { const items = load(); for (const f of [tiles, calendar, dups, dayCard, lists]) { try { f(items); } catch (e) { console.error(e); } } }
 
 /* ---------- 操作 ---------- */
 $("prev").onclick = () => { ym.m--; if (ym.m < 1) { ym.m = 12; ym.y--; } render(); };

@@ -363,7 +363,14 @@ function saveCards(list) {
   list.forEach((i, k) => finishCard(i, `<div class="reply"><div class="av">🦀</div><div class="bb">入れたよ。${esc(replyLine(got[k]))}</div></div>`));
   dispatchEvent(new Event("yadokari:saved"));
 }
+/* 見張り4：元の文に「出勤・仕事・シフト」などがあるのに、すること が出勤でない時は出勤にする。
+   出勤は日数を数える物なので、AIや手本帳より、書かれた言葉を優先する */
+function workGuard(o, text) {
+  if (ACT_RE.出勤.test(text) && o.activity !== "出勤") { (o.notes ||= []).push(`「${(text.match(ACT_RE.出勤) || [""])[0]}」と書いてあるので、すること を「${o.activity}」から「出勤」にしました`); o.activity = "出勤"; }
+  return o;
+}
 function showCards(list, who, secs) {
+  for (const o of list) workGuard(o, o.src || "");
   for (const o of list) { const hint = dupHint(o); if (hint) (o.notes ||= []).push(hint); }
   drafts = list.map(o => ({ ...o }));
   const n = list.length;
