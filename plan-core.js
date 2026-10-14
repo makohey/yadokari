@@ -75,23 +75,75 @@ function ruleRead(text) {
   const what = cutWhat(text, d, tm);
   const m = what.match(/スタバ|[ァ-ヶー]{2,}|([一-龠]{1,3})?(駅|港|海岸|公園|役所|病院|郵便局|銀行)/);
   const place = m ? m[0].replace(/^[日月時分]+/, "") : "";
-  return { kind, what: what || text, place, activity: act, date: d?.date || "", time: tm?.time || "", part: tm?.part || "" };
+  return { kind, what: kind === "メモ" ? zen(text).trim() : (what || text), place, activity: act, date: d?.date || "", time: tm?.time || "", part: tm?.part || "" };
 }
 
-/* ---------- 手本帳（直した例を覚えておく） ---------- */
+/* ---------- 手本帳（直した例を覚えておく＝ヤドカリのえさ） ----------
+   直した時の「元の文 → 正しい種類・すること」をためる。
+   ・同じ言葉が入った文は、次から直した通りに読む（コード）
+   ・AIには、近い例を「前にこう直された」と一緒に見せてから読ませる（頭は変えない。見本を見せるだけ）
+   ・控えのファイルで、別の端末（iPhone → iPad など）へ運んで足し合わせられる */
+const FIX_MAX = 50;
 const getFixes = () => { const v = getJ(K.fixes, []); return Array.isArray(v) ? v : []; };
 function fixKey(o) { return (o.place || o.what || "").trim().slice(0, 20); }
 function applyFixes(o, text) {
   const hit = getFixes().find(f => f.key && text.includes(f.key));
-  if (hit && ACTS.includes(hit.activity) && hit.activity !== o.activity) { o.activity = hit.activity; o.notes.push(`手本帳から：「${hit.key}」は ${hit.activity}`); }
+  if (!hit) return o;
+  if (hit.fixAct && ACTS.includes(hit.activity) && hit.activity !== o.activity) { o.activity = hit.activity; o.notes.push(`手本帳から：「${hit.key}」は ${hit.activity}`); }
+  if (hit.fixKind && KINDS.includes(hit.kind) && hit.kind !== o.kind) { o.kind = hit.kind; o.notes.push(`手本帳から：「${hit.key}」は ${hit.kind}`); }
   return o;
 }
-function rememberFix(key, activity) {
-  if (!key) return;
+function rememberFix(it, before) {
+  const fixAct = it.activity !== before.activity, fixKind = it.kind !== before.kind;
+  if (!fixAct && !fixKind) return;
+  const key = fixKey(it); if (!key) return;
+  const old = getFixes().find(f => f.key === key) || {};
   const list = getFixes().filter(f => f.key !== key);
-  list.unshift({ key, activity, at: Date.now() });
-  setJ(K.fixes, list.slice(0, 50));
+  list.unshift({ key, src: String(it.src || "").slice(0, 200), kind: it.kind, activity: it.activity, fixAct: fixAct || !!old.fixAct, fixKind: fixKind || !!old.fixKind, at: Date.now() });
+  setJ(K.fixes, list.slice(0, FIX_MAX));
 }
+/* AIに見せる見本：今の文に同じ言葉が入った例を先に、あとは新しい順。最大6つ */
+function fixExamples(text) {
+  const f = getFixes().filter(x => x.src);
+  const near = f.filter(x => x.key && text.includes(x.key)), rest = f.filter(x => !near.includes(x));
+  return near.concat(rest).slice(0, 6).map(x => `前にこう直された：「${x.src}」→ kind「${x.kind}」、activity「${x.activity}」`);
+}
+function mergeFixes(a, b) {
+  const m = new Map();
+  for (const f of a.concat(b)) { const o = m.get(f.key); if (!o || (f.at || 0) > (o.at || 0)) m.set(f.key, f); }
+  return [...m.values()].sort((x, y) => (y.at || 0) - (x.at || 0)).slice(0, FIX_MAX);
+}
+
+/* ---------- 控え（押した時だけ）：書き出す／足し合わせて読み込む ---------- */
+function exportPlan() {
+  const blob = new Blob([JSON.stringify({ app: "yadokari-lab-plan", format: 2, exportedAt: new Date().toISOString(), items: load(), fixes: getFixes() })], { type: "application/json" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `yadokari-techo-${addDays(0)}.json`;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+}
+const str = (v, n = 200) => typeof v === "string" ? v.slice(0, n) : "";
+function cleanItem(it) {
+  if (!it || typeof it !== "object") return null;
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(it.date) ? it.date : "", time = /^\d{2}:\d{2}$/.test(it.time) ? it.time : "";
+  return { id: str(it.id, 24).replace(/[^0-9a-z]/gi, "") || Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    kind: KINDS.includes(it.kind) ? it.kind : "メモ", date, time, part: str(it.part, 4), what: str(it.what), place: str(it.place, 60),
+    activity: ACTS.includes(it.activity) ? it.activity : "その他", memo: str(it.memo, 1000), src: str(it.src, 500), made: Number(it.made) || Date.now() };
+}
+function cleanFix(f) {
+  if (!f || typeof f.key !== "string" || !f.key.trim()) return null;
+  return { key: f.key.slice(0, 20), src: str(f.src), kind: KINDS.includes(f.kind) ? f.kind : "", activity: ACTS.includes(f.activity) ? f.activity : "その他",
+    fixAct: f.fixAct === undefined ? ACTS.includes(f.activity) : !!f.fixAct, fixKind: !!f.fixKind && KINDS.includes(f.kind), at: Number(f.at) || 0 };
+}
+async function importPlan(file) {
+  let data; try { data = JSON.parse(await file.text()); } catch (_) { alert("このファイルは読めませんでした"); return; }
+  if (!data || data.app !== "yadokari-lab-plan" || !Array.isArray(data.items)) { alert("手帳の控えファイルではないみたいです"); return; }
+  const inItems = data.items.map(cleanItem).filter(Boolean), inFixes = (Array.isArray(data.fixes) ? data.fixes : []).map(cleanFix).filter(Boolean);
+  const cur = load(), seen = new Set(cur.map(x => x.id)), sig = x => `${x.date}|${x.time}|${x.what}|${x.src}`, seenSig = new Set(cur.map(sig));
+  const add = inItems.filter(x => !seen.has(x.id) && !seenSig.has(sig(x)));
+  const fx = mergeFixes(getFixes(), inFixes), newFix = fx.length - getFixes().length;
+  if (!confirm(`控えを足し合わせます。\n予定など：新しく ${add.length} 件（同じものは入れません）\n手本帳（えさ）：${inFixes.length} 件を合わせて、全部で ${fx.length} 件に\n\n今ある中身は消えません。読み込んでもいい？`)) return;
+  if (save(cur.concat(add))) { setJ(K.fixes, fx); dispatchEvent(new Event("yadokari:saved")); alert(`足し合わせました（予定など +${add.length}・手本帳 ${newFix >= 0 ? "+" + newFix : fx.length + "件"}）`); }
+}
+function fixSummary() { const f = getFixes(); return f.length ? `手本帳（えさ）：${f.length}件（${f.slice(0, 4).map(x => `${x.key}→${x.fixKind ? x.kind : x.activity}`).join("、")}${f.length > 4 ? "…" : ""}）` : "手本帳（えさ）：まだ空です"; }
 
 /* ---------- ローカルくん（AI）の読み込み：地球儀の実験室と同じ席・同じ版 ---------- */
 const LIBS = { light: "https://esm.run/@mlc-ai/web-llm@0.2.86", jp: "https://esm.run/@mlc-ai/web-llm@0.2.79" };
@@ -192,7 +244,8 @@ function whatIsFromSource(what, src) {
 }
 async function aiRead(text) {
   if (!engine) throw new Error("AIが読み込まれていません（01で読み込んでください）");
-  const msgs = [{ role: "system", content: SYS }, { role: "user", content: text }];
+  const ex = fixExamples(text);
+  const msgs = [{ role: "system", content: SYS + (ex.length ? "\n" + ex.join("\n") : "") }, { role: "user", content: text }];
   let r; try { r = await engine.chat.completions.create({ messages: msgs, temperature: 0, max_tokens: 120, response_format: { type: "json_object", schema: JSON.stringify(SCHEMA) } }); }
   catch (_) { r = await engine.chat.completions.create({ messages: msgs, temperature: 0, max_tokens: 120 }); }
   const raw = (r.choices?.[0]?.message?.content || "").trim(), m = raw.match(/\{[\s\S]*\}/); let o = null; try { o = JSON.parse(m ? m[0] : raw); } catch (_) {}
@@ -238,7 +291,7 @@ function takeCard(i) {
   const d = drafts[i], v = k => $(`${k}-${i}`).value;
   const it = { id: Date.now().toString(36) + i, kind: v("pKind"), date: v("pDate"), time: v("pTime"), part: v("pTime") ? "" : (d.part || ""),
     what: v("pWhat").trim() || d.src, place: v("pPlace").trim(), activity: v("pAct"), memo: v("pMemo").trim(), src: d.src, made: Date.now() };
-  if (it.activity !== d.activity) rememberFix(fixKey(it), it.activity);
+  rememberFix(it, d);
   return it;
 }
 function finishCard(i, html) { const el = $(`pc-${i}`); if (el) el.outerHTML = html; drafts[i] = null; if (drafts.every(x => !x)) { $("pIn").value = ""; const a = $("pAll"); if (a) a.remove(); } }

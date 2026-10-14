@@ -126,6 +126,13 @@
     <div id="undated"></div>
   </section>
 
+  <section class="card">
+    <div class="sect">控え・えさ（手本帳）</div>
+    <p class="note">予定はこの端末の中だけ。控えは押した時だけファイルになります。控えには手本帳（えさ）も入っていて、別の端末で読み込むと今ある中身に<b>足し合わせ</b>ます（消えません）。iPhone で書き出して AirDrop（エアドロップ）＝近くの端末へ直接送る仕組み で iPad へ、のように運べます。</p>
+    <div class="ctrl"><button type="button" id="xExp">控えを書き出す</button><button type="button" id="xImp">控え・えさを読み込む</button><input type="file" id="xFile" accept="application/json,.json" style="display:none" /></div>
+    <p class="note" id="fixInfo"></p>
+  </section>
+
   <p class="note">予定は上の「ひとこと入れる」か、実験室の練習台から入れます（どちらも同じ所に入ります）。数えるのは毎回コードが計算し直しています。まちがいに気づいたら ✏️ で直してください。</p>
 </div>
 
@@ -233,6 +240,9 @@ addEventListener("yadokari:saved", () => { const it = load().slice(-1)[0]; if (i
 $("pRule").onclick = () => go(false); $("pAi").onclick = () => go(true);
 $("aiLight").onclick = () => loadAI("light"); $("aiJp").onclick = () => loadAI("jp"); $("aiDel").onclick = delAI;
 log("gpu" in navigator ? "席を選ぶと読み込みが始まります。使わなくても、AIなしの読み取りはそのまま使えます。" : "この端末のブラウザには WebGPU がないので、AIは動かせません。AIなしの読み取りはそのまま使えます。");
+$("xExp").onclick = exportPlan; $("xImp").onclick = () => $("xFile").click();
+$("xFile").onchange = async () => { const f = $("xFile").files?.[0]; $("xFile").value = ""; if (f) await importPlan(f); };
+const showFix = () => { $("fixInfo").textContent = fixSummary(); }; addEventListener("yadokari:saved", showFix); showFix();
 setBusy(false); autoLoad();
 addEventListener("pageshow", render);
 render();
