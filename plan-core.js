@@ -20,7 +20,12 @@ const ACTS = ["出勤", "休み", "外出", "手続き", "買い物", "通院", 
 const WD = ["日", "月", "火", "水", "木", "金", "土"];
 
 /* ---------- 日本時間の「今日」 ---------- */
-function todayJ() { const j = new Date(Date.now() + 9 * 3600000); return { y: j.getUTCFullYear(), m: j.getUTCMonth() + 1, d: j.getUTCDate(), w: j.getUTCDay() }; }
+/* 「明日」などの基準の日。ふだんは今日。ヤドカリのメモを読む時だけ、そのメモを書いた日にする */
+let baseDay = null;
+function todayJ() {
+  if (baseDay) { const t = new Date(Date.parse(baseDay + "T12:00:00Z")); return { y: t.getUTCFullYear(), m: t.getUTCMonth() + 1, d: t.getUTCDate(), w: t.getUTCDay() }; }
+  const j = new Date(Date.now() + 9 * 3600000); return { y: j.getUTCFullYear(), m: j.getUTCMonth() + 1, d: j.getUTCDate(), w: j.getUTCDay() }; }
+function withBase(day, fn) { const keep = baseDay; baseDay = /^\d{4}-\d{2}-\d{2}$/.test(day || "") ? day : null; try { return fn(); } finally { baseDay = keep; } }
 const ymd = (y, m, d) => { const t = new Date(Date.UTC(y, m - 1, d)); return `${t.getUTCFullYear()}-${z(t.getUTCMonth() + 1)}-${z(t.getUTCDate())}`; };
 const addDays = n => { const t = todayJ(); return ymd(t.y, t.m, t.d + n); };
 const zen = s => String(s).replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)).replace(/[：]/g, ":").replace(/[／]/g, "/").replace(/[．]/g, ".");
@@ -357,7 +362,7 @@ function takeCard(i) {
   rememberFix(it, d);
   return it;
 }
-function finishCard(i, html) { const el = $(`pc-${i}`); if (el) el.outerHTML = html; drafts[i] = null; if (drafts.every(x => !x)) { $("pIn").value = ""; const a = $("pAll"); if (a) a.remove(); } }
+function finishCard(i, html) { if (drafts[i]?.memoKey) { memoMarkSeen(drafts[i].memoKey); dispatchEvent(new Event("yadokari:memo")); } const el = $(`pc-${i}`); if (el) el.outerHTML = html; drafts[i] = null; if (drafts.every(x => !x)) { $("pIn").value = ""; const a = $("pAll"); if (a) a.remove(); } }
 function saveCards(list) {
   const items = load(), got = list.map(takeCard); items.push(...got); if (!save(items)) return;
   list.forEach((i, k) => finishCard(i, `<div class="reply"><div class="av">🦀</div><div class="bb">入れたよ。${esc(replyLine(got[k]))}</div></div>`));
@@ -412,4 +417,45 @@ async function go(useAi) {
     showCards(out, "AI（" + curId.split("-").slice(0, 2).join(" ") + "）", secs);
   } catch (e) { $("pOut").innerHTML = `<p class="ng">止まりました：${esc(e?.message || e)}</p>`; }
   finally { clearInterval(tick); setBusy(false); }
+}
+
+/* ---------- ヤドカリのメモから拾う（ヤドカリ本体には書き込まない。読むだけ） ----------
+   ヤドカリ（ひとりメモ）の「書きかけ」と「保存済み」から、自分が書いた文だけを読む。
+   コード：日付・時刻・出勤・休み の言葉があるものを拾う
+   ローカルくん：言葉で拾えなかったものだけ「予定ややることが書いてある？」と聞ける（目安）
+   入れる・入れないは本人が決める。入れた／ちがう と決めたメモは覚えて、次から出さない */
+K.memoSeen = "yadokari.memo.seen";
+const MEMO_KEYS = { current: "hitori_memo_current_v4", saved: "hitori_memo_saved_v4" };
+const memoKey = m => `${m.date}|${m.time}|${String(m.text).slice(0, 80)}`;
+function readMemos() {
+  const out = [], seen = new Set(getJ(K.memoSeen, []));
+  const push = (m, from) => { if (!m || m.role !== "user" || typeof m.text !== "string" || !m.text.trim()) return; const k = memoKey(m); if (seen.has(k) || out.some(x => x.key === k)) return;
+    out.push({ key: k, text: m.text.trim().slice(0, 300), date: /^\d{4}-\d{2}-\d{2}$/.test(m.date) ? m.date : "", time: typeof m.time === "string" ? m.time : "", from }); };
+  const cur = getJ(MEMO_KEYS.current, {}); for (const m of (cur && Array.isArray(cur.messages) ? cur.messages : [])) push(m, "書きかけ");
+  const saved = getJ(MEMO_KEYS.saved, []); for (const s of (Array.isArray(saved) ? saved : [])) for (const m of (s && Array.isArray(s.messages) ? s.messages : [])) push(m, s.title ? `保存「${String(s.title).slice(0, 20)}」` : "保存済み");
+  return out.sort((a, b) => (b.date + b.time) < (a.date + a.time) ? -1 : 1).slice(0, 200);
+}
+function memoMarkSeen(key) { const s = getJ(K.memoSeen, []); if (!s.includes(key)) s.push(key); setJ(K.memoSeen, s.slice(-1000)); }
+/* コードで「予定かも」と言える手がかり */
+function memoClue(m) {
+  const t = m.text; const d = withBase(m.date, () => readDate(t)), tm = readTime(t);
+  /* 「今日は〜」はその日の出来事の記録が多いので、それだけでは拾わない（時刻や出勤・休みの言葉がある時は拾う） */
+  if (d && !/^(今日|きょう|本日)$/.test(d.how)) return `日付「${d.how.trim()}」`; if (tm && tm.time) return `時刻「${tm.how}」`;
+  if (ACT_RE.出勤.test(t)) return `「${t.match(ACT_RE.出勤)[0]}」`; if (ACT_RE.休み.test(t)) return `「${t.match(ACT_RE.休み)[0]}」`;
+  return "";
+}
+async function aiIsPlan(text) {
+  if (!engine) throw new Error("AIが読み込まれていません");
+  const sys = "あなたは手帳の係です。ひとりメモに書かれた一文を読んで、これから行う予定・やること・休みの日が書いてあれば plan を true、ただの気持ちや出来事の記録なら false にしたJSONだけを返します。説明は書きません。";
+  const msgs = [{ role: "system", content: sys }, { role: "user", content: text }];
+  let r; try { r = await engine.chat.completions.create({ messages: msgs, temperature: 0, max_tokens: 20, response_format: { type: "json_object", schema: JSON.stringify({ type: "object", properties: { plan: { type: "boolean" } }, required: ["plan"] }) } }); }
+  catch (_) { r = await engine.chat.completions.create({ messages: msgs, temperature: 0, max_tokens: 20 }); }
+  const m = (r.choices?.[0]?.message?.content || "").match(/"plan"\s*:\s*(true|false)/); return m ? m[1] === "true" : null;
+}
+/* 拾ったメモを、ふだんの確認カードに渡す（「明日」はメモを書いた日の明日として読む） */
+function memoToCard(m) {
+  const o = withBase(m.date, () => applyFixes({ ...ruleRead(m.text), notes: [] }, m.text)); o.src = m.text; o.memoKey = m.key;
+  if (m.date) o.notes.push(`ヤドカリに書いた日（${DF(m.date)}）を基準に読みました`);
+  showCards([o], "AIなし（ヤドカリのメモから）");
+  const el = $("pOut"); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
 }

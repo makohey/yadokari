@@ -121,6 +121,14 @@
 
   <section class="card" id="dayCard"></section>
 
+  <section class="card" id="memoCard" style="display:none">
+    <div class="sect">🦀 ヤドカリのメモから（予定かも？）</div>
+    <p class="note">ふだんのヤドカリに書いたメモのうち、予定っぽいものです。ヤドカリ本体には何も書き込みません。「読み取る」で上の確認カードに出ます。「明日」は、そのメモを書いた日の明日として読みます。</p>
+    <div id="memoList"></div>
+    <div class="ctrl"><button type="button" id="memoAi" disabled>言葉で拾えなかったメモを、ローカルくんに見てもらう</button></div>
+    <p class="note" id="memoNote"></p>
+  </section>
+
   <section class="card" id="dupCard" style="display:none">
     <div class="sect">🦀 重なっているかも</div>
     <p class="note">同じ日に似た予定があります。どちらを残すか選んでね（消す方の備考だけ、残す方に足します。時刻や場所は残す方のまま）。ちがう用事なら「別の予定」を押してね。勝手には消しません。</p>
@@ -149,7 +157,7 @@
   <p class="note">予定は上の「ひとこと入れる」か、実験室の練習台から入れます（どちらも同じ所に入ります）。数えるのは毎回コードが計算し直しています。まちがいに気づいたら ✏️ で直してください。</p>
 </div>
 
-<script src="./plan-core.js?v=20261014f"></script>
+<script src="./plan-core.js?v=20261014g"></script>
 <script>
 (() => {
 "use strict";
@@ -247,8 +255,21 @@ function dups(items) {
     + (list.length > 8 ? `<p class="note">ほか ${list.length - 8} 組</p>` : "");
   $("dupAi").disabled = !engine || !list.some(x => !x.sure && aiVerdict[pairKey(x.a, x.b)] === undefined);
 }
+let memoAiPick = {};  /* ローカルくんが「予定っぽい」と言ったメモ（この画面を開いている間だけ） */
+function memos() {
+  const all = readMemos(), withClue = [], rest = [];
+  for (const m of all) { const c = memoClue(m); if (c) withClue.push({ m, why: "手がかり：" + c }); else if (memoAiPick[m.key] === true) withClue.push({ m, why: "🤖 ローカルくん：予定っぽい" }); else rest.push(m); }
+  const card = $("memoCard"); card.style.display = (withClue.length || rest.length) ? "" : "none";
+  $("memoList").innerHTML = withClue.length ? withClue.slice(0, 10).map(({ m, why }) => `<div class="dup"><div class="ab">${esc(m.text)}</div><div class="why">${esc(m.date ? DF(m.date) : "日付不明")} ${esc(m.time)} に書いた・${esc(m.from)}・${esc(why)}</div>
+      <div class="ctrl"><button type="button" class="main" data-mread="${esc(m.key)}">読み取る</button><button type="button" data-mskip="${esc(m.key)}">予定じゃない</button></div></div>`).join("")
+      + (withClue.length > 10 ? `<p class="note">ほか ${withClue.length - 10} 件</p>` : "")
+    : '<div class="empty">今は、言葉で拾える予定っぽいメモはありません</div>';
+  const unasked = rest.filter(m => memoAiPick[m.key] === undefined);
+  $("memoAi").disabled = !engine || !unasked.length;
+  $("memoNote").textContent = rest.length ? `言葉で拾えなかったメモ：${rest.length}件${engine ? "" : "（ローカルくんを読み込むと見てもらえます）"}` : "";
+}
 /* 1つの欄で止まっても、ほかの欄は出す */
-function render() { const items = load(); for (const f of [tiles, calendar, dups, dayCard, lists]) { try { f(items); } catch (e) { console.error(e); } } }
+function render() { const items = load(); for (const f of [tiles, calendar, memos, dups, dayCard, lists]) { try { f(items); } catch (e) { console.error(e); } } }
 
 /* ---------- 操作 ---------- */
 $("prev").onclick = () => { ym.m--; if (ym.m < 1) { ym.m = 12; ym.y--; } render(); };
@@ -276,6 +297,20 @@ $("xExp").onclick = exportPlan; $("xImp").onclick = () => $("xFile").click();
 $("xFile").onchange = async () => { const f = $("xFile").files?.[0]; $("xFile").value = ""; if (f) await importPlan(f); };
 const showFix = () => { $("fixInfo").textContent = fixSummary(); }; addEventListener("yadokari:saved", showFix); showFix();
 addEventListener("yadokari:ai", () => { const b = $("dupAi"); if (b) b.disabled = !engine || !findDups(load()).some(x => !x.sure && aiVerdict[pairKey(x.a, x.b)] === undefined); });
+$("memoList").onclick = e => {
+  const r = e.target.closest("[data-mread]"), s = e.target.closest("[data-mskip]");
+  if (r) { const m = readMemos().find(x => x.key === r.dataset.mread); if (m) memoToCard(m); }
+  else if (s) { memoMarkSeen(s.dataset.mskip); render(); }
+};
+$("memoAi").onclick = async () => {
+  const todo = readMemos().filter(m => !memoClue(m) && memoAiPick[m.key] === undefined).slice(0, 15); if (!todo.length) return;
+  setBusy(true); $("memoAi").disabled = true; let hit = 0;
+  try { for (let i = 0; i < todo.length; i++) { $("memoNote").textContent = `🤖 ローカルくんがメモを見ています… ${i + 1}/${todo.length}`;
+      try { const v = await Promise.race([aiIsPlan(todo[i].text), new Promise((_, r) => setTimeout(() => r(new Error("時間切れ")), 60000))]); memoAiPick[todo[i].key] = v; if (v) hit++; } catch (_) { memoAiPick[todo[i].key] = null; } }
+  } finally { setBusy(false); render(); $("memoNote").textContent += `　ローカルくんが「予定っぽい」と言ったのは ${hit} 件（目安です）`; }
+};
+addEventListener("yadokari:memo", () => render());
+addEventListener("yadokari:ai", () => { try { memos(); } catch (_) {} });
 $("dupList").onclick = e => {
   const k = e.target.closest("[data-keep]"), d = e.target.closest("[data-diff]");
   if (k) { if (mergeInto(k.dataset.keep, k.dataset.drop)) render(); }
