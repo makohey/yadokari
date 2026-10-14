@@ -318,12 +318,11 @@ async function aiSame(a, b) {
   const raw = (r.choices?.[0]?.message?.content || ""); const m = raw.match(/"same"\s*:\s*(true|false)/);
   return m ? m[1] === "true" : null;
 }
-/* まとめる：残す方に、消す方の備考を足してから消す */
+/* まとめる：残す方に、消す方の備考だけを足してから消す */
 function mergeInto(keepId, dropId) {
   const items = load(), keep = items.find(x => x.id === keepId), drop = items.find(x => x.id === dropId); if (!keep || !drop) return false;
   if (drop.memo && !String(keep.memo || "").includes(drop.memo)) keep.memo = [keep.memo, drop.memo].filter(Boolean).join(" / ");
-  if (!keep.time && drop.time) keep.time = drop.time;
-  if (!keep.place && drop.place) keep.place = drop.place;
+  /* 時刻と場所は残す方のまま（混ぜると、どちらでもない予定ができてしまうため） */
   return save(items.filter(x => x !== drop));
 }
 
