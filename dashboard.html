@@ -58,14 +58,50 @@
   .pf input,.pf select,.pf textarea{font-size:16px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:5px 8px;width:100%;min-width:0}
   .ctrl{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
   .empty{font-size:13px;color:var(--muted);padding:6px 0}
+  .inbox textarea{width:100%;min-height:52px;border:1px solid var(--line);border-radius:14px;padding:10px 12px;background:#fff;font-size:16px;resize:vertical}
+  button.main{background:#ffe7c7;border-color:#e8c9a8;font-weight:700}
+  button:disabled{opacity:.45;cursor:default}
+  .aiState{font-size:12.5px;margin:8px 0 0;padding:5px 10px;border-radius:10px;border:1px solid var(--line);background:#fff}
+  .aiState.on{background:#eaf6ea;border-color:#bfe0c1;color:#3d8b4f}
+  .aiState.wait{background:#fff3dc;border-color:#f0d9ae;color:#8a5a14}
+  .reply{display:flex;gap:8px;align-items:flex-end;margin:10px 0}
+  .reply .av{width:30px;height:30px;border-radius:50%;background:#fff5ec;display:grid;place-items:center;flex:0 0 30px;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+  .reply .bb{background:#fff;border-radius:16px;border-bottom-left-radius:5px;padding:8px 12px;box-shadow:0 3px 10px rgba(0,0,0,.06);font-size:15px}
+  .warn{font-size:12px;color:#8a5a14;background:#fff3dc;border:1px solid #f0d9ae;border-radius:10px;padding:6px 10px;margin:6px 0}
+  .chip{display:inline-block;font-size:12px;background:var(--chip);border-radius:999px;padding:2px 10px;color:var(--muted)}
+  .ng{color:#c0504d}
+  .bar{height:4px;background:var(--chip);border-radius:4px;overflow:hidden;margin:8px 0}
+  .bar div{height:100%;width:0;background:var(--accent)}
+  details.ai summary{font-size:12.5px;color:var(--muted);cursor:pointer;margin-top:8px}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <div><h1>🦀 月まとめ</h1><small>試作・この端末の中だけ・AIは使いません</small></div>
+    <div><h1>🦀 月まとめ</h1><small>試作・この端末の中だけ・数えるのはコード</small></div>
     <div class="nav"><a href="./lab.html">実験室</a><a href="./">ヤドカリ</a></div>
   </header>
+
+  <section class="card inbox">
+    <div class="sect">🦀 ひとこと入れる</div>
+    <textarea id="pIn" placeholder="例：10.16日役所に行く／急遽 明日9時から出勤"></textarea>
+    <div class="ctrl">
+      <button type="button" id="pRule" class="main">読み取る（AIなし）</button>
+      <button type="button" id="pAi" disabled>AIに読み取ってもらう</button>
+    </div>
+    <p class="aiState" data-ai-state></p>
+    <div id="pOut"></div>
+    <details class="ai"><summary>ローカルくん（AI）の席</summary>
+      <div class="ctrl">
+        <button type="button" id="aiLight">軽い：Qwen2.5 0.5B・約0.4GB</button>
+        <button type="button" id="aiJp">少し上：TinySwallow 1.5B・約1.2GB</button>
+      </div>
+      <div class="bar"><div id="aiBar"></div></div>
+      <label class="note" style="display:block"><input type="checkbox" id="aiAuto" checked> 開いた時、前に使った席を自動で読み込む（端末の中にある時だけ。通信なし）</label>
+      <p class="note" id="aiLog" style="white-space:pre-wrap"></p>
+      <div class="ctrl"><button type="button" id="aiDel" disabled>読み込んだモデルを消す</button></div>
+    </details>
+  </section>
 
   <section class="card">
     <div class="month"><button type="button" id="prev" aria-label="前の月">‹</button><h2 id="mTitle"></h2><button type="button" id="next" aria-label="次の月">›</button></div>
@@ -90,9 +126,10 @@
     <div id="undated"></div>
   </section>
 
-  <p class="note">予定は実験室の「手帳の練習台」から入れます。数えるのは毎回コードが計算し直しています。まちがいに気づいたら ✏️ で直してください。</p>
+  <p class="note">予定は上の「ひとこと入れる」か、実験室の練習台から入れます（どちらも同じ所に入ります）。数えるのは毎回コードが計算し直しています。まちがいに気づいたら ✏️ で直してください。</p>
 </div>
 
+<script src="./plan-core.js"></script>
 <script>
 (() => {
 "use strict";
@@ -191,6 +228,12 @@ document.addEventListener("click", e => {
   if (dl) { const items = load(), it = items.find(x => x.id === dl.dataset.del); if (it && confirm(`「${it.what}」を消しますか？`)) { save(items.filter(x => x !== it)); editing = null; render(); } }
 });
 addEventListener("storage", e => { if (e.key === KEY) render(); });
+/* 入れたら、カレンダーをその日に合わせて並べ直す（入れた場所でも、月まとめでも、2回見られる） */
+addEventListener("yadokari:saved", () => { const it = load().slice(-1)[0]; if (it?.date) { sel = it.date; ym = { y: +it.date.slice(0, 4), m: +it.date.slice(5, 7) }; } editing = null; render(); });
+$("pRule").onclick = () => go(false); $("pAi").onclick = () => go(true);
+$("aiLight").onclick = () => loadAI("light"); $("aiJp").onclick = () => loadAI("jp"); $("aiDel").onclick = delAI;
+log("gpu" in navigator ? "席を選ぶと読み込みが始まります。使わなくても、AIなしの読み取りはそのまま使えます。" : "この端末のブラウザには WebGPU がないので、AIは動かせません。AIなしの読み取りはそのまま使えます。");
+setBusy(false); autoLoad();
 addEventListener("pageshow", render);
 render();
 })();
