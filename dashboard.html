@@ -148,7 +148,7 @@
   <p class="note">予定は上の「ひとこと入れる」か、実験室の練習台から入れます（どちらも同じ所に入ります）。数えるのは毎回コードが計算し直しています。まちがいに気づいたら ✏️ で直してください。</p>
 </div>
 
-<script src="./plan-core.js?v=20261014d"></script>
+<script src="./plan-core.js?v=20261014e"></script>
 <script>
 (() => {
 "use strict";
@@ -208,8 +208,9 @@ function rowHtml(it) {
     const opts = (list, v) => list.map(x => `<option${x === v ? " selected" : ""}>${esc(x)}</option>`).join("");
     return `<div class="row"><div class="pf"><span>種類</span><select id="eKind">${opts(KINDS, it.kind)}</select></div>
       <div class="pf"><span>日付</span><input type="date" id="eDate" value="${esc(it.date)}"></div>
-      <div class="pf"><span>時刻</span><input type="time" id="eTime" value="${esc(it.time)}"></div>
+      <div class="pf"><span>時刻</span><span style="display:flex;gap:6px"><input type="time" id="eTime" value="${esc(it.time)}" style="flex:1"><button type="button" data-clear="eTime" style="flex:0 0 auto">なし</button></span></div>
       <div class="pf"><span>何</span><input id="eWhat" value="${esc(it.what)}"></div>
+      <div class="pf"><span>場所</span><input id="ePlace" value="${esc(it.place)}" placeholder="なければ空のまま"></div>
       <div class="pf"><span>すること</span><select id="eAct">${opts(ACTS, it.activity)}</select></div>
       <div class="pf"><span>備考</span><textarea id="eMemo">${esc(it.memo)}</textarea></div>
       <div class="ctrl"><button type="button" data-save="${esc(it.id)}">直す</button><button type="button" data-cancel>やめる</button><button type="button" data-del="${esc(it.id)}">消す</button></div>
@@ -250,12 +251,13 @@ $("prev").onclick = () => { ym.m--; if (ym.m < 1) { ym.m = 12; ym.y--; } render(
 $("next").onclick = () => { ym.m++; if (ym.m > 12) { ym.m = 1; ym.y++; } render(); };
 $("cal").onclick = e => { const b = e.target.closest("[data-d]"); if (!b) return; sel = b.dataset.d; editing = null; render(); $("dayCard").scrollIntoView({ behavior: "smooth", block: "nearest" }); };
 document.addEventListener("click", e => {
+  const cl = e.target.closest("#dayCard [data-clear], #upcoming [data-clear], #undated [data-clear]"); if (cl) { const el = $(cl.dataset.clear); if (el) el.value = ""; return; }
   const ed = e.target.closest("[data-edit]"); if (ed) { editing = ed.dataset.edit; render(); return; }
   if (e.target.closest("[data-cancel]")) { editing = null; render(); return; }
   const sv = e.target.closest("[data-save]");
   if (sv) { const items = load(), it = items.find(x => x.id === sv.dataset.save); if (!it) return;
-    Object.assign(it, { kind: $("eKind").value, date: $("eDate").value, time: $("eTime").value, what: $("eWhat").value.trim() || it.what, activity: $("eAct").value, memo: $("eMemo").value.trim() });
-    if (it.time) it.part = "";
+    Object.assign(it, { kind: $("eKind").value, date: $("eDate").value, time: $("eTime").value, what: $("eWhat").value.trim() || it.what, place: $("ePlace").value.trim(), activity: $("eAct").value, memo: $("eMemo").value.trim() });
+    it.part = it.time ? "" : (it.part || "");
     if (save(items)) { editing = null; render(); } return; }
   const dl = e.target.closest("[data-del]");
   if (dl) { const items = load(), it = items.find(x => x.id === dl.dataset.del); if (it && confirm(`「${it.what}」を消しますか？`)) { save(items.filter(x => x !== it)); editing = null; render(); } }

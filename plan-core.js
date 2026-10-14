@@ -342,7 +342,7 @@ function card(o, who, sec, i, n) {
   <div class="note"><span class="chip">読み取った人：${esc(who)}${sec != null ? `・${sec.toFixed(1)}秒` : ""}</span></div>
   <div class="pf"><span>種類</span><select id="${id("pKind")}">${opts(KINDS, o.kind)}</select></div>
   <div class="pf"><span>日付</span><input type="date" id="${id("pDate")}" value="${esc(o.date)}"></div>
-  <div class="pf"><span>時刻</span><input type="time" id="${id("pTime")}" value="${esc(o.time)}"></div>
+  <div class="pf"><span>時刻</span><span style="display:flex;gap:6px"><input type="time" id="${id("pTime")}" value="${esc(o.time)}" style="flex:1"><button type="button" data-clear="${id("pTime")}" style="flex:0 0 auto">なし</button></span></div>
   <div class="pf"><span>何</span><input id="${id("pWhat")}" value="${esc(o.what)}"></div>
   <div class="pf"><span>場所</span><input id="${id("pPlace")}" value="${esc(o.place)}"></div>
   <div class="pf"><span>すること</span><select id="${id("pAct")}">${opts(ACTS, o.activity)}</select></div>
@@ -377,6 +377,7 @@ function showCards(list, who, secs) {
     + list.map((o, i) => card(o, who, secs ? secs[i] : null, i, n)).join("")
     + (n > 1 ? `<div class="ctrl" id="pAll" style="margin-top:8px"><button type="button" class="main" data-pall>ぜんぶ入れる</button></div>` : "");
   $("pOut").onclick = e => {
+    const cl = e.target.closest("[data-clear]"); if (cl) { const el = $(cl.dataset.clear); if (el) el.value = ""; return; }
     const ok = e.target.closest("[data-pok]"), no = e.target.closest("[data-pno]"), all = e.target.closest("[data-pall]");
     if (ok) saveCards([+ok.dataset.pok]);
     else if (no) finishCard(+no.dataset.pno, `<p class="note">やめました：${esc(drafts[+no.dataset.pno]?.src || "")}</p>`);
