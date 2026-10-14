@@ -14,7 +14,7 @@
 -->
 <style>
   :root{ --bg:#f7f0e8; --panel:#fffaf3; --ink:#3a2c24; --muted:#8b786b; --line:#eadccc; --accent:#f3a7a2; --chip:#efe4d8;
-    --work:#f3a7a2; --go:#9fcfe8; --todo:#bfe0c1; --other:#d9c7f0; }
+    --work:#f3a7a2; --off:#c9bfb4; --go:#9fcfe8; --todo:#bfe0c1; --other:#d9c7f0; }
   *{box-sizing:border-box}
   body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",Meiryo,sans-serif;background:linear-gradient(180deg,#f9f2ea,#efe2d6);color:var(--ink);line-height:1.55}
   .wrap{max-width:720px;margin:0 auto;padding:12px 16px 60px}
@@ -27,7 +27,8 @@
   .month h2{margin:0;font-size:20px}
   button,input,select,textarea{font:inherit;color:var(--ink)}
   button{border:1px solid var(--line);background:#fffaf5;border-radius:999px;padding:7px 12px;font-size:14px;cursor:pointer}
-  .tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .tiles{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+  @media (min-width:600px){.tiles{grid-template-columns:repeat(4,1fr)}}
   .tile{background:#fff;border:1px solid var(--line);border-radius:14px;padding:8px 10px}
   .tile .k{font-size:11.5px;color:var(--muted)} .tile .v{font-size:24px;font-weight:800;line-height:1.2} .tile .u{font-size:12px;font-weight:600;margin-left:2px}
   .tile .s{font-size:11px;color:var(--muted)}
@@ -41,7 +42,7 @@
   .day .n{font-weight:700;font-size:12px}
   .day .n.sun{color:#c0504d}.day .n.sat{color:#3d6fb0}
   .tag{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-radius:5px;padding:0 3px;margin-top:2px;font-size:10px;line-height:1.5}
-  .t-work{background:#fde2df}.t-go{background:#e2f1f9}.t-todo{background:#e6f4e6}.t-other{background:#efe7fa}
+  .t-work{background:#fde2df}.t-off{background:#ece6df;color:#6b5d52}.t-go{background:#e2f1f9}.t-todo{background:#e6f4e6}.t-other{background:#efe7fa}
   .more{font-size:10px;color:var(--muted)}
   .legend{display:flex;flex-wrap:wrap;gap:8px;font-size:11px;color:var(--muted);margin-top:6px}
   .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:3px;vertical-align:-1px}
@@ -115,7 +116,7 @@
 
   <section class="card">
     <div class="cal" id="cal"></div>
-    <div class="legend"><span><i style="background:var(--work)"></i>出勤</span><span><i style="background:var(--go)"></i>出かける用事</span><span><i style="background:var(--todo)"></i>家のこと・習慣</span><span><i style="background:var(--other)"></i>その他</span></div>
+    <div class="legend"><span><i style="background:var(--work)"></i>出勤</span><span><i style="background:var(--off)"></i>休み</span><span><i style="background:var(--go)"></i>出かける用事</span><span><i style="background:var(--todo)"></i>家のこと・習慣</span><span><i style="background:var(--other)"></i>その他</span></div>
   </section>
 
   <section class="card" id="dayCard"></section>
@@ -148,7 +149,7 @@
   <p class="note">予定は上の「ひとこと入れる」か、実験室の練習台から入れます（どちらも同じ所に入ります）。数えるのは毎回コードが計算し直しています。まちがいに気づいたら ✏️ で直してください。</p>
 </div>
 
-<script src="./plan-core.js?v=20261014e"></script>
+<script src="./plan-core.js?v=20261014f"></script>
 <script>
 (() => {
 "use strict";
@@ -157,14 +158,14 @@ const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&l
 const z = n => String(n).padStart(2, "0");
 const KEY = "yadokari.plan.items";
 const KINDS = ["予定", "やること", "習慣", "メモ"];
-const ACTS = ["出勤", "外出", "手続き", "買い物", "通院", "家のこと", "移動", "遊び", "その他"];
+const ACTS = ["出勤", "休み", "外出", "手続き", "買い物", "通院", "家のこと", "移動", "遊び", "その他"];
 const WD = ["日", "月", "火", "水", "木", "金", "土"];
 const load = () => { try { const v = JSON.parse(localStorage.getItem(KEY) || "[]"); return Array.isArray(v) ? v : []; } catch (_) { return []; } };
 const save = items => { try { localStorage.setItem(KEY, JSON.stringify(items)); return true; } catch (_) { alert("保存できませんでした"); return false; } };
 
 function todayStr() { const j = new Date(Date.now() + 9 * 3600000); return `${j.getUTCFullYear()}-${z(j.getUTCMonth() + 1)}-${z(j.getUTCDate())}`; }
 const DF = d => { if (!d) return "日付なし"; const t = new Date(Date.parse(d + "T12:00:00+09:00")); return `${t.getUTCMonth() + 1}/${t.getUTCDate()}（${WD[t.getUTCDay()]}）`; };
-const color = it => it.activity === "出勤" ? "work" : ["外出", "手続き", "買い物", "通院", "移動", "遊び"].includes(it.activity) ? "go" : (it.activity === "家のこと" || it.kind === "習慣" || it.kind === "やること") ? "todo" : "other";
+const color = it => it.activity === "出勤" ? "work" : it.activity === "休み" ? "off" : ["外出", "手続き", "買い物", "通院", "移動", "遊び"].includes(it.activity) ? "go" : (it.activity === "家のこと" || it.kind === "習慣" || it.kind === "やること") ? "todo" : "other";
 const isSudden = it => /急遽|急に|急な|代わり|代打|ヘルプ/.test((it.src || "") + (it.what || "") + (it.memo || ""));
 const sortKey = it => `${it.date || "9999"} ${it.time || ({ 朝: "07:00", 昼: "12:00", 夕方: "17:00" }[it.part] || (it.part ? "20:00" : "99:99"))}`;
 
@@ -178,11 +179,13 @@ function tiles(items) {
   const plans = inMonth.filter(it => it.kind === "予定");
   const workDays = new Set(inMonth.filter(it => it.activity === "出勤").map(it => it.date));
   const sudden = inMonth.filter(it => it.activity === "出勤" && isSudden(it));
+  const offDays = new Set(inMonth.filter(it => it.activity === "休み").map(it => it.date));
   const rest = inMonth.filter(it => it.date >= t0 && it.kind === "予定").length;
   $("tiles").innerHTML = [
     ["今月の予定", plans.length, "件", `これから ${rest}件`],
     ["出勤", workDays.size, "日", "出勤の予定がある日"],
     ["急な出勤", sudden.length, "回", "「急遽」などの言葉"],
+    ["休み", offDays.size, "日", "休み・OFF・有給など"],
   ].map(([k, v, u, s]) => `<div class="tile"><div class="k">${k}</div><div class="v">${v}<span class="u">${u}</span></div><div class="s">${s}</div></div>`).join("");
   $("tileNote").textContent = "出勤の時間の合計は、終わりの時刻をまだ入れていないので出していません。";
 }
@@ -219,6 +222,7 @@ function rowHtml(it) {
   return `<div class="row"><button type="button" class="edit" data-edit="${esc(it.id)}" aria-label="直す">✏️</button>
     <div><b>${esc(DF(it.date))}</b> ${esc(it.time || it.part || "")} <span class="pk">${esc(it.kind)}</span><span class="pk">${esc(it.activity)}</span>${esc(it.what)}${it.place ? ` <small>＠${esc(it.place)}</small>` : ""}${isSudden(it) && it.activity === "出勤" ? ' <span class="pk">急</span>' : ""}</div>
     ${it.memo ? `<div class="memo">📝 ${esc(it.memo)}</div>` : ""}
+    ${!/出勤|仕事|シフト|夜勤|早番|遅番/.test((it.what || "") + (it.src || "")) && /休み|やすみ|OFF|オフ|公休|有給|有休|休日|非番/i.test((it.what || "") + (it.src || "")) && it.activity !== "休み" ? `<div class="memo" style="color:#8a5a14">⚠ 「休み」と書いてあるのに、すること＝${esc(it.activity)} になっています。✏️ で直すと、休みの日数に入ります</div>` : ""}
     ${/出勤|仕事|シフト|夜勤|早番|遅番/.test((it.what || "") + (it.src || "")) && it.activity !== "出勤" ? `<div class="memo" style="color:#8a5a14">⚠ 「出勤」と書いてあるのに、すること＝${esc(it.activity)} になっています。✏️ で直すと、出勤の日数に入ります</div>` : ""}</div>`;
 }
 function dayCard(items) {

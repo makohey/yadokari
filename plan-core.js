@@ -16,7 +16,7 @@ const load = () => { const v = getJ(K.items, []); return Array.isArray(v) ? v : 
 const save = items => setJ(K.items, items);
 
 const KINDS = ["予定", "やること", "習慣", "メモ"];
-const ACTS = ["出勤", "外出", "手続き", "買い物", "通院", "家のこと", "移動", "遊び", "その他"];
+const ACTS = ["出勤", "休み", "外出", "手続き", "買い物", "通院", "家のこと", "移動", "遊び", "その他"];
 const WD = ["日", "月", "火", "水", "木", "金", "土"];
 
 /* ---------- 日本時間の「今日」 ---------- */
@@ -53,6 +53,7 @@ function readTime(text) {
 /* ---------- AIなしの係 ---------- */
 const ACT_RE = {
   出勤: /出勤|仕事|会社|職場|シフト|夜勤|早番|遅番/,
+  休み: /休み|やすみ|OFF|ｏｆｆ|オフ|公休|有給|有休|休日|非番/i,
   通院: /病院|歯医者|眼科|皮膚科|内科|整骨院|診察|健診|検診/,
   手続き: /役所|区役所|市役所|郵便局|銀行|手続き|申請|届け|免許|車検|予約電話|支払い|振込/,
   買い物: /買い物|買う|かう|スーパー|コンビニ|ドラッグストア/,
@@ -227,7 +228,7 @@ const SYS = [
   `kind：${KINDS.join("・")} から選ぶ（日時が決まっている用事は予定、いつかやる用事はやること、毎日・毎週のことは習慣、それ以外はメモ）`,
   "what：何をするかを、書かれた言葉をそのまま使って短く（日付や時刻の言葉は入れない。書かれていない言葉を足さない）",
   "place：行く場所や店の名前。なければ空",
-  `activity：${ACTS.join("・")} から選ぶ。どれにも当てはまらなければ「その他」。仕事に行く時だけ「出勤」`,
+  `activity：${ACTS.join("・")} から選ぶ。どれにも当てはまらなければ「その他」。仕事に行く時だけ「出勤」、休みの日（OFF・オフ・有給など）は「休み」`,
   "when：日付と時刻の言葉を、書かれたまま抜き出す。なければ空",
   '例：「10・14朝9時スタバへ寄ってから出勤予定」→ {"kind":"予定","what":"スタバへ寄ってから出勤","place":"スタバ","activity":"出勤","when":"10・14朝9時"}',
   '例：「10.16日役所に行く」→ {"kind":"予定","what":"役所に行く","place":"役所","activity":"手続き","when":"10.16日"}',
@@ -368,8 +369,17 @@ function workGuard(o, text) {
   if (ACT_RE.出勤.test(text) && o.activity !== "出勤") { (o.notes ||= []).push(`「${(text.match(ACT_RE.出勤) || [""])[0]}」と書いてあるので、すること を「${o.activity}」から「出勤」にしました`); o.activity = "出勤"; }
   return o;
 }
+/* 見張り5：「休み・OFF・オフ・有給」などがあれば、すること は休み。日付があれば種類は予定。
+   休みも出勤と同じく日数を数える物なので、書かれた言葉を優先する（出勤の言葉もある時は出勤のまま） */
+function offGuard(o, text) {
+  if (ACT_RE.休み.test(text) && !ACT_RE.出勤.test(text)) {
+    if (o.activity !== "休み") { (o.notes ||= []).push(`「${(text.match(ACT_RE.休み) || [""])[0]}」と書いてあるので、すること を「休み」にしました`); o.activity = "休み"; }
+    if (o.date && o.kind !== "予定") o.kind = "予定";
+  }
+  return o;
+}
 function showCards(list, who, secs) {
-  for (const o of list) workGuard(o, o.src || "");
+  for (const o of list) { workGuard(o, o.src || ""); offGuard(o, o.src || ""); }
   for (const o of list) { const hint = dupHint(o); if (hint) (o.notes ||= []).push(hint); }
   drafts = list.map(o => ({ ...o }));
   const n = list.length;
