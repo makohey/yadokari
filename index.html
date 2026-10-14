@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>ひとりメモ - ひとりチャットメモ v14</title>
+<title>ひとりメモ - ひとりチャットメモ v15</title>
 <style>
   :root{
     --bg:#f7f0e8;
@@ -1589,6 +1589,20 @@ function showSettings(){
       </div>
     </div>
 
+    <div class="field">
+      <label>控え（書き出し・戻す）</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button type="button" class="btn" id="exportBackup">控えを書き出す</button>
+        <button type="button" class="btn" id="importBackup">控えから戻す</button>
+      </div>
+      <input type="file" id="importFile" accept="application/json,.json" style="display:none;" />
+      <div style="font-size:11px;line-height:1.6;color:var(--muted);margin-top:6px;">
+        メモはこの端末の中にしかありません。消えたら、どこにも残っていません。<br>
+        控えは、押した時だけファイルになって、あなたの手元にだけ残ります。どこに置くかはあなたが決めてね。<br>
+        大切なメモは、ときどき控えておいてね。
+      </div>
+    </div>
+
     <div class="modalActions">
       <button class="btn" id="saveSettings">設定を保存</button>
       <button type="button" class="btn" id="cancelSettings" data-close-modal>閉じる</button>
@@ -1652,6 +1666,139 @@ function showSettings(){
   };
   const cancelSettings = document.getElementById("cancelSettings");
   if(cancelSettings) cancelSettings.onclick = closeModal;
+
+  document.getElementById("exportBackup").onclick = () => { resetLockTimer(); exportBackup(); };
+  const importFile = document.getElementById("importFile");
+  document.getElementById("importBackup").onclick = () => { resetLockTimer(); importFile.click(); };
+  importFile.onchange = async () => {
+    const f = importFile.files && importFile.files[0];
+    importFile.value = "";
+    if(f) await importBackupFile(f);
+  };
+}
+
+// ===== 控え（書き出し・戻す）=====
+// データはこの端末の中だけ。控えは本人が押した時だけ作り、外へは自動で出さない。
+const BACKUP_APP = "yadokari-hitori-memo";
+const BACKUP_FORMAT = 1;
+
+function exportBackup(){
+  const data = {
+    app: BACKUP_APP,
+    format: BACKUP_FORMAT,
+    exportedAt: new Date().toISOString(),
+    current: loadCurrent(),
+    saved: loadSaved(),
+    settings: settings
+  };
+  const json = JSON.stringify(data);
+  const d = new Date();
+  const p = n => String(n).padStart(2,"0");
+  const name = `yadokari-${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}.json`;
+  try{
+    const blob = new Blob([json], {type:"application/json"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    showToast("控えを書き出した");
+  }catch(e){
+    showToast("書き出しに失敗した…");
+  }
+}
+
+function cleanMessage(m){
+  if(!m || typeof m !== "object") return null;
+  const role = m.role === "bot" ? "bot" : (m.role === "user" ? "user" : null);
+  if(!role) return null;
+  const out = {
+    role,
+    text: typeof m.text === "string" ? m.text : "",
+    time: typeof m.time === "string" ? m.time.slice(0,10) : "",
+    date: (typeof m.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(m.date)) ? m.date : nowDateKey()
+  };
+  if(typeof m.image === "string" && /^data:image\/(png|jpeg|jpg|gif|webp);base64,/.test(m.image)) out.image = m.image;
+  if(typeof m.react === "string" && REACTIONS.includes(m.react)) out.react = m.react;
+  return out;
+}
+function cleanMessages(list){
+  return Array.isArray(list) ? list.map(cleanMessage).filter(Boolean) : [];
+}
+function cleanSettings(s){
+  const base = defaultSettings();
+  if(!s || typeof s !== "object") return base;
+  const out = {...base};
+  if(typeof s.appName === "string") out.appName = s.appName.slice(0,40);
+  if(typeof s.reply === "boolean") out.reply = s.reply;
+  if(typeof s.lockAnim === "boolean") out.lockAnim = s.lockAnim;
+  if([30,60,300,600].includes(Number(s.lockSeconds))) out.lockSeconds = Number(s.lockSeconds);
+  if(["hai","random","off"].includes(s.botMode)) out.botMode = s.botMode;
+  if(typeof s.tipReply === "boolean") out.tipReply = s.tipReply;
+  if(["cat","eyes","custom"].includes(s.lockLook)) out.lockLook = s.lockLook;
+  if(["normal","half","teary"].includes(s.eyeMood)) out.eyeMood = s.eyeMood;
+  if(typeof s.lockImage === "string" && (s.lockImage === "" || /^data:image\/(png|jpeg|jpg|gif|webp);base64,/.test(s.lockImage))) out.lockImage = s.lockImage;
+  return out;
+}
+
+async function importBackupFile(file){
+  let data;
+  try{
+    data = JSON.parse(await file.text());
+  }catch(e){
+    showToast("このファイルは読めなかった…");
+    return;
+  }
+  if(!data || data.app !== BACKUP_APP){
+    showToast("ヤドカリの控えファイルじゃないみたい");
+    return;
+  }
+  const saved = Array.isArray(data.saved) ? data.saved.map(it => {
+    if(!it || typeof it !== "object") return null;
+    const id = Number(it.id);
+    if(!Number.isFinite(id)) return null;
+    const created = (typeof it.created === "string" && !isNaN(Date.parse(it.created))) ? it.created : new Date().toISOString();
+    const item = {
+      id,
+      title: typeof it.title === "string" ? it.title : "無題メモ",
+      created,
+      messages: cleanMessages(it.messages)
+    };
+    if(it.pinned === true) item.pinned = true;
+    return item;
+  }).filter(Boolean) : [];
+  const cur = {
+    messages: cleanMessages(data.current && data.current.messages),
+    dirty: !!(data.current && data.current.dirty)
+  };
+  const st = cleanSettings(data.settings);
+
+  const when = (typeof data.exportedAt === "string" && !isNaN(Date.parse(data.exportedAt)))
+    ? new Date(data.exportedAt).toLocaleString("ja-JP") : "日時不明";
+  const ok = confirm(`${when} の控えから戻します。\n保存済みメモ ${saved.length}件／書きかけ ${cur.messages.length}件\n\n今この端末にある中身は、控えの中身に置きかわります。\n戻してもいい？`);
+  if(!ok) return;
+
+  const backup = {
+    c: localStorage.getItem(STORAGE_KEY),
+    s: localStorage.getItem(SAVED_KEY),
+    t: localStorage.getItem(SETTINGS_KEY)
+  };
+  try{
+    localStorage.setItem(SAVED_KEY, JSON.stringify(saved));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(cur));
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(st));
+  }catch(e){
+    // 入りきらなかったら、元の中身に戻す
+    const put = (k,v) => { try{ v === null ? localStorage.removeItem(k) : localStorage.setItem(k,v); }catch(_){} };
+    put(STORAGE_KEY, backup.c); put(SAVED_KEY, backup.s); put(SETTINGS_KEY, backup.t);
+    showToast("容量が足りなくて戻せなかった…元のままだよ");
+    return;
+  }
+  alert("控えから戻したよ。画面を読み直すね。");
+  location.reload();
 }
 function lockNow(){
   applySettingsToUI();
