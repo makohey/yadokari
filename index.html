@@ -1603,6 +1603,12 @@ function showSettings(){
       </div>
     </div>
 
+    ${labEnabled() ? `<div class="field">
+      <label>実験室</label>
+      <a class="btn" href="./lab.html" style="display:inline-block;text-decoration:none;">実験室 →</a>
+      <div style="font-size:11px;color:var(--muted);margin-top:6px;">手帳への宿替えの練習台です。ふだんのメモとは別に保存されます。</div>
+    </div>` : ""}
+
     <div class="modalActions">
       <button class="btn" id="saveSettings">設定を保存</button>
       <button type="button" class="btn" id="cancelSettings" data-close-modal>閉じる</button>
@@ -1675,6 +1681,20 @@ function showSettings(){
     importFile.value = "";
     if(f) await importBackupFile(f);
   };
+}
+
+// ===== 実験室の入口 =====
+// ?lab=1 で一度開いた端末だけ、設定の中に「実験室 →」が出る（?lab=0 で消える）
+const LAB_KEY = "yadokari.lab";
+(() => {
+  try{
+    const q = new URLSearchParams(location.search).get("lab");
+    if(q === "1") localStorage.setItem(LAB_KEY, "1");
+    if(q === "0") localStorage.removeItem(LAB_KEY);
+  }catch(e){}
+})();
+function labEnabled(){
+  try{ return localStorage.getItem(LAB_KEY) === "1"; }catch(e){ return false; }
 }
 
 // ===== 控え（書き出し・戻す）=====

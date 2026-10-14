@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="robots" content="noindex, nofollow" />
+<title>ヤドカリの実験室</title>
+<!--
+  ヤドカリの実験室（2026-10-14）
+  ・地球儀の実験室「07 手帳の練習台」をヤドカリへ移したもの。風・雨のふりかえりは外した
+  ・ふだんのヤドカリ（index.html）は何も変わらない。このページを消せば元どおり
+  ・保存はこの端末の中だけ。名前は「yadokari.」で始めて、同じ住所の地球儀と混ざらないようにしている
+  ・AIは押した人だけ読み込む（Hugging Face から。実験の間だけの例外）。何もしなければAIなしで動く
+  ・AIは「読み取る・選ぶ」だけ。日付・時刻はコードが読む。「何」は元の文にない言葉を使わせない
+-->
+<style>
+  :root{
+    --bg:#f7f0e8; --panel:#fffaf3; --ink:#3a2c24; --muted:#8b786b; --line:#eadccc;
+    --accent:#f3a7a2; --green:#bfe0c1; --ok:#3d8b4f; --ng:#c0504d; --chip:#efe4d8;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",Meiryo,sans-serif;background:linear-gradient(180deg,#f9f2ea,#efe2d6);color:var(--ink);line-height:1.6}
+  .wrap{max-width:720px;margin:0 auto;padding:12px 16px 60px}
+  header{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0 10px}
+  header h1{font-size:18px;margin:0}
+  header small{display:block;font-size:11px;color:var(--muted);font-weight:600}
+  a.back{color:var(--ink);text-decoration:none;border:1px solid var(--line);background:#fffaf5;border-radius:999px;padding:7px 12px;font-size:13px;white-space:nowrap}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:14px;margin:12px 0;box-shadow:0 8px 22px rgba(72,45,28,.08)}
+  .card h2{font-size:16px;margin:0 0 6px}
+  .card h2 .no{display:inline-block;background:var(--chip);border-radius:8px;padding:0 7px;margin-right:6px;font-size:13px}
+  .what{font-size:13px;color:var(--muted);margin:4px 0 10px}
+  .note{font-size:12px;color:var(--muted);margin:6px 0}
+  button,input,select,textarea{font:inherit;color:var(--ink)}
+  button{border:1px solid var(--line);background:#fffaf5;border-radius:999px;padding:8px 12px;font-size:14px;cursor:pointer}
+  button:disabled{opacity:.45;cursor:default}
+  button.main{background:#ffe7c7;border-color:#e8c9a8;font-weight:700}
+  .ctrl{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  textarea{width:100%;min-height:56px;border:1px solid var(--line);border-radius:14px;padding:10px 12px;background:#fff;font-size:16px;resize:vertical}
+  .bar{height:4px;background:var(--chip);border-radius:4px;overflow:hidden;margin:8px 0}
+  .bar div{height:100%;width:0;background:var(--accent)}
+  .reply{display:flex;gap:8px;align-items:flex-end;margin:10px 0}
+  .reply .av{width:30px;height:30px;border-radius:50%;background:#fff5ec;display:grid;place-items:center;flex:0 0 30px;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+  .reply .bb{background:#fff;border-radius:16px;border-bottom-left-radius:5px;padding:8px 12px;box-shadow:0 3px 10px rgba(0,0,0,.06);font-size:15px}
+  .pf{display:grid;grid-template-columns:5em 1fr;gap:6px;align-items:center;margin:6px 0}
+  .pf>span:first-child{color:var(--muted);font-size:13px}
+  .pf input,.pf select,.pf textarea{font-size:16px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:6px 8px;min-width:0;width:100%}
+  .pf textarea{min-height:44px}
+  .chip{display:inline-block;font-size:12px;background:var(--chip);border-radius:999px;padding:2px 10px;color:var(--muted)}
+  .warn{font-size:12px;color:#8a5a14;background:#fff3dc;border:1px solid #f0d9ae;border-radius:10px;padding:6px 10px;margin:6px 0}
+  .ok{color:var(--ok)} .ng{color:var(--ng)}
+  .sect{font-size:12px;color:var(--muted);margin:12px 0 2px;font-weight:700}
+  .prow{position:relative;border-bottom:1px solid var(--line);padding:8px 30px 8px 0;font-size:14.5px}
+  .prow .pk{font-size:11px;border:1px solid var(--line);border-radius:6px;padding:0 5px;color:var(--muted);margin:0 2px}
+  .prow .memo{font-size:12px;color:var(--muted);padding-left:1em}
+  .pdel{position:absolute;right:0;top:6px;background:none;border:0;color:var(--muted);font-size:15px;padding:4px}
+  table{border-collapse:collapse;width:100%;font-size:13px}
+  td,th{border-bottom:1px solid var(--line);padding:5px 4px;text-align:left;vertical-align:top}
+  .tblbox{max-height:420px;overflow:auto;margin-top:6px}
+  details summary{cursor:pointer;font-size:13px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div><h1>ヤドカリの実験室</h1><small>手帳への宿替えの練習台・この端末の中だけ</small></div>
+    <a class="back" href="./">← ヤドカリへ</a>
+  </header>
+
+  <section class="card" id="aiCard">
+    <h2><span class="no">01</span>ローカルくん（AI・使わなくてもよい）</h2>
+    <p class="what">押した人だけ、AIのモデルを Hugging Face（ハギング・フェイス）＝AIモデルの置き場 から読み込みます。予定やメモは送りません。読み込んだモデルは端末の中に残り、下のボタンで消せます。地球儀の実験室で読み込んだことがあれば、同じ端末なら読み込み直さずに使えることがあります。</p>
+    <div class="ctrl">
+      <button type="button" id="aiLight">軽い：Qwen2.5 0.5B・約0.4GB</button>
+      <button type="button" id="aiJp">少し上：TinySwallow 1.5B・約1.2GB</button>
+    </div>
+    <div class="bar"><div id="aiBar"></div></div>
+    <label class="note" style="display:block"><input type="checkbox" id="aiAuto" checked> 開いた時、前に使った席を自動で読み込む（端末の中にある時だけ。通信なし）</label>
+    <p class="note" id="aiLog" style="white-space:pre-wrap"></p>
+    <div class="ctrl"><button type="button" id="aiDel" disabled>読み込んだモデルを消す</button></div>
+  </section>
+
+  <section class="card" id="planCard">
+    <h2><span class="no">02</span>手帳の練習台（入力は1つだけ）</h2>
+    <p class="what">ふだんヤドカリに書くように一行入れると、<b>種類・何・場所・すること</b>を読み取ります。<b>日付と時刻はコードが読みます</b>（「10・16」「明日」「来週の土曜」など）。読み取った結果はヤドカリの返事の形で一言見せるので、まちがっていたらその場で直してから入れてください。</p>
+    <textarea id="pIn" placeholder="例：10.16日役所に行く">10.16日役所に行く</textarea>
+    <div class="ctrl" style="margin-top:8px">
+      <button type="button" id="pRule" class="main">読み取る（AIなし）</button>
+      <button type="button" id="pAi" disabled>AIに読み取ってもらう</button>
+    </div>
+    <div id="pOut"></div>
+    <div id="pList" style="margin-top:6px"></div>
+  </section>
+
+  <section class="card">
+    <h2><span class="no">03</span>試しの文と成績</h2>
+    <p class="what">決まった文を一気に流して、正しく読み取れた数を見ます。「AIが救った数」＝AIなしではまちがえて、AIでは合っていた数。ここが多いほど、AIを入れる意味があります。</p>
+    <div class="ctrl"><button type="button" id="tRule">AIなしで流す</button><button type="button" id="tAi" disabled>AIで流す</button></div>
+    <div id="tOut"></div>
+    <p class="note" id="tStats"></p>
+    <p class="note">試しの文はルミが作ったもの（AIなしの係に寄っているかもしれません）。まことの本物の書き方が来たら足します。</p>
+  </section>
+
+  <section class="card">
+    <h2><span class="no">04</span>控えと手本帳</h2>
+    <p class="what">練習台の予定はこの端末の中だけにあります。消えたら、どこにも残っていません。控えは押した時だけファイルになって、あなたの手元にだけ残ります。</p>
+    <div class="ctrl">
+      <button type="button" id="xExp">練習台の控えを書き出す</button>
+      <button type="button" id="xImp">控えから戻す</button>
+      <input type="file" id="xFile" accept="application/json,.json" style="display:none" />
+    </div>
+    <p class="note" id="fixInfo"></p>
+    <div class="ctrl"><button type="button" id="fixClear">手本帳を空にする</button></div>
+    <p class="note">手本帳＝あなたが「すること」を直した例。同じ言葉が入った文は、次から最初からそのように読みます（学習ではなく、直した例を覚えておくだけ。最大50件で古いものから捨てます）。</p>
+  </section>
+</div>
+
+<script>
+(() => {
+"use strict";
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;" }[c]));
+const z = n => String(n).padStart(2, "0");
+
+/* ---------- 保存（この端末の中だけ。名前は yadokari. で始める） ---------- */
+const K = { items: "yadokari.plan.items", fixes: "yadokari.plan.fixes", stats: "yadokari.lab.stats", seat: "yadokari.lab.ai.seat", auto: "yadokari.lab.ai.auto" };
+const getJ = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k)); return v ?? d; } catch (_) { return d; } };
+const setJ = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (_) { alert("保存できませんでした（容量がいっぱいかも）"); return false; } };
+const load = () => { const v = getJ(K.items, []); return Array.isArray(v) ? v : []; };
+const save = items => setJ(K.items, items);
+
+const KINDS = ["予定", "やること", "習慣", "メモ"];
+const ACTS = ["出勤", "外出", "手続き", "買い物", "通院", "家のこと", "移動", "遊び", "その他"];
+const WD = ["日", "月", "火", "水", "木", "金", "土"];
+
+/* ---------- 日本時間の「今日」 ---------- */
+function todayJ() { const j = new Date(Date.now() + 9 * 3600000); return { y: j.getUTCFullYear(), m: j.getUTCMonth() + 1, d: j.getUTCDate(), w: j.getUTCDay() }; }
+const ymd = (y, m, d) => { const t = new Date(Date.UTC(y, m - 1, d)); return `${t.getUTCFullYear()}-${z(t.getUTCMonth() + 1)}-${z(t.getUTCDate())}`; };
+const addDays = n => { const t = todayJ(); return ymd(t.y, t.m, t.d + n); };
+const zen = s => String(s).replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)).replace(/[：]/g, ":").replace(/[／]/g, "/").replace(/[．]/g, ".");
+const DF = d => { if (!d) return "日付なし"; const t = new Date(Date.parse(d + "T12:00:00+09:00")); return `${t.getUTCMonth() + 1}/${t.getUTCDate()}（${WD[t.getUTCDay()]}）`; };
+
+/* ---------- 日付と時刻はコードが読む（地球儀07と同じ） ---------- */
+function readDate(text) {
+  const s = zen(text), t = todayJ(); let m;
+  if ((m = s.match(/(\d{4})\s*[\/年.・-]\s*(\d{1,2})\s*[\/月.・-]\s*(\d{1,2})日?/))) return { date: ymd(+m[1], +m[2], +m[3]), how: m[0] };
+  if ((m = s.match(/(\d{1,2})\s*[\/月.・-]\s*(\d{1,2})\s*日?/))) { const mo = +m[1], d = +m[2]; if (mo >= 1 && mo <= 12 && d >= 1 && d <= 31) { let y = t.y; if (ymd(y, mo, d) < ymd(t.y, t.m, t.d) && (t.m - mo) > 6) y++; return { date: ymd(y, mo, d), how: m[0] }; } }
+  if ((m = s.match(/今日|きょう|本日/))) return { date: addDays(0), how: m[0] };
+  if ((m = s.match(/明後日|あさって/))) return { date: addDays(2), how: m[0] };
+  if ((m = s.match(/明日|あした|あす/))) return { date: addDays(1), how: m[0] };
+  if ((m = s.match(/(再来週|来週|今週)?の?\s*([日月火水木金土])曜日?/))) { const want = WD.indexOf(m[2]); let n = (want - t.w + 7) % 7;
+    if (m[1] === "来週" || m[1] === "再来週") { const nextMon = ((8 - t.w) % 7) || 7; n = nextMon + (want + 6) % 7 + (m[1] === "再来週" ? 7 : 0); }
+    return { date: addDays(n), how: m[0] }; }
+  if ((m = s.match(/週末/))) return { date: addDays((6 - t.w + 7) % 7), how: m[0] };
+  if ((m = s.match(/(\d{1,2})日/))) { const d = +m[1]; if (d >= 1 && d <= 31) { let mo = t.m, y = t.y; if (d < t.d) { mo++; if (mo > 12) { mo = 1; y++; } } return { date: ymd(y, mo, d), how: m[0] }; } }
+  return null;
+}
+function readTime(text) {
+  const s = zen(text); let m;
+  const pm = /午後|夕方|夜|晩/.test(s), am = /午前|朝|明け方/.test(s);
+  if ((m = s.match(/(\d{1,2}):(\d{2})/))) { let h = +m[1]; if (pm && h < 12) h += 12; return { time: `${z(h)}:${m[2]}`, how: m[0] }; }
+  if ((m = s.match(/(\d{1,2})\s*時\s*(半|(\d{1,2})\s*分)?/))) { let h = +m[1]; const mi = m[2] === "半" ? 30 : m[3] ? +m[3] : 0; if (pm && h < 12) h += 12; if (am && h === 12) h = 0; return { time: `${z(h)}:${z(mi)}`, how: m[0] }; }
+  if ((m = s.match(/明け方|朝|昼|夕方|夜|晩/))) return { time: "", part: m[0], how: m[0] };
+  return null;
+}
+
+/* ---------- AIなしの係 ---------- */
+const ACT_RE = {
+  出勤: /出勤|仕事|会社|職場|シフト|夜勤|早番|遅番/,
+  通院: /病院|歯医者|眼科|皮膚科|内科|整骨院|診察|健診|検診/,
+  手続き: /役所|区役所|市役所|郵便局|銀行|手続き|申請|届け|免許|車検|予約電話|支払い|振込/,
+  買い物: /買い物|買う|かう|スーパー|コンビニ|ドラッグストア/,
+  家のこと: /洗濯|布団|干す|掃除|片付け|ゴミ|料理/,
+  移動: /旅行|出張|新幹線|飛行機|ドライブ|帰省/,
+  遊び: /釣り|つり|映画|ライブ|飲み会|遊び|カラオケ/,
+  外出: /スタバ|カフェ|散歩|外食|出かけ|行く|寄る/,
+};
+function cutWhat(text, d, tm) {
+  let what = zen(text);
+  for (const h of [d?.how, tm?.how]) if (h) what = what.replace(h, "");
+  return what.replace(/^[\s、,。]+|予定$|[\s、,。]+$/g, "").replace(/^[にのへ\s]+/, "").trim();
+}
+function ruleRead(text) {
+  const d = readDate(text), tm = readTime(text);
+  const act = Object.keys(ACT_RE).find(k => ACT_RE[k].test(text)) || "その他";
+  const kind = /毎日|毎朝|毎晩|毎週|習慣/.test(text) ? "習慣" : (d || tm) ? "予定" : /買う|かう|出す|払う|やる|する|片付け|返す|連絡|電話|見とく|しとく/.test(text) ? "やること" : "メモ";
+  const what = cutWhat(text, d, tm);
+  const m = what.match(/スタバ|[ァ-ヶー]{2,}|([一-龠]{1,3})?(駅|港|海岸|公園|役所|病院|郵便局|銀行)/);
+  const place = m ? m[0].replace(/^[日月時分]+/, "") : "";
+  return { kind, what: what || text, place, activity: act, date: d?.date || "", time: tm?.time || "", part: tm?.part || "" };
+}
+
+/* ---------- 手本帳（直した例を覚えておく） ---------- */
+const getFixes = () => { const v = getJ(K.fixes, []); return Array.isArray(v) ? v : []; };
+function fixKey(o) { return (o.place || o.what || "").trim().slice(0, 20); }
+function applyFixes(o, text) {
+  const hit = getFixes().find(f => f.key && text.includes(f.key));
+  if (hit && ACTS.includes(hit.activity) && hit.activity !== o.activity) { o.activity = hit.activity; o.notes.push(`手本帳から：「${hit.key}」は ${hit.activity}`); }
+  return o;
+}
+function rememberFix(key, activity) {
+  if (!key) return;
+  const list = getFixes().filter(f => f.key !== key);
+  list.unshift({ key, activity, at: Date.now() });
+  setJ(K.fixes, list.slice(0, 50));
+}
+
+/* ---------- ローカルくん（AI）の読み込み：地球儀の実験室と同じ席・同じ版 ---------- */
+const LIBS = { light: "https://esm.run/@mlc-ai/web-llm@0.2.86", jp: "https://esm.run/@mlc-ai/web-llm@0.2.79" };
+const libs = {};
+const SEATS = {
+  light: { label: "軽い：Qwen2.5 0.5B", size: "約0.4GB", f16: "Qwen2.5-0.5B-Instruct-q4f16_1-MLC", f32: "Qwen2.5-0.5B-Instruct-q4f32_1-MLC" },
+  jp: { label: "少し上：TinySwallow 1.5B", size: "約1.2GB", custom: true,
+    repo: "https://huggingface.co/asai95/TinySwallow-1.5B-Instruct-q4f32_1-MLC", id: "TinySwallow-1.5B-Instruct-q4f32_1-MLC", libFrom: "Qwen2.5-1.5B-Instruct-q4f32_1-MLC" },
+};
+let webllm = null, engine = null, curId = null, lastModel = null;
+const log = msg => { $("aiLog").textContent = msg; };
+const isPhone = () => /iPhone|Android.+Mobile/.test(navigator.userAgent);
+async function hasF16() { try { const ad = await navigator.gpu?.requestAdapter(); return !!ad?.features?.has?.("shader-f16"); } catch (_) { return false; } }
+async function modelFor(key) {
+  const s = SEATS[key];
+  if (!s.custom) return { id: (await hasF16()) ? s.f16 : s.f32, appConfig: undefined };
+  const base = webllm.prebuiltAppConfig, lib = base.model_list.find(m => m.model_id === s.libFrom)?.model_lib;
+  if (!lib) throw new Error("この版の WebLLM に、TinySwallow を動かす部品が見つかりませんでした");
+  return { id: s.id, appConfig: { ...base, model_list: [...base.model_list, { model: s.repo, model_id: s.id, model_lib: lib }] } };
+}
+function setBusy(b) {
+  for (const id of ["aiLight", "aiJp", "pRule", "tRule"]) $(id).disabled = b;
+  for (const id of ["aiDel", "pAi", "tAi"]) $(id).disabled = b || !engine;
+}
+async function loadAI(key, auto = false) {
+  if (!("gpu" in navigator)) { log("この端末のブラウザには WebGPU（ウェブジーピーユー）がないので、AIは動かせません。AIなしの読み取りはそのまま使えます。"); return; }
+  const s = SEATS[key];
+  if (!auto && key === "jp" && isPhone() && !confirm(`${s.label}は${s.size}あります。iPhone だとページが落ちることがあります（予定は消えません）。読み込みますか？`)) return;
+  if (!auto && key === "light" && !confirm(`${s.label}（${s.size}）を Hugging Face から読み込みます（端末の中にあれば通信しません）。読み込みますか？`)) return;
+  setBusy(true); const t0 = performance.now();
+  try {
+    webllm = libs[key] ||= await import(LIBS[key]);
+    const m = await modelFor(key); lastModel = m;
+    if (engine) { try { await engine.unload(); } catch (_) {} engine = null; }
+    log("読み込みを始めます…");
+    engine = await webllm.CreateMLCEngine(m.id, { appConfig: m.appConfig, initProgressCallback: p => { log(`読み込み中：${Math.round((p.progress || 0) * 100)}%`); $("aiBar").style.width = `${Math.round((p.progress || 0) * 100)}%`; } });
+    curId = m.id; try { localStorage.setItem(K.seat, key); } catch (_) {}
+    log(`読み込み完了：${m.id}（${((performance.now() - t0) / 1000).toFixed(0)} 秒）。「AIに読み取ってもらう」が押せます。`);
+  } catch (e) { engine = null; log(`読み込めませんでした（${s.label}）：` + (e?.message || e)); }
+  finally { setBusy(false); }
+}
+async function delAI() {
+  if (!curId || !webllm) return;
+  if (!confirm("読み込んだモデルを、この端末から消しますか？（地球儀の実験室と共有している場合は、そちらでも読み込み直しになります）")) return;
+  try { if (engine) await engine.unload(); engine = null; await webllm.deleteModelAllInfoInCache(curId, lastModel?.appConfig); log("消しました。端末の容量が戻ります。"); curId = null; $("aiBar").style.width = "0"; }
+  catch (e) { log("消せませんでした：" + (e?.message || e)); }
+  finally { setBusy(false); }
+}
+async function autoLoad() {
+  const box = $("aiAuto");
+  try { box.checked = localStorage.getItem(K.auto) !== "0"; } catch (_) {}
+  box.onchange = () => { try { localStorage.setItem(K.auto, box.checked ? "1" : "0"); } catch (_) {} };
+  let key = null; try { key = localStorage.getItem(K.seat); } catch (_) {}
+  if (!key || !SEATS[key] || !box.checked || !("gpu" in navigator)) return;
+  try {
+    webllm = libs[key] ||= await import(LIBS[key]);
+    const m = await modelFor(key);
+    if (!(await webllm.hasModelInCache(m.id, m.appConfig))) return;
+    log(`前に使った ${SEATS[key].label} が端末の中にあるので、自動で読み込みます（通信なし）…`);
+    await loadAI(key, true);
+  } catch (_) {}
+}
+
+/* ---------- AIに読ませる（日付と時刻はあとでコードが読む） ---------- */
+const SCHEMA = { type: "object", properties: {
+  kind: { type: "string", enum: KINDS }, what: { type: "string" }, place: { type: "string" },
+  activity: { type: "string", enum: ACTS }, when: { type: "string" } }, required: ["kind", "what", "place", "activity", "when"] };
+const SYS = [
+  "あなたは手帳の係です。書かれた一行を読んで、JSONに分けるだけが仕事です。説明は書きません。",
+  `kind：${KINDS.join("・")} から選ぶ（日時が決まっている用事は予定、いつかやる用事はやること、毎日・毎週のことは習慣、それ以外はメモ）`,
+  "what：何をするかを、書かれた言葉をそのまま使って短く（日付や時刻の言葉は入れない。書かれていない言葉を足さない）",
+  "place：行く場所や店の名前。なければ空",
+  `activity：${ACTS.join("・")} から選ぶ。どれにも当てはまらなければ「その他」。仕事に行く時だけ「出勤」`,
+  "when：日付と時刻の言葉を、書かれたまま抜き出す。なければ空",
+  '例：「10・14朝9時スタバへ寄ってから出勤予定」→ {"kind":"予定","what":"スタバへ寄ってから出勤","place":"スタバ","activity":"出勤","when":"10・14朝9時"}',
+  '例：「10.16日役所に行く」→ {"kind":"予定","what":"役所に行く","place":"役所","activity":"手続き","when":"10.16日"}',
+  '例：「牛乳かう」→ {"kind":"やること","what":"牛乳かう","place":"","activity":"買い物","when":""}',
+].join("\n");
+
+/* 「何」の見張り：元の文にない言葉が多ければ、元の文から切り出した方を使う */
+function whatIsFromSource(what, src) {
+  const a = zen(what).replace(/\s/g, ""), s = zen(src).replace(/\s/g, "");
+  if (!a) return false;
+  if (s.includes(a)) return true;
+  let hit = 0, n = 0;
+  for (let i = 0; i < a.length - 1; i++) { n++; if (s.includes(a.slice(i, i + 2))) hit++; }
+  return n > 0 && hit / n >= 0.75;
+}
+async function aiRead(text) {
+  if (!engine) throw new Error("AIが読み込まれていません（01で読み込んでください）");
+  const msgs = [{ role: "system", content: SYS }, { role: "user", content: text }];
+  let r; try { r = await engine.chat.completions.create({ messages: msgs, temperature: 0, max_tokens: 120, response_format: { type: "json_object", schema: JSON.stringify(SCHEMA) } }); }
+  catch (_) { r = await engine.chat.completions.create({ messages: msgs, temperature: 0, max_tokens: 120 }); }
+  const raw = (r.choices?.[0]?.message?.content || "").trim(), m = raw.match(/\{[\s\S]*\}/); let o = null; try { o = JSON.parse(m ? m[0] : raw); } catch (_) {}
+  if (!o) return { bad: true, raw };
+  const d = readDate(text) || readDate(o.when || ""), tm = readTime(text) || readTime(o.when || "");
+  const out = { kind: KINDS.includes(o.kind) ? o.kind : "メモ", what: String(o.what || ""), place: String(o.place || ""), activity: ACTS.includes(o.activity) ? o.activity : "その他",
+    date: d?.date || "", time: tm?.time || "", part: tm?.part || "", notes: [], raw };
+  /* 見張り1：「何」は元の文から */
+  if (!whatIsFromSource(out.what, text)) { out.notes.push(`AIの「何」（${out.what || "空"}）は元の文にない言葉だったので、元の文から切り出しました`); out.what = cutWhat(text, d, tm) || text; }
+  /* 見張り2：場所も元の文にない名前なら消す */
+  if (out.place && !zen(text).includes(zen(out.place))) { out.notes.push(`AIの「場所」（${out.place}）は元の文になかったので外しました`); out.place = ""; }
+  /* 見張り3：出勤は数える物（出勤日・時間）なので、手がかりの言葉がない時は使わない */
+  if (out.activity === "出勤" && !ACT_RE.出勤.test(text)) { const r2 = ruleRead(text).activity; out.notes.push(`「出勤」の手がかりになる言葉がないので「${r2}」にしました`); out.activity = r2; }
+  /* 日付・時刻があるのに予定でなければ、予定に寄せる */
+  if ((out.date || out.time) && out.kind === "メモ") out.kind = "予定";
+  return out;
+}
+
+/* ---------- 画面：読み取り → 返事の一言 → 確認カード ---------- */
+let draft = null;
+function replyLine(o) {
+  if (o.kind === "予定") return `→ ${DF(o.date)}${o.time ? " " + o.time : o.part ? " " + o.part : ""} 予定：${o.what}`;
+  return `→ ${o.kind}：${o.what}`;
+}
+function card(o, who, sec) {
+  draft = { ...o, proposedAct: o.activity };
+  const opts = (list, v) => list.map(x => `<option${x === v ? " selected" : ""}>${esc(x)}</option>`).join("");
+  return `<div class="reply"><div class="av">🐚</div><div class="bb">${esc(replyLine(o))}</div></div>
+  ${o.notes?.length ? o.notes.map(n => `<div class="warn">${esc(n)}</div>`).join("") : ""}
+  <div class="note"><span class="chip">読み取った人：${esc(who)}${sec != null ? `・${sec.toFixed(1)}秒` : ""}</span></div>
+  <div class="pf"><span>種類</span><select id="pKind">${opts(KINDS, o.kind)}</select></div>
+  <div class="pf"><span>日付</span><input type="date" id="pDate" value="${esc(o.date)}"></div>
+  <div class="pf"><span>時刻</span><input type="time" id="pTime" value="${esc(o.time)}"></div>
+  <div class="pf"><span>何</span><input id="pWhat" value="${esc(o.what)}"></div>
+  <div class="pf"><span>場所</span><input id="pPlace" value="${esc(o.place)}"></div>
+  <div class="pf"><span>すること</span><select id="pAct">${opts(ACTS, o.activity)}</select></div>
+  <div class="pf"><span>備考</span><textarea id="pMemo" placeholder="空欄のままでも入れられます"></textarea></div>
+  <div class="ctrl"><button type="button" id="pOk" class="main">これで入れる</button><button type="button" id="pNo">やめる</button></div>
+  <p class="note">まちがっていたら、ここで直してから入れてください（AIはまちがえる前提）。「すること」を直すと、手本帳が覚えます。</p>`;
+}
+function wireCard() {
+  $("pNo").onclick = () => { $("pOut").innerHTML = ""; draft = null; };
+  $("pOk").onclick = () => {
+    const it = { id: Date.now().toString(36), kind: $("pKind").value, date: $("pDate").value, time: $("pTime").value, part: $("pTime").value ? "" : (draft.part || ""),
+      what: $("pWhat").value.trim(), place: $("pPlace").value.trim(), activity: $("pAct").value, memo: $("pMemo").value.trim(), src: draft.src, made: Date.now() };
+    if (!it.what) it.what = draft.src;
+    if (it.activity !== draft.proposedAct) rememberFix(fixKey(it), it.activity);
+    const items = load(); items.push(it); if (!save(items)) return;
+    $("pOut").innerHTML = `<div class="reply"><div class="av">🐚</div><div class="bb">入れたよ。${esc(replyLine(it))}</div></div>`;
+    $("pIn").value = ""; draft = null; list(); showFixInfo();
+  };
+}
+async function go(useAi) {
+  const text = $("pIn").value.trim(); if (!text) return;
+  if (!useAi) { const o = applyFixes({ ...ruleRead(text), notes: [] }, text); o.src = text; $("pOut").innerHTML = card(o, "AIなし"); wireCard(); return; }
+  setBusy(true); $("pOut").innerHTML = '<p class="note">ローカルくんが読み取っています…</p>'; const t0 = performance.now();
+  try {
+    const o = await aiRead(text);
+    if (o.bad) { $("pOut").innerHTML = `<p class="ng">読み取れませんでした</p><details><summary>AIが書いたもの</summary><pre class="note" style="white-space:pre-wrap">${esc(o.raw)}</pre></details>`; return; }
+    applyFixes(o, text); o.src = text;
+    $("pOut").innerHTML = card(o, "AI（" + curId.split("-").slice(0, 2).join(" ") + "）", (performance.now() - t0) / 1000); wireCard();
+  } catch (e) { $("pOut").innerHTML = `<p class="ng">止まりました：${esc(e?.message || e)}</p>`; }
+  finally { setBusy(false); }
+}
+
+/* ---------- 直近の予定 ---------- */
+function list() {
+  const items = load(), today = addDays(0), host = $("pList");
+  const sortKey = it => `${it.date || "9999"} ${it.time || ({ 朝: "07:00", 昼: "12:00", 夕方: "17:00" }[it.part] || (it.part ? "20:00" : "99:99"))}`;
+  const up = items.filter(it => it.date && it.date >= today).sort((a, b) => sortKey(a) < sortKey(b) ? -1 : 1);
+  const undated = items.filter(it => !it.date), past = items.filter(it => it.date && it.date < today).sort((a, b) => sortKey(a) > sortKey(b) ? -1 : 1);
+  const row = it => `<div class="prow"><div><b>${esc(DF(it.date))}</b> ${esc(it.time || it.part || "")} <span class="pk">${esc(it.kind)}</span><span class="pk">${esc(it.activity)}</span> ${esc(it.what)}${it.place ? ` <small>＠${esc(it.place)}</small>` : ""}</div>
+    ${it.memo ? `<div class="memo">📝 ${esc(it.memo)}</div>` : ""}<button type="button" class="pdel" data-del="${esc(it.id)}" aria-label="消す">✕</button></div>`;
+  host.innerHTML = `<div class="sect">直近の予定</div>${up.length ? up.map(row).join("") : '<p class="note">まだありません</p>'}`
+    + (undated.length ? `<div class="sect">日付なし（やること・メモ・習慣）</div>${undated.map(row).join("")}` : "")
+    + (past.length ? `<details style="margin-top:8px"><summary>すんだ予定（${past.length}）</summary>${past.map(row).join("")}</details>` : "");
+}
+
+/* ---------- 試しの文 ---------- */
+const TESTS = [
+  ["10・14朝9時スタバへ寄ってから出勤予定", { kind: "予定", activity: "出勤", date: "10-14", time: "09:00" }],
+  ["10.16日役所に行く", { kind: "予定", activity: "手続き", date: "10-16" }],
+  ["明日の夜7時に歯医者", { kind: "予定", activity: "通院", date: "+1", time: "19:00" }],
+  ["牛乳かう", { kind: "やること", activity: "買い物" }],
+  ["毎朝ストレッチ10分", { kind: "習慣" }],
+  ["来週の土曜、舞鶴で海釣り", { kind: "予定", activity: "遊び" }],
+  ["急遽 明日出勤になった", { kind: "予定", activity: "出勤", date: "+1" }],
+  ["10/25 14:30 打ち合わせ", { kind: "予定", date: "10-25", time: "14:30" }],
+  ["布団干したい 晴れたら", { kind: "やること", activity: "家のこと" }],
+  ["京大の公開講座のメール見とく", { kind: "やること" }],
+  ["あさって休み", { kind: "予定", date: "+2" }],
+  ["来月の車検の予約電話", { kind: "やること", activity: "手続き" }],
+  ["今日あったこと：昼にラーメン", { kind: "メモ" }],
+  ["週末 大阪へドライブ", { kind: "予定", activity: "移動" }],
+  ["18日 夕方 散歩", { kind: "予定", activity: "外出" }],
+];
+function want(w) { const t = todayJ(), o = { ...w }; if (o.date === "+1") o.date = addDays(1); else if (o.date === "+2") o.date = addDays(2); else if (o.date) o.date = `${t.y}-${o.date}`; return o; }
+function score(o, w) { const W = want(w), miss = [];
+  if (o.kind !== W.kind) miss.push(`種類：${o.kind}`); if (W.activity && o.activity !== W.activity) miss.push(`すること：${o.activity}`);
+  if (W.date && o.date !== W.date) miss.push(`日付：${o.date || "空"}`); if (W.time && o.time !== W.time) miss.push(`時刻：${o.time || "空"}`);
+  return { ok: !miss.length, why: miss.join("、") }; }
+async function test(useAi) {
+  if (useAi && !engine) return;
+  setBusy(true); const res = []; let ok = 0, saved = 0;
+  try {
+    for (let i = 0; i < TESTS.length; i++) { const [text, w] = TESTS[i]; $("tOut").innerHTML = `<p class="note">${useAi ? "AI" : "AIなし"}で試しています… ${i + 1}/${TESTS.length}</p>`;
+      const r = ruleRead(text), sr = score(r, w); let s = sr;
+      if (useAi) { const o = await aiRead(text); s = o.bad ? { ok: false, why: "読めない" } : score(o, w); if (s.ok && !sr.ok) saved++; }
+      if (s.ok) ok++; res.push([text, s]); }
+    const who = useAi ? "AI（" + curId + "）" : "AIなし", st = getJ(K.stats, {}); st[who] = `${ok}/${TESTS.length}${useAi ? `・救った ${saved}` : ""}`; setJ(K.stats, st);
+    $("tOut").innerHTML = `<p><b>${esc(who)}</b>：正しく読み取れたのは <b>${ok} / ${TESTS.length}</b>${useAi ? `・<b>AIが救った数 ${saved}</b>` : ""}</p>
+      <div class="tblbox"><table><tr><th>書いた文</th><th>合否</th><th>ちがったところ</th></tr>${res.map(([t, s]) => `<tr><td>${esc(t)}</td><td>${s.ok ? '<b class="ok">○</b>' : '<b class="ng">×</b>'}</td><td>${esc(s.why)}</td></tr>`).join("")}</table></div>`;
+    showStats();
+  } catch (e) { $("tOut").innerHTML = `<p class="ng">止まりました：${esc(e?.message || e)}</p>`; }
+  finally { setBusy(false); }
+}
+function showStats() { const p = getJ(K.stats, {}); $("tStats").textContent = Object.keys(p).length ? "これまでの成績（この端末）：" + Object.entries(p).map(([k, v]) => `${k} ${v}`).join("／") : ""; }
+
+/* ---------- 控え（押した時だけ）と手本帳 ---------- */
+function exportPlan() {
+  const blob = new Blob([JSON.stringify({ app: "yadokari-lab-plan", format: 1, exportedAt: new Date().toISOString(), items: load(), fixes: getFixes() })], { type: "application/json" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `yadokari-techo-${addDays(0)}.json`;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+}
+const str = (v, n = 200) => typeof v === "string" ? v.slice(0, n) : "";
+function cleanItem(it) {
+  if (!it || typeof it !== "object") return null;
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(it.date) ? it.date : "", time = /^\d{2}:\d{2}$/.test(it.time) ? it.time : "";
+  return { id: str(it.id, 20).replace(/[^0-9a-z]/gi, "") || Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    kind: KINDS.includes(it.kind) ? it.kind : "メモ", date, time, part: str(it.part, 4), what: str(it.what), place: str(it.place, 60),
+    activity: ACTS.includes(it.activity) ? it.activity : "その他", memo: str(it.memo, 1000), src: str(it.src, 500), made: Number(it.made) || Date.now() };
+}
+async function importPlan(file) {
+  let data; try { data = JSON.parse(await file.text()); } catch (_) { alert("このファイルは読めませんでした"); return; }
+  if (!data || data.app !== "yadokari-lab-plan" || !Array.isArray(data.items)) { alert("練習台の控えファイルではないみたいです"); return; }
+  const items = data.items.map(cleanItem).filter(Boolean);
+  const fixes = Array.isArray(data.fixes) ? data.fixes.filter(f => f && typeof f.key === "string" && ACTS.includes(f.activity)).map(f => ({ key: f.key.slice(0, 20), activity: f.activity, at: Number(f.at) || 0 })).slice(0, 50) : [];
+  if (!confirm(`控えから ${items.length} 件を戻します。今ある練習台の中身は置きかわります。戻してもいい？`)) return;
+  if (save(items)) { setJ(K.fixes, fixes); list(); showFixInfo(); alert("戻しました"); }
+}
+function showFixInfo() { const f = getFixes(); $("fixInfo").textContent = f.length ? `手本帳：${f.length}件（${f.slice(0, 5).map(x => `${x.key}→${x.activity}`).join("、")}${f.length > 5 ? "…" : ""}）` : "手本帳：まだ空です"; }
+
+/* ---------- つなぐ ---------- */
+$("aiLight").onclick = () => loadAI("light"); $("aiJp").onclick = () => loadAI("jp"); $("aiDel").onclick = delAI;
+$("pRule").onclick = () => go(false); $("pAi").onclick = () => go(true);
+$("tRule").onclick = () => test(false); $("tAi").onclick = () => test(true);
+$("xExp").onclick = exportPlan; $("xImp").onclick = () => $("xFile").click();
+$("xFile").onchange = async () => { const f = $("xFile").files?.[0]; $("xFile").value = ""; if (f) await importPlan(f); };
+$("fixClear").onclick = () => { if (confirm("手本帳を空にしますか？")) { setJ(K.fixes, []); showFixInfo(); } };
+$("pList").onclick = e => { const b = e.target.closest("[data-del]"); if (!b) return; const items = load(), it = items.find(x => x.id === b.dataset.del);
+  if (it && confirm(`「${it.what}」を消しますか？`)) { save(items.filter(x => x !== it)); list(); } };
+log("gpu" in navigator ? "席を選ぶと読み込みが始まります。使わなくても、AIなしの読み取りはそのまま使えます。" : "この端末のブラウザには WebGPU がないので、AIは動かせません。AIなしの読み取りはそのまま使えます。");
+setBusy(false); list(); showStats(); showFixInfo(); autoLoad();
+window.__lab = { readDate, readTime, ruleRead, score, TESTS, whatIsFromSource, want };  /* 点検用 */
+})();
+</script>
+</body>
+</html>
