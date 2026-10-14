@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="robots" content="noindex, nofollow" />
+<title>ヤドカリの月まとめ</title>
+<!--
+  ヤドカリの月まとめ（ダッシュボードの試作・2026-10-14）
+  ・実験室（lab.html）の練習台に入れた予定（yadokari.plan.items）を読んで並べるだけ。AIは使わない
+  ・数える・合計するはコードが毎回計算し直す（ためない。重要事項5）
+  ・確認する場所：まちがいに気づいたら、ここで直せる
+  ・保存はこの端末の中だけ
+-->
+<style>
+  :root{ --bg:#f7f0e8; --panel:#fffaf3; --ink:#3a2c24; --muted:#8b786b; --line:#eadccc; --accent:#f3a7a2; --chip:#efe4d8;
+    --work:#f3a7a2; --go:#9fcfe8; --todo:#bfe0c1; --other:#d9c7f0; }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",Meiryo,sans-serif;background:linear-gradient(180deg,#f9f2ea,#efe2d6);color:var(--ink);line-height:1.55}
+  .wrap{max-width:720px;margin:0 auto;padding:12px 16px 60px}
+  header{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0 8px}
+  header h1{font-size:18px;margin:0} header small{display:block;font-size:11px;color:var(--muted);font-weight:600}
+  .nav{display:flex;gap:4px;flex-shrink:0}
+  .nav a{color:var(--ink);text-decoration:none;border:1px solid var(--line);background:#fffaf5;border-radius:999px;padding:7px 11px;font-size:12.5px;white-space:nowrap;}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:12px;margin:10px 0;box-shadow:0 8px 22px rgba(72,45,28,.08)}
+  .month{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+  .month h2{margin:0;font-size:20px}
+  button,input,select,textarea{font:inherit;color:var(--ink)}
+  button{border:1px solid var(--line);background:#fffaf5;border-radius:999px;padding:7px 12px;font-size:14px;cursor:pointer}
+  .tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .tile{background:#fff;border:1px solid var(--line);border-radius:14px;padding:8px 10px}
+  .tile .k{font-size:11.5px;color:var(--muted)} .tile .v{font-size:24px;font-weight:800;line-height:1.2} .tile .u{font-size:12px;font-weight:600;margin-left:2px}
+  .tile .s{font-size:11px;color:var(--muted)}
+  .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+  .cal .h{font-size:11px;text-align:center;color:var(--muted);padding:2px 0}
+  .cal .h.sun{color:#c0504d}.cal .h.sat{color:#3d6fb0}
+  .day{min-height:58px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:3px 3px 4px;font-size:11px;cursor:pointer;overflow:hidden;text-align:left}
+  .day.out{background:transparent;border-color:transparent;cursor:default}
+  .day.today{border:2px solid var(--accent)}
+  .day.sel{background:#ffe7c7;border-color:#e8c9a8}
+  .day .n{font-weight:700;font-size:12px}
+  .day .n.sun{color:#c0504d}.day .n.sat{color:#3d6fb0}
+  .tag{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-radius:5px;padding:0 3px;margin-top:2px;font-size:10px;line-height:1.5}
+  .t-work{background:#fde2df}.t-go{background:#e2f1f9}.t-todo{background:#e6f4e6}.t-other{background:#efe7fa}
+  .more{font-size:10px;color:var(--muted)}
+  .legend{display:flex;flex-wrap:wrap;gap:8px;font-size:11px;color:var(--muted);margin-top:6px}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:3px;vertical-align:-1px}
+  .sect{font-size:13px;font-weight:700;margin:2px 0 6px}
+  .row{border-bottom:1px solid var(--line);padding:8px 0;font-size:14.5px}
+  .row:last-child{border-bottom:0}
+  .row .meta{font-size:11px;color:var(--muted)}
+  .row .memo{font-size:12px;color:var(--muted);padding-left:1em}
+  .pk{font-size:11px;border:1px solid var(--line);border-radius:6px;padding:0 5px;color:var(--muted);margin-right:3px}
+  .edit{background:none;border:0;padding:2px 6px;font-size:13px;color:var(--muted);float:right}
+  .note{font-size:12px;color:var(--muted);margin:6px 0}
+  .pf{display:grid;grid-template-columns:4.5em 1fr;gap:6px;align-items:center;margin:5px 0}
+  .pf span{font-size:12.5px;color:var(--muted)}
+  .pf input,.pf select,.pf textarea{font-size:16px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:5px 8px;width:100%;min-width:0}
+  .ctrl{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+  .empty{font-size:13px;color:var(--muted);padding:6px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div><h1>🦀 月まとめ</h1><small>試作・この端末の中だけ・AIは使いません</small></div>
+    <div class="nav"><a href="./lab.html">実験室</a><a href="./">ヤドカリ</a></div>
+  </header>
+
+  <section class="card">
+    <div class="month"><button type="button" id="prev" aria-label="前の月">‹</button><h2 id="mTitle"></h2><button type="button" id="next" aria-label="次の月">›</button></div>
+    <div class="tiles" id="tiles"></div>
+    <p class="note" id="tileNote"></p>
+  </section>
+
+  <section class="card">
+    <div class="cal" id="cal"></div>
+    <div class="legend"><span><i style="background:var(--work)"></i>出勤</span><span><i style="background:var(--go)"></i>出かける用事</span><span><i style="background:var(--todo)"></i>家のこと・習慣</span><span><i style="background:var(--other)"></i>その他</span></div>
+  </section>
+
+  <section class="card" id="dayCard"></section>
+
+  <section class="card">
+    <div class="sect">直近の予定</div>
+    <div id="upcoming"></div>
+  </section>
+
+  <section class="card">
+    <div class="sect">日付なし（やること・メモ・習慣）</div>
+    <div id="undated"></div>
+  </section>
+
+  <p class="note">予定は実験室の「手帳の練習台」から入れます。数えるのは毎回コードが計算し直しています。まちがいに気づいたら ✏️ で直してください。</p>
+</div>
+
+<script>
+(() => {
+"use strict";
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;" }[c]));
+const z = n => String(n).padStart(2, "0");
+const KEY = "yadokari.plan.items";
+const KINDS = ["予定", "やること", "習慣", "メモ"];
+const ACTS = ["出勤", "外出", "手続き", "買い物", "通院", "家のこと", "移動", "遊び", "その他"];
+const WD = ["日", "月", "火", "水", "木", "金", "土"];
+const load = () => { try { const v = JSON.parse(localStorage.getItem(KEY) || "[]"); return Array.isArray(v) ? v : []; } catch (_) { return []; } };
+const save = items => { try { localStorage.setItem(KEY, JSON.stringify(items)); return true; } catch (_) { alert("保存できませんでした"); return false; } };
+
+function todayStr() { const j = new Date(Date.now() + 9 * 3600000); return `${j.getUTCFullYear()}-${z(j.getUTCMonth() + 1)}-${z(j.getUTCDate())}`; }
+const DF = d => { if (!d) return "日付なし"; const t = new Date(Date.parse(d + "T12:00:00+09:00")); return `${t.getUTCMonth() + 1}/${t.getUTCDate()}（${WD[t.getUTCDay()]}）`; };
+const color = it => it.activity === "出勤" ? "work" : ["外出", "手続き", "買い物", "通院", "移動", "遊び"].includes(it.activity) ? "go" : (it.activity === "家のこと" || it.kind === "習慣" || it.kind === "やること") ? "todo" : "other";
+const isSudden = it => /急遽|急に|急な|代わり|代打|ヘルプ/.test((it.src || "") + (it.what || "") + (it.memo || ""));
+const sortKey = it => `${it.date || "9999"} ${it.time || ({ 朝: "07:00", 昼: "12:00", 夕方: "17:00" }[it.part] || (it.part ? "20:00" : "99:99"))}`;
+
+const t0 = todayStr();
+let ym = { y: +t0.slice(0, 4), m: +t0.slice(5, 7) }, sel = t0, editing = null;
+
+/* ---------- 数えるのはコード（毎回計算し直す） ---------- */
+function tiles(items) {
+  const pre = `${ym.y}-${z(ym.m)}-`;
+  const inMonth = items.filter(it => it.date && it.date.startsWith(pre));
+  const plans = inMonth.filter(it => it.kind === "予定");
+  const workDays = new Set(inMonth.filter(it => it.activity === "出勤").map(it => it.date));
+  const sudden = inMonth.filter(it => it.activity === "出勤" && isSudden(it));
+  const rest = inMonth.filter(it => it.date >= t0 && it.kind === "予定").length;
+  $("tiles").innerHTML = [
+    ["今月の予定", plans.length, "件", `これから ${rest}件`],
+    ["出勤", workDays.size, "日", "出勤の予定がある日"],
+    ["急な出勤", sudden.length, "回", "「急遽」などの言葉"],
+  ].map(([k, v, u, s]) => `<div class="tile"><div class="k">${k}</div><div class="v">${v}<span class="u">${u}</span></div><div class="s">${s}</div></div>`).join("");
+  $("tileNote").textContent = "出勤の時間の合計は、終わりの時刻をまだ入れていないので出していません。";
+}
+
+function calendar(items) {
+  $("mTitle").textContent = `${ym.y}年${ym.m}月`;
+  const first = new Date(Date.UTC(ym.y, ym.m - 1, 1)), days = new Date(Date.UTC(ym.y, ym.m, 0)).getUTCDate();
+  const lead = (first.getUTCDay() + 6) % 7; /* 月曜はじまり */
+  const heads = ["月", "火", "水", "木", "金", "土", "日"].map(w => `<div class="h ${w === "日" ? "sun" : w === "土" ? "sat" : ""}">${w}</div>`).join("");
+  let cells = "";
+  for (let i = 0; i < lead; i++) cells += `<div class="day out"></div>`;
+  for (let d = 1; d <= days; d++) {
+    const ds = `${ym.y}-${z(ym.m)}-${z(d)}`, wd = new Date(Date.UTC(ym.y, ym.m - 1, d)).getUTCDay();
+    const list = items.filter(it => it.date === ds).sort((a, b) => sortKey(a) < sortKey(b) ? -1 : 1);
+    const tags = list.slice(0, 2).map(it => `<span class="tag t-${color(it)}">${esc(it.what)}</span>`).join("");
+    cells += `<button type="button" class="day${ds === t0 ? " today" : ""}${ds === sel ? " sel" : ""}" data-d="${ds}"><span class="n ${wd === 0 ? "sun" : wd === 6 ? "sat" : ""}">${d}</span>${tags}${list.length > 2 ? `<span class="more">ほか${list.length - 2}件</span>` : ""}</button>`;
+  }
+  $("cal").innerHTML = heads + cells;
+}
+
+function rowHtml(it) {
+  if (editing === it.id) {
+    const opts = (list, v) => list.map(x => `<option${x === v ? " selected" : ""}>${esc(x)}</option>`).join("");
+    return `<div class="row"><div class="pf"><span>種類</span><select id="eKind">${opts(KINDS, it.kind)}</select></div>
+      <div class="pf"><span>日付</span><input type="date" id="eDate" value="${esc(it.date)}"></div>
+      <div class="pf"><span>時刻</span><input type="time" id="eTime" value="${esc(it.time)}"></div>
+      <div class="pf"><span>何</span><input id="eWhat" value="${esc(it.what)}"></div>
+      <div class="pf"><span>すること</span><select id="eAct">${opts(ACTS, it.activity)}</select></div>
+      <div class="pf"><span>備考</span><textarea id="eMemo">${esc(it.memo)}</textarea></div>
+      <div class="ctrl"><button type="button" data-save="${esc(it.id)}">直す</button><button type="button" data-cancel>やめる</button><button type="button" data-del="${esc(it.id)}">消す</button></div>
+      ${it.src ? `<div class="note">元の文：${esc(it.src)}</div>` : ""}</div>`;
+  }
+  return `<div class="row"><button type="button" class="edit" data-edit="${esc(it.id)}" aria-label="直す">✏️</button>
+    <div><b>${esc(DF(it.date))}</b> ${esc(it.time || it.part || "")} <span class="pk">${esc(it.kind)}</span><span class="pk">${esc(it.activity)}</span>${esc(it.what)}${it.place ? ` <small>＠${esc(it.place)}</small>` : ""}${isSudden(it) && it.activity === "出勤" ? ' <span class="pk">急</span>' : ""}</div>
+    ${it.memo ? `<div class="memo">📝 ${esc(it.memo)}</div>` : ""}</div>`;
+}
+function dayCard(items) {
+  const list = items.filter(it => it.date === sel).sort((a, b) => sortKey(a) < sortKey(b) ? -1 : 1);
+  $("dayCard").innerHTML = `<div class="sect">${esc(DF(sel))}${sel === t0 ? "・今日" : ""}</div>` + (list.length ? list.map(rowHtml).join("") : '<div class="empty">この日の予定はありません</div>');
+}
+function lists(items) {
+  const up = items.filter(it => it.date && it.date >= t0).sort((a, b) => sortKey(a) < sortKey(b) ? -1 : 1).slice(0, 7);
+  $("upcoming").innerHTML = up.length ? up.map(rowHtml).join("") : '<div class="empty">まだありません。実験室の練習台から入れてみてね</div>';
+  const un = items.filter(it => !it.date);
+  $("undated").innerHTML = un.length ? un.map(rowHtml).join("") : '<div class="empty">ありません</div>';
+}
+function render() { const items = load(); tiles(items); calendar(items); dayCard(items); lists(items); }
+
+/* ---------- 操作 ---------- */
+$("prev").onclick = () => { ym.m--; if (ym.m < 1) { ym.m = 12; ym.y--; } render(); };
+$("next").onclick = () => { ym.m++; if (ym.m > 12) { ym.m = 1; ym.y++; } render(); };
+$("cal").onclick = e => { const b = e.target.closest("[data-d]"); if (!b) return; sel = b.dataset.d; editing = null; render(); $("dayCard").scrollIntoView({ behavior: "smooth", block: "nearest" }); };
+document.addEventListener("click", e => {
+  const ed = e.target.closest("[data-edit]"); if (ed) { editing = ed.dataset.edit; render(); return; }
+  if (e.target.closest("[data-cancel]")) { editing = null; render(); return; }
+  const sv = e.target.closest("[data-save]");
+  if (sv) { const items = load(), it = items.find(x => x.id === sv.dataset.save); if (!it) return;
+    Object.assign(it, { kind: $("eKind").value, date: $("eDate").value, time: $("eTime").value, what: $("eWhat").value.trim() || it.what, activity: $("eAct").value, memo: $("eMemo").value.trim() });
+    if (it.time) it.part = "";
+    if (save(items)) { editing = null; render(); } return; }
+  const dl = e.target.closest("[data-del]");
+  if (dl) { const items = load(), it = items.find(x => x.id === dl.dataset.del); if (it && confirm(`「${it.what}」を消しますか？`)) { save(items.filter(x => x !== it)); editing = null; render(); } }
+});
+addEventListener("storage", e => { if (e.key === KEY) render(); });
+addEventListener("pageshow", render);
+render();
+})();
+</script>
+</body>
+</html>
