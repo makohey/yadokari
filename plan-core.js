@@ -177,6 +177,7 @@ function setBusy(b) {
   for (const id of ["aiLight", "aiJp", "pRule", "tRule"]) { const el = $(id); if (el) el.disabled = b; }
   for (const id of ["aiDel", "pAi", "tAi"]) { const el = $(id); if (el) el.disabled = b || !engine; }
   showAIState();
+  dispatchEvent(new Event("yadokari:ai"));
 }
 async function loadAI(key, auto = false) {
   if (!("gpu" in navigator)) { log("この端末のブラウザには WebGPU（ウェブジーピーユー）がないので、AIは動かせません。AIなしの読み取りはそのまま使えます。"); return; }
@@ -250,11 +251,18 @@ async function aiRead(text) {
   catch (_) { r = await engine.chat.completions.create({ messages: msgs, temperature: 0, max_tokens: 120 }); }
   const raw = (r.choices?.[0]?.message?.content || "").trim(), m = raw.match(/\{[\s\S]*\}/); let o = null; try { o = JSON.parse(m ? m[0] : raw); } catch (_) {}
   if (!o) return { bad: true, raw };
-  const d = readDate(text) || readDate(o.when || ""), tm = readTime(text) || readTime(o.when || "");
+  /* 日付・時刻は元の文から。AIが抜き出した言葉は、元の文に本当にある時だけ使う（AIが時刻を作ることがあるため） */
+  const inText = r => r && zen(text).includes(zen(r.how));
+  const dw = readDate(o.when || ""), tw = readTime(o.when || "");
+  const d = readDate(text) || (inText(dw) ? dw : null), tm = readTime(text) || (inText(tw) ? tw : null);
   const out = { kind: KINDS.includes(o.kind) ? o.kind : "メモ", what: String(o.what || ""), place: String(o.place || ""), activity: ACTS.includes(o.activity) ? o.activity : "その他",
     date: d?.date || "", time: tm?.time || "", part: tm?.part || "", notes: [], raw };
   /* 見張り1：「何」は元の文から */
   if (!whatIsFromSource(out.what, text)) { out.notes.push(`AIの「何」（${out.what || "空"}）は元の文にない言葉だったので、元の文から切り出しました`); out.what = cutWhat(text, d, tm) || text; }
+  if (!readDate(text) && dw && !d) out.notes.push(`AIの日付（${dw.how}）は元の文になかったので使いませんでした`);
+  if (!readTime(text) && tw && !tm && tw.time) out.notes.push(`AIの時刻（${tw.how}）は元の文になかったので使いませんでした`);
+  /* 「何」に日付・時刻の言葉が残っていたら外す */
+  { const w = zen(out.what).replace(/\d{4}\s*[\/年.・-]\s*\d{1,2}\s*[\/月.・-]\s*\d{1,2}日?|\d{1,2}\s*[\/月.・-]\s*\d{1,2}日?|\d{1,2}:\d{2}|\d{1,2}\s*時(半|\d{1,2}\s*分)?/g, "").replace(/^[\s、,。にのへ]+|[\s、,。]+$/g, "").trim(); if (w && w !== out.what) out.what = w; }
   /* 見張り2：場所も元の文にない名前なら消す */
   if (out.place && !zen(text).includes(zen(out.place))) { out.notes.push(`AIの「場所」（${out.place}）は元の文になかったので外しました`); out.place = ""; }
   /* 見張り3：出勤は数える物（出勤日・時間）なので、手がかりの言葉がない時は使わない */
@@ -262,6 +270,61 @@ async function aiRead(text) {
   /* 日付・時刻があるのに予定でなければ、予定に寄せる */
   if ((out.date || out.time) && out.kind === "メモ") out.kind = "予定";
   return out;
+}
+
+/* ---------- 重なりのチェック ----------
+   同じ日に、似た予定がないかを見る。まずコードが「言葉の似かた」で探す。
+   コードでは決めきれない近さの組だけ、ローカルくん（AI）に「同じ予定？」と聞ける。
+   消すかどうかは必ず本人が決める（勝手に消さない）。「別の予定」と言われた組は覚えて、次から出さない */
+K.dupOk = "yadokari.plan.dupok";
+const normWhat = s => zen(s || "").replace(/\d{4}\s*[\/年.・-]\s*\d{1,2}\s*[\/月.・-]\s*\d{1,2}日?|\d{1,2}\s*[\/月.・-]\s*\d{1,2}日?|\d{1,2}:\d{2}|\d{1,2}\s*時(半|\d{1,2}\s*分)?/g, "")
+  .replace(/急遽|急に|予定|する|します|行く|いく|行きます|に|へ|を|で|の|が|は|と|、|。|\s/g, "").toLowerCase();
+function similarity(a, b) {
+  const x = normWhat(a), y = normWhat(b);
+  if (!x || !y) return 0; if (x === y) return 1; if (x.includes(y) || y.includes(x)) return 0.9;
+  const bg = s => { const g = []; for (let i = 0; i < s.length - 1; i++) g.push(s.slice(i, i + 2)); return g.length ? g : [s]; };
+  const A = bg(x), B = bg(y); let hit = 0; const pool = [...B]; for (const g of A) { const k = pool.indexOf(g); if (k >= 0) { hit++; pool.splice(k, 1); } }
+  return 2 * hit / (A.length + B.length);
+}
+const pairKey = (a, b) => [a.id, b.id].sort().join("|");
+const getDupOk = () => { const v = getJ(K.dupOk, []); return Array.isArray(v) ? v : []; };
+function markDifferent(a, b) { const s = new Set(getDupOk()); s.add(pairKey(a, b)); setJ(K.dupOk, [...s].slice(-300)); }
+function timeClash(a, b) { return a.time && b.time && a.time !== b.time; }
+/* 返す：{ a, b, score, sure }  sure＝コードだけで「似ている」と言える組 */
+function findDups(items) {
+  const ok = new Set(getDupOk()), out = [], by = {};
+  for (const it of items) if (it.date) (by[it.date] ||= []).push(it);
+  for (const list of Object.values(by)) for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {
+    const a = list[i], b = list[j]; if (ok.has(pairKey(a, b))) continue;
+    let s = Math.max(similarity(a.what, b.what), similarity(a.src, b.src)); if (timeClash(a, b)) s -= 0.3;
+    if (s >= 0.6) out.push({ a, b, score: s, sure: true }); else if (s >= 0.3) out.push({ a, b, score: s, sure: false });
+  }
+  return out.sort((x, y) => y.score - x.score);
+}
+/* 入れる前の1回目のチェック：同じ日に似た予定があれば、カードに一言出す */
+function dupHint(o) {
+  if (!o.date) return "";
+  const twin = load().filter(it => it.date === o.date).map(it => ({ it, s: Math.max(similarity(it.what, o.what), similarity(it.src, o.src)) - (timeClash(it, o) ? 0.3 : 0) })).filter(x => x.s >= 0.6).sort((a, b) => b.s - a.s)[0];
+  return twin ? `同じ日に似た予定がもうあります：「${twin.it.what}」${twin.it.time ? "（" + twin.it.time + "）" : ""}。二重になっていないか見てね` : "";
+}
+/* 決めきれない組だけ、ローカルくんに聞く。答えは「同じ／ちがう」だけ */
+async function aiSame(a, b) {
+  if (!engine) throw new Error("AIが読み込まれていません");
+  const sys = "あなたは手帳の係です。同じ日の予定が2つあります。同じ用事を二重に書いたものなら same を true、別の用事なら false にしたJSONだけを返します。説明は書きません。";
+  const user = `日付：${a.date}\nA：${a.what}${a.time ? "（" + a.time + "）" : ""}　元の文「${a.src || ""}」\nB：${b.what}${b.time ? "（" + b.time + "）" : ""}　元の文「${b.src || ""}」`;
+  const msgs = [{ role: "system", content: sys }, { role: "user", content: user }];
+  let r; try { r = await engine.chat.completions.create({ messages: msgs, temperature: 0, max_tokens: 20, response_format: { type: "json_object", schema: JSON.stringify({ type: "object", properties: { same: { type: "boolean" } }, required: ["same"] }) } }); }
+  catch (_) { r = await engine.chat.completions.create({ messages: msgs, temperature: 0, max_tokens: 20 }); }
+  const raw = (r.choices?.[0]?.message?.content || ""); const m = raw.match(/"same"\s*:\s*(true|false)/);
+  return m ? m[1] === "true" : null;
+}
+/* まとめる：残す方に、消す方の備考を足してから消す */
+function mergeInto(keepId, dropId) {
+  const items = load(), keep = items.find(x => x.id === keepId), drop = items.find(x => x.id === dropId); if (!keep || !drop) return false;
+  if (drop.memo && !String(keep.memo || "").includes(drop.memo)) keep.memo = [keep.memo, drop.memo].filter(Boolean).join(" / ");
+  if (!keep.time && drop.time) keep.time = drop.time;
+  if (!keep.place && drop.place) keep.place = drop.place;
+  return save(items.filter(x => x !== drop));
 }
 
 /* ---------- 画面：読み取り → 返事の一言 → 確認カード（1行に1枚） ---------- */
@@ -301,6 +364,7 @@ function saveCards(list) {
   dispatchEvent(new Event("yadokari:saved"));
 }
 function showCards(list, who, secs) {
+  for (const o of list) { const hint = dupHint(o); if (hint) (o.notes ||= []).push(hint); }
   drafts = list.map(o => ({ ...o }));
   const n = list.length;
   $("pOut").innerHTML = (n > 1 ? `<p class="note">${n} 行あったので、1行ずつ読み取りました。</p>` : "")

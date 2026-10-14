@@ -73,6 +73,10 @@
   .bar{height:4px;background:var(--chip);border-radius:4px;overflow:hidden;margin:8px 0}
   .bar div{height:100%;width:0;background:var(--accent)}
   details.ai summary{font-size:12.5px;color:var(--muted);cursor:pointer;margin-top:8px}
+  .dup{border:1px solid var(--line);border-radius:12px;padding:8px;margin:8px 0;background:#fff}
+  .dup .ab{font-size:14px;margin:2px 0}
+  .dup .why{font-size:11.5px;color:var(--muted)}
+  .dup .ctrl button{font-size:13px;padding:6px 10px}
 </style>
 </head>
 <body>
@@ -115,6 +119,14 @@
   </section>
 
   <section class="card" id="dayCard"></section>
+
+  <section class="card" id="dupCard" style="display:none">
+    <div class="sect">🦀 重なっているかも</div>
+    <p class="note">同じ日に似た予定があります。どちらを残すか選んでね（消す方の備考は、残す方に足します）。勝手には消しません。</p>
+    <div id="dupList"></div>
+    <div class="ctrl"><button type="button" id="dupAi" disabled>決めきれない組をローカルくんに見てもらう</button></div>
+    <p class="note" id="dupNote"></p>
+  </section>
 
   <section class="card">
     <div class="sect">直近の予定</div>
@@ -217,7 +229,19 @@ function lists(items) {
   const un = items.filter(it => !it.date);
   $("undated").innerHTML = un.length ? un.map(rowHtml).join("") : '<div class="empty">ありません</div>';
 }
-function render() { const items = load(); tiles(items); calendar(items); dayCard(items); lists(items); }
+let aiVerdict = {};  /* ローカルくんの答え（この画面を開いている間だけ） */
+function dups(items) {
+  const list = findDups(items), card = $("dupCard");
+  card.style.display = list.length ? "" : "none"; if (!list.length) { $("dupList").innerHTML = ""; return; }
+  const line = it => `${esc(DF(it.date))} ${esc(it.time || it.part || "")} ${esc(it.what)}${it.memo ? ` <small>📝${esc(it.memo)}</small>` : ""}`;
+  $("dupList").innerHTML = list.slice(0, 8).map(({ a, b, score, sure }) => { const k = pairKey(a, b), v = aiVerdict[k];
+    const why = sure ? "言葉がよく似ています（コードの判定）" : v === true ? "🤖 ローカルくん：同じ予定だと思う" : v === false ? "🤖 ローカルくん：別の予定だと思う" : "少し似ています（コードでは決めきれない）";
+    return `<div class="dup"><div class="ab">A：${line(a)}</div><div class="ab">B：${line(b)}</div><div class="why">${why}・似かた ${Math.round(Math.max(0, score) * 100)}%</div>
+      <div class="ctrl"><button type="button" data-keep="${esc(a.id)}" data-drop="${esc(b.id)}">Aを残す</button><button type="button" data-keep="${esc(b.id)}" data-drop="${esc(a.id)}">Bを残す</button><button type="button" data-diff="${esc(k)}">別の予定</button></div></div>`; }).join("")
+    + (list.length > 8 ? `<p class="note">ほか ${list.length - 8} 組</p>` : "");
+  $("dupAi").disabled = !engine || !list.some(x => !x.sure && aiVerdict[pairKey(x.a, x.b)] === undefined);
+}
+function render() { const items = load(); tiles(items); calendar(items); dups(items); dayCard(items); lists(items); }
 
 /* ---------- 操作 ---------- */
 $("prev").onclick = () => { ym.m--; if (ym.m < 1) { ym.m = 12; ym.y--; } render(); };
@@ -243,6 +267,20 @@ log("gpu" in navigator ? "席を選ぶと読み込みが始まります。使わ
 $("xExp").onclick = exportPlan; $("xImp").onclick = () => $("xFile").click();
 $("xFile").onchange = async () => { const f = $("xFile").files?.[0]; $("xFile").value = ""; if (f) await importPlan(f); };
 const showFix = () => { $("fixInfo").textContent = fixSummary(); }; addEventListener("yadokari:saved", showFix); showFix();
+addEventListener("yadokari:ai", () => { const b = $("dupAi"); if (b) b.disabled = !engine || !findDups(load()).some(x => !x.sure && aiVerdict[pairKey(x.a, x.b)] === undefined); });
+$("dupList").onclick = e => {
+  const k = e.target.closest("[data-keep]"), d = e.target.closest("[data-diff]");
+  if (k) { if (mergeInto(k.dataset.keep, k.dataset.drop)) render(); }
+  else if (d) { const [x, y] = d.dataset.diff.split("|"); markDifferent({ id: x }, { id: y }); render(); }
+};
+$("dupAi").onclick = async () => {
+  const todo = findDups(load()).filter(x => !x.sure && aiVerdict[pairKey(x.a, x.b)] === undefined).slice(0, 5); if (!todo.length) return;
+  setBusy(true); $("dupAi").disabled = true;
+  try { for (let i = 0; i < todo.length; i++) { $("dupNote").textContent = `🤖 ローカルくんが見ています… ${i + 1}/${todo.length}`; const { a, b } = todo[i];
+      try { aiVerdict[pairKey(a, b)] = await Promise.race([aiSame(a, b), new Promise((_, r) => setTimeout(() => r(new Error("時間切れ")), 60000))]); } catch (_) { aiVerdict[pairKey(a, b)] = null; } }
+    $("dupNote").textContent = "ローカルくんの答えは目安です。どちらを残すかは自分で決めてね。";
+  } finally { setBusy(false); render(); }
+};
 setBusy(false); autoLoad();
 addEventListener("pageshow", render);
 render();
