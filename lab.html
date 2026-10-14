@@ -335,7 +335,7 @@ function replyLine(o) {
 function card(o, who, sec) {
   draft = { ...o, proposedAct: o.activity };
   const opts = (list, v) => list.map(x => `<option${x === v ? " selected" : ""}>${esc(x)}</option>`).join("");
-  return `<div class="reply"><div class="av">🐚</div><div class="bb">${esc(replyLine(o))}</div></div>
+  return `<div class="reply"><div class="av">🦀</div><div class="bb">${esc(replyLine(o))}</div></div>
   ${o.notes?.length ? o.notes.map(n => `<div class="warn">${esc(n)}</div>`).join("") : ""}
   <div class="note"><span class="chip">読み取った人：${esc(who)}${sec != null ? `・${sec.toFixed(1)}秒` : ""}</span></div>
   <div class="pf"><span>種類</span><select id="pKind">${opts(KINDS, o.kind)}</select></div>
@@ -356,7 +356,7 @@ function wireCard() {
     if (!it.what) it.what = draft.src;
     if (it.activity !== draft.proposedAct) rememberFix(fixKey(it), it.activity);
     const items = load(); items.push(it); if (!save(items)) return;
-    $("pOut").innerHTML = `<div class="reply"><div class="av">🐚</div><div class="bb">入れたよ。${esc(replyLine(it))}</div></div>`;
+    $("pOut").innerHTML = `<div class="reply"><div class="av">🦀</div><div class="bb">入れたよ。${esc(replyLine(it))}</div></div>`;
     $("pIn").value = ""; draft = null; list(); showFixInfo();
   };
 }
