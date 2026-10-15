@@ -394,7 +394,12 @@ function today(items) {
   const plan = it => `<div class="todo"><span style="flex:0 0 22px;text-align:center">${it.activity === "出勤" ? "💼" : it.activity === "休み" ? "🌙" : "•"}</span><div class="t">${esc(it.time || it.part || "")} ${esc(cleanWhat(it.what))}${it.place ? ` <small>＠${esc(it.place)}</small>` : ""}${it.memo ? `<div class="sub">📝 ${esc(it.memo)}</div>` : ""}${it.calAt ? '<div class="sub">📅 出した</div>' : ""}</div>${cb(it)}</div>`;
   const todo = it => `<div class="todo${it.done ? " done" : ""}"><label style="display:flex;gap:10px;flex:1;min-width:0;align-items:flex-start"><input type="checkbox" data-done="${esc(it.id)}"${it.done ? " checked" : ""}><div class="t">${esc(cleanWhat(it.what))}${it.date && it.date < t0 ? `<div class="sub">${esc(DF(it.date))}から</div>` : ""}${it.memo ? `<div class="sub">📝 ${esc(it.memo)}</div>` : ""}${it.calAt ? '<div class="sub">📅 出した</div>' : ""}</div></label>${cb(it)}</div>`;
   $("today").innerHTML = `<div class="sub" style="font-size:12px;color:var(--muted)">${esc(DF(t0))}・今日</div>`
-    + (plans.length ? plans.map(plan).join("") : '<div class="empty">今日の予定はありません</div>')
+    + (plans.length ? (() => {
+        /* 時刻が過ぎた予定は薄くして下へ。時刻のない予定（終日）は一日中そのまま */
+        const nowHM = (() => { const j = new Date(Date.now() + 9 * 3600000); return `${z(j.getUTCHours())}:${z(j.getUTCMinutes())}`; })();
+        const past = plans.filter(it => it.time && it.time < nowHM), now = plans.filter(it => !past.includes(it));
+        return now.map(plan).join("") + past.map(it => plan(it).replace('<div class="todo">', '<div class="todo" style="opacity:.45">').replace('</div></div>', '<div class="sub">過ぎた</div></div></div>')).join("");
+      })() : '<div class="empty">今日の予定はありません</div>')
     + `<div class="sub" style="font-size:12px;color:var(--muted);margin-top:6px">やること${todos.length ? `（${todos.length}）` : ""}</div>`
     + (todos.length ? todos.map(todo).join("") : '<div class="empty">ありません</div>')
     + (doneToday.length ? `<details style="margin-top:4px"><summary>今日済んだ（${doneToday.length}）</summary>${doneToday.map(todo).join("")}</details>` : "");
@@ -570,6 +575,10 @@ $("bulkSend").onclick = async () => {
   let done = false; const later = () => { if (done) return; done = true; bulkSel = {}; render(); bulkRender(); };
   addEventListener("focus", later, { once: true }); document.addEventListener("visibilitychange", () => { if (!document.hidden) later(); }, { once: true }); setTimeout(later, 4000);
 };
+/* 1分ごとに「今日」を見直す。日付が変わっていたら読み直し、時刻が過ぎた予定を薄くする */
+function tick() { if (todayStr() !== t0) { location.reload(); return; } try { today(load()); } catch (_) {} }
+setInterval(tick, 60000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) tick(); });
 /* 1つの欄で止まっても、ほかの欄は出す */
 function render() { const items = load(); for (const f of [today, tiles, calendar, memos, dups, dayCard, lists]) { try { f(items); } catch (e) { console.error(e); } } }
 
