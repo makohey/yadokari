@@ -365,7 +365,8 @@ function takeCard(i) {
 function finishCard(i, html) { if (drafts[i]?.memoKey) { memoMarkSeen(drafts[i].memoKey); dispatchEvent(new Event("yadokari:memo")); } const el = $(`pc-${i}`); if (el) el.outerHTML = html; drafts[i] = null; if (drafts.every(x => !x)) { $("pIn").value = ""; const a = $("pAll"); if (a) a.remove(); } }
 function saveCards(list) {
   const items = load(), got = list.map(takeCard); items.push(...got); if (!save(items)) return;
-  list.forEach((i, k) => finishCard(i, `<div class="reply"><div class="av">🦀</div><div class="bb">入れたよ。${esc(replyLine(got[k]))}</div></div>`));
+  const calOn = typeof window.calAllowed === "function" && window.calAllowed();
+  list.forEach((i, k) => finishCard(i, `<div class="reply"><div class="av">🦀</div><div class="bb">入れたよ。${esc(replyLine(got[k]))}${calOn && got[k].date ? `<div style="margin-top:6px"><button type="button" data-cal="${esc(got[k].id)}">📅 カレンダーへ</button></div>` : ""}</div></div>`));
   dispatchEvent(new Event("yadokari:saved"));
 }
 /* 見張り4：元の文に「出勤・仕事・シフト」などがあるのに、すること が出勤でない時は出勤にする。

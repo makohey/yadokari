@@ -201,7 +201,7 @@
   <p class="note">予定は上の「ひとこと入れる」か、実験室の練習台から入れます（どちらも同じ所に入ります）。数えるのは毎回コードが計算し直しています。まちがいに気づいたら ✏️ で直してください。</p>
 </div>
 
-<script src="./plan-core.js?v=20261015b"></script>
+<script src="./plan-core.js?v=20261015c"></script>
 <script>
 (() => {
 "use strict";
@@ -320,8 +320,9 @@ function today(items) {
   const plans = items.filter(it => it.date === t0 && it.kind !== "やること" && it.kind !== "メモ").sort((a, b) => sortKey(a) < sortKey(b) ? -1 : 1);
   const todos = items.filter(it => it.kind === "やること" && !it.done && (!it.date || it.date <= t0)).sort((a, b) => (a.date || "0") < (b.date || "0") ? -1 : 1);
   const doneToday = items.filter(it => it.kind === "やること" && it.done && new Date(it.done + 9 * 3600000).toISOString().slice(0, 10) === t0);
-  const plan = it => `<div class="todo"><span style="flex:0 0 22px;text-align:center">${it.activity === "出勤" ? "💼" : it.activity === "休み" ? "🌙" : "•"}</span><div class="t">${esc(it.time || it.part || "")} ${esc(it.what)}${it.place ? ` <small>＠${esc(it.place)}</small>` : ""}${it.memo ? `<div class="sub">📝 ${esc(it.memo)}</div>` : ""}</div></div>`;
-  const todo = it => `<label class="todo${it.done ? " done" : ""}"><input type="checkbox" data-done="${esc(it.id)}"${it.done ? " checked" : ""}><div class="t">${esc(it.what)}${it.date && it.date < t0 ? `<div class="sub">${esc(DF(it.date))}から</div>` : ""}${it.memo ? `<div class="sub">📝 ${esc(it.memo)}</div>` : ""}</div></label>`;
+  const cb = it => calAllowed() && it.date ? `<button type="button" class="calBtn" data-cal="${esc(it.id)}" aria-label="カレンダーへ" style="float:none;flex:0 0 auto">📅</button>` : "";
+  const plan = it => `<div class="todo"><span style="flex:0 0 22px;text-align:center">${it.activity === "出勤" ? "💼" : it.activity === "休み" ? "🌙" : "•"}</span><div class="t">${esc(it.time || it.part || "")} ${esc(it.what)}${it.place ? ` <small>＠${esc(it.place)}</small>` : ""}${it.memo ? `<div class="sub">📝 ${esc(it.memo)}</div>` : ""}${it.calAt ? '<div class="sub">📅 出した</div>' : ""}</div>${cb(it)}</div>`;
+  const todo = it => `<label class="todo${it.done ? " done" : ""}"><input type="checkbox" data-done="${esc(it.id)}"${it.done ? " checked" : ""}><div class="t">${esc(it.what)}${it.date && it.date < t0 ? `<div class="sub">${esc(DF(it.date))}から</div>` : ""}${it.memo ? `<div class="sub">📝 ${esc(it.memo)}</div>` : ""}${it.calAt ? '<div class="sub">📅 出した</div>' : ""}</div>${cb(it)}</label>`;
   $("today").innerHTML = `<div class="sub" style="font-size:12px;color:var(--muted)">${esc(DF(t0))}・今日</div>`
     + (plans.length ? plans.map(plan).join("") : '<div class="empty">今日の予定はありません</div>')
     + `<div class="sub" style="font-size:12px;color:var(--muted);margin-top:6px">やること${todos.length ? `（${todos.length}）` : ""}</div>`
@@ -338,7 +339,7 @@ const BLOCK_ORDER = ["inbox", "today", "month", "day", "tiles", "memo", "dup", "
    許可した時だけ 📅 を出す。押した予定だけ .ics（アイシーエス）＝予定1件分のファイル にして渡す。自動では送らない。
    月まとめが本物、カレンダーは控え。出したあとに直したら「カレンダー側は古いまま」と見せる */
 const CAL_KEY = "yadokari.cal.allow", CAL_HOW = "yadokari.cal.how", CAL_SEEN = "yadokari.cal.noticed";
-const calAllowed = () => { try { return localStorage.getItem(CAL_KEY) === "1"; } catch (_) { return false; } };
+const calAllowed = window.calAllowed = () => { try { return localStorage.getItem(CAL_KEY) === "1"; } catch (_) { return false; } };
 const calSig = it => [it.date, it.time, it.what, it.place, it.memo].join("|");
 function icsEsc(s) { return String(s || "").replace(/\\/g, "\\\\").replace(/\r?\n/g, "\\n").replace(/[,;]/g, m => "\\" + m); }
 function icsFold(line) { /* 75バイトごとに折り返す（日本語は1文字3バイト） */
