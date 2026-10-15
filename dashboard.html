@@ -78,6 +78,10 @@
   .dup .ab{font-size:14px;margin:2px 0}
   .dup .why{font-size:11.5px;color:var(--muted)}
   .dup .ctrl button{font-size:13px;padding:6px 10px}
+  .calOpt{display:flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:6px 12px;background:#fff;font-size:14px}
+  .calBtn{background:none;border:0;padding:2px 6px;font-size:15px;float:right}
+  .calMark{font-size:11px;color:var(--muted);padding-left:1em}
+  .calMark.old{color:#8a5a14}
 </style>
 </head>
 <body>
@@ -147,6 +151,26 @@
     <div id="undated"></div>
   </section>
 
+  <section class="card" id="calCard">
+    <div class="sect">📅 カレンダーへの接続（実験）</div>
+    <p class="note">許可すると、日付のある予定に 📅 が出ます。押した予定だけ、iPhone や iPad のカレンダーに「追加」できます。自動では何も送りません。</p>
+    <div class="ctrl">
+      <label class="calOpt"><input type="radio" name="calAllow" value="0"> 許可しない</label>
+      <label class="calOpt"><input type="radio" name="calAllow" value="1"> 許可する</label>
+    </div>
+    <div id="calMore" style="display:none">
+      <div class="pf" style="margin-top:8px"><span>出し方</span><select id="calHow">
+        <option value="open">開く（カレンダーの「追加」画面が出るか試す）</option>
+        <option value="save">ファイルとして保存</option>
+        <option value="share">共有シートで渡す</option>
+      </select></div>
+      <p class="note">時刻のある予定は「始まりだけ」で出します（終わりの時刻はまだ入れていないため）。カレンダー側で直せます。</p>
+      <div class="ctrl"><button type="button" id="calTestDay">🦀テスト（終日）を出す</button><button type="button" id="calTestTime">🦀テスト（1時間後）を出す</button></div>
+      <p class="note">テスト予定は今日の日付で「🦀テスト」という名前になります。確かめたら、カレンダーから手で消してね。</p>
+      <p class="note" id="calLog"></p>
+    </div>
+  </section>
+
   <section class="card">
     <div class="sect">控え・えさ（手本帳）</div>
     <p class="note">予定はこの端末の中だけ。控えは押した時だけファイルになります。控えには手本帳（えさ）も入っていて、別の端末で読み込むと今ある中身に<b>足し合わせ</b>ます（消えません）。iPhone で書き出して AirDrop（エアドロップ）＝近くの端末へ直接送る仕組み で iPad へ、のように運べます。</p>
@@ -157,7 +181,7 @@
   <p class="note">予定は上の「ひとこと入れる」か、実験室の練習台から入れます（どちらも同じ所に入ります）。数えるのは毎回コードが計算し直しています。まちがいに気づいたら ✏️ で直してください。</p>
 </div>
 
-<script src="./plan-core.js?v=20261014g"></script>
+<script src="./plan-core.js?v=20261015a"></script>
 <script>
 (() => {
 "use strict";
@@ -227,9 +251,11 @@ function rowHtml(it) {
       <div class="ctrl"><button type="button" data-save="${esc(it.id)}">直す</button><button type="button" data-cancel>やめる</button><button type="button" data-del="${esc(it.id)}">消す</button></div>
       ${it.src ? `<div class="note">元の文：${esc(it.src)}</div>` : ""}</div>`;
   }
-  return `<div class="row"><button type="button" class="edit" data-edit="${esc(it.id)}" aria-label="直す">✏️</button>
+  const calB = calAllowed() && it.date ? `<button type="button" class="calBtn" data-cal="${esc(it.id)}" aria-label="カレンダーへ">📅</button>` : "";
+  const calM = it.calAt ? (it.calSig === calSig(it) ? `<div class="calMark">📅 カレンダーに出した（${esc(new Date(it.calAt).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }))}）</div>` : `<div class="calMark old">📅 出したあとに直しました。カレンダー側は古いままです（もう一度 📅 で出すか、カレンダーで直してね）</div>`) : "";
+  return `<div class="row"><button type="button" class="edit" data-edit="${esc(it.id)}" aria-label="直す">✏️</button>${calB}
     <div><b>${esc(DF(it.date))}</b> ${esc(it.time || it.part || "")} <span class="pk">${esc(it.kind)}</span><span class="pk">${esc(it.activity)}</span>${esc(it.what)}${it.place ? ` <small>＠${esc(it.place)}</small>` : ""}${isSudden(it) && it.activity === "出勤" ? ' <span class="pk">急</span>' : ""}</div>
-    ${it.memo ? `<div class="memo">📝 ${esc(it.memo)}</div>` : ""}
+    ${it.memo ? `<div class="memo">📝 ${esc(it.memo)}</div>` : ""}${calM}
     ${!/出勤|仕事|シフト|夜勤|早番|遅番/.test((it.what || "") + (it.src || "")) && /休み|やすみ|OFF|オフ|公休|有給|有休|休日|非番/i.test((it.what || "") + (it.src || "")) && it.activity !== "休み" ? `<div class="memo" style="color:#8a5a14">⚠ 「休み」と書いてあるのに、すること＝${esc(it.activity)} になっています。✏️ で直すと、休みの日数に入ります</div>` : ""}
     ${/出勤|仕事|シフト|夜勤|早番|遅番/.test((it.what || "") + (it.src || "")) && it.activity !== "出勤" ? `<div class="memo" style="color:#8a5a14">⚠ 「出勤」と書いてあるのに、すること＝${esc(it.activity)} になっています。✏️ で直すと、出勤の日数に入ります</div>` : ""}</div>`;
 }
@@ -268,6 +294,71 @@ function memos() {
   $("memoAi").disabled = !engine || !unasked.length;
   $("memoNote").textContent = rest.length ? `言葉で拾えなかったメモ：${rest.length}件${engine ? "" : "（ローカルくんを読み込むと見てもらえます）"}` : "";
 }
+/* ---------- カレンダーへの接続（実験）----------
+   許可した時だけ 📅 を出す。押した予定だけ .ics（アイシーエス）＝予定1件分のファイル にして渡す。自動では送らない。
+   月まとめが本物、カレンダーは控え。出したあとに直したら「カレンダー側は古いまま」と見せる */
+const CAL_KEY = "yadokari.cal.allow", CAL_HOW = "yadokari.cal.how", CAL_SEEN = "yadokari.cal.noticed";
+const calAllowed = () => { try { return localStorage.getItem(CAL_KEY) === "1"; } catch (_) { return false; } };
+const calSig = it => [it.date, it.time, it.what, it.place, it.memo].join("|");
+function icsEsc(s) { return String(s || "").replace(/\\/g, "\\\\").replace(/\r?\n/g, "\\n").replace(/[,;]/g, m => "\\" + m); }
+function icsFold(line) { /* 75バイトごとに折り返す（日本語は1文字3バイト） */
+  const enc = new TextEncoder(); let out = "", cur = "", n = 0;
+  for (const ch of line) { const b = enc.encode(ch).length; if (n + b > (out ? 74 : 75)) { out += (out ? "\r\n " : "") + cur; cur = ""; n = 0; } cur += ch; n += b; }
+  return out ? out + "\r\n " + cur : cur;
+}
+const icsDate = d => d.replace(/-/g, "");
+function icsUtc(date, time) { const t = new Date(Date.parse(`${date}T${time}:00+09:00`)); return t.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, ""); }
+function makeIcs(it) {
+  const now = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+  const L = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//yadokari//techo//JA", "CALSCALE:GREGORIAN", "METHOD:PUBLISH", "BEGIN:VEVENT",
+    `UID:${it.id}@yadokari.techo`, `DTSTAMP:${now}`];
+  if (it.time) { L.push(`DTSTART:${icsUtc(it.date, it.time)}`, `DTEND:${icsUtc(it.date, it.time)}`); }
+  else { const n = new Date(Date.parse(it.date + "T12:00:00Z") + 86400000).toISOString().slice(0, 10); L.push(`DTSTART;VALUE=DATE:${icsDate(it.date)}`, `DTEND;VALUE=DATE:${icsDate(n)}`); }
+  L.push(`SUMMARY:${icsEsc(it.what || it.src || "予定")}`);
+  if (it.place) L.push(`LOCATION:${icsEsc(it.place)}`);
+  L.push(`DESCRIPTION:${icsEsc([it.memo, "ヤドカリの月まとめから"].filter(Boolean).join("\n"))}`, "END:VEVENT", "END:VCALENDAR");
+  return L.map(icsFold).join("\r\n") + "\r\n";
+}
+function calLog(t) { const el = $("calLog"); if (el) el.textContent = t; }
+async function sendIcs(it) {
+  const how = (() => { try { return localStorage.getItem(CAL_HOW) || "open"; } catch (_) { return "open"; } })();
+  const text = makeIcs(it), name = `yadokari-${it.date}-${String(it.id).slice(-6)}.ics`;
+  const blob = new Blob([text], { type: "text/calendar;charset=utf-8" });
+  if (how === "share") {
+    const f = new File([blob], name, { type: "text/calendar" });
+    if (navigator.canShare && navigator.canShare({ files: [f] })) { try { await navigator.share({ files: [f], title: it.what }); calLog("共有シートで渡しました。カレンダーが一覧にあったか教えてね"); return true; } catch (e) { calLog("共有をやめたか、渡せませんでした：" + (e?.message || e)); return false; } }
+    calLog("このブラウザは共有シートでファイルを渡せないみたい。「開く」か「保存」で試してね"); return false;
+  }
+  const url = URL.createObjectURL(blob);
+  if (how === "open") { location.href = url; calLog("開きました。「追加」の画面が出たか教えてね"); }
+  else { const a = document.createElement("a"); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); calLog("ファイルとして保存しました。ファイルアプリから開くと追加できるか試してね"); }
+  setTimeout(() => URL.revokeObjectURL(url), 60000); return true;
+}
+function calFirstNotice() {
+  try { if (localStorage.getItem(CAL_SEEN) === "1") return true; } catch (_) {}
+  const ok = confirm("カレンダーに入れると、この予定はヤドカリのおうちから出ていくよ。\n出ていった先（カレンダーや、そこからつながる iCloud など）のことは、ヤドカリには見えなくなるの。\n大事な予定なら、どこに置くか考えてから入れてね。\n\nわかった、許可する");
+  if (ok) { try { localStorage.setItem(CAL_SEEN, "1"); } catch (_) {} }
+  return ok;
+}
+function calSetupUI() {
+  const v = calAllowed() ? "1" : "0";
+  document.querySelectorAll('input[name="calAllow"]').forEach(r => { r.checked = r.value === v; });
+  $("calMore").style.display = v === "1" ? "" : "none";
+  try { $("calHow").value = localStorage.getItem(CAL_HOW) || "open"; } catch (_) {}
+}
+document.querySelectorAll('input[name="calAllow"]').forEach(r => r.onchange = () => {
+  if (r.value === "1" && r.checked && !calFirstNotice()) { calSetupUI(); return; }
+  try { localStorage.setItem(CAL_KEY, r.value); } catch (_) {}
+  calSetupUI(); render();
+});
+$("calHow").onchange = () => { try { localStorage.setItem(CAL_HOW, $("calHow").value); } catch (_) {} };
+function testItem(timed) {
+  const d = new Date(Date.now() + 9 * 3600000 + (timed ? 3600000 : 0));
+  const date = d.toISOString().slice(0, 10), time = timed ? `${String(d.getUTCHours()).padStart(2, "0")}:00` : "";
+  return { id: "test" + Date.now().toString(36), date, time, what: timed ? "🦀テスト（時刻あり・あとで消してね）" : "🦀テスト（終日・あとで消してね）", place: "", memo: "ヤドカリのカレンダー実験" };
+}
+$("calTestDay").onclick = () => sendIcs(testItem(false));
+$("calTestTime").onclick = () => sendIcs(testItem(true));
 /* 1つの欄で止まっても、ほかの欄は出す */
 function render() { const items = load(); for (const f of [tiles, calendar, memos, dups, dayCard, lists]) { try { f(items); } catch (e) { console.error(e); } } }
 
@@ -276,6 +367,11 @@ $("prev").onclick = () => { ym.m--; if (ym.m < 1) { ym.m = 12; ym.y--; } render(
 $("next").onclick = () => { ym.m++; if (ym.m > 12) { ym.m = 1; ym.y++; } render(); };
 $("cal").onclick = e => { const b = e.target.closest("[data-d]"); if (!b) return; sel = b.dataset.d; editing = null; render(); $("dayCard").scrollIntoView({ behavior: "smooth", block: "nearest" }); };
 document.addEventListener("click", e => {
+  const cb = e.target.closest("[data-cal]");
+  if (cb) { const items = load(), it = items.find(x => x.id === cb.dataset.cal); if (!it) return;
+    if (it.calAt && it.calSig === calSig(it) && !confirm("この予定は、もうカレンダーに出しています。もう一度出しますか？（二重になるか、上書きされるかの実験にもなります）")) return;
+    sendIcs(it).then(ok => { if (!ok) return; const all = load(), x = all.find(y => y.id === it.id); if (x) { x.calAt = Date.now(); x.calSig = calSig(x); save(all); render(); } });
+    return; }
   const cl = e.target.closest("#dayCard [data-clear], #upcoming [data-clear], #undated [data-clear]"); if (cl) { const el = $(cl.dataset.clear); if (el) el.value = ""; return; }
   const ed = e.target.closest("[data-edit]"); if (ed) { editing = ed.dataset.edit; render(); return; }
   if (e.target.closest("[data-cancel]")) { editing = null; render(); return; }
@@ -324,6 +420,7 @@ $("dupAi").onclick = async () => {
     $("dupNote").textContent = "ローカルくんの答えは目安です。どちらを残すかは自分で決めてね。";
   } finally { setBusy(false); render(); }
 };
+calSetupUI();
 setBusy(false); autoLoad();
 addEventListener("pageshow", render);
 render();
