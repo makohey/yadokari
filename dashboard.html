@@ -164,8 +164,9 @@
   </section>
 
   <section class="card" data-block="today">
-    <div class="sect">今日とやること</div>
+    <div class="sect">今日とこれから</div>
     <div id="today"></div>
+    <div id="upcoming" style="border-top:1px solid var(--line);margin-top:6px;padding-top:4px"></div>
   </section>
 
   <section class="card" data-block="tiles">
@@ -198,10 +199,7 @@
     <p class="note" id="dupNote"></p>
   </section>
 
-  <section class="card" data-block="upcoming">
-    <div class="sect">これからの予定</div>
-    <div id="upcoming"></div>
-  </section>
+
 
   <section class="card" data-block="undated">
     <div class="sect">日付なし（やること・メモ・習慣）</div>
@@ -336,16 +334,20 @@ function rowHtml(it, where) {
     ${isOff((it.what || "") + " " + (it.src || "")) && it.activity !== "休み" ? `<div class="memo" style="color:#8a5a14">⚠ 「休み」と書いてあるのに、すること＝${esc(it.activity)} になっています。✏️ で直すと、休みの日数に入ります</div>` : ""}
     ${isWork((it.what || "") + " " + (it.src || "")) && it.activity !== "出勤" ? `<div class="memo" style="color:#8a5a14">⚠ 「出勤」と書いてあるのに、すること＝${esc(it.activity)} になっています。✏️ で直すと、出勤の日数に入ります</div>` : ""}</div>`;
 }
+/* カレンダーで選んだ日：今日以外を押した時だけ出す（今日の分は一番上の「今日とこれから」にある） */
 function dayCard(items) {
+  const card = $("dayCard");
+  if (sel === t0) { card.style.display = "none"; card.innerHTML = ""; return; }
+  card.style.display = "";
   const list = items.filter(it => it.date === sel).sort((a, b) => sortKey(a) < sortKey(b) ? -1 : 1);
-  $("dayCard").innerHTML = `<div class="sect">${esc(DF(sel))}${sel === t0 ? "・今日" : ""}</div>` + (list.length ? list.map(it => rowHtml(it, "day")).join("") : '<div class="empty">この日の予定はありません</div>');
+  card.innerHTML = `<div class="sect" style="display:flex;justify-content:space-between;align-items:center">${esc(DF(sel))}<button type="button" id="dayClose" aria-label="閉じる" style="padding:2px 10px;font-size:13px">✕ 閉じる</button></div>` + (list.length ? list.map(it => rowHtml(it, "day")).join("") : '<div class="empty">この日の予定はありません</div>');
 }
 /* 小さい行（これからの予定用）。✏️ を押すと、いつもの直す形になる */
 function miniRow(it) {
   if (editing === it.id && editWhere === "upcoming") return rowHtml(it, "upcoming");
   const sent = it.calAt && it.calSig === calSig(it), cal = calAllowed() && it.date ? `<button type="button" class="calBtn" data-cal="${esc(it.id)}" aria-label="カレンダーへ" style="float:none;flex:0 0 auto;padding:0 4px">📅</button>` : "";
   const ic = it.activity === "出勤" ? "💼" : it.activity === "休み" ? "🌙" : it.kind === "やること" ? "☐" : "•";
-  return `<div class="todo" style="padding:5px 0;font-size:14px${sent ? ";opacity:.55" : ""}"><span style="flex:0 0 20px;text-align:center">${ic}</span><div class="t">${esc(it.time || it.part || "")} ${esc(cleanWhat(it.what))}${it.place ? ` <small>＠${esc(it.place)}</small>` : ""}${sent ? ' <small>📅</small>' : ""}</div>${cal}<button type="button" class="edit" data-edit="${esc(it.id)}" aria-label="直す" style="float:none;flex:0 0 auto;padding:0 4px">✏️</button></div>`;
+  return `<div class="todo" style="padding:5px 0;font-size:14px${sent ? ";opacity:.55" : ""}"><span style="flex:0 0 20px;text-align:center">${ic}</span><div class="t">${esc(it.time || it.part || "")} ${esc(cleanWhat(it.what))}${it.place ? ` <small>＠${esc(it.place)}</small>` : ""}</div>${cal}<button type="button" class="edit" data-edit="${esc(it.id)}" aria-label="直す" style="float:none;flex:0 0 auto;padding:0 4px">✏️</button></div>`;
 }
 const miniDay = list => { let out = "", last = ""; for (const it of list) { if (it.date !== last) { out += `<div class="sub" style="font-size:12px;color:var(--muted);margin-top:4px">${esc(DF(it.date))}</div>`; last = it.date; } out += miniRow(it); } return out; };
 /* 直近の予定：明日の分だけ開いて見せ、あさって以降は1行に畳む（今日の分は一番上の「今日とやること」にある） */
@@ -409,7 +411,7 @@ function today(items) {
     + (doneToday.length ? `<details style="margin-top:4px"><summary>今日済んだ（${doneToday.length}）</summary>${doneToday.map(todo).join("")}</details>` : "");
 }
 /* 並び順の表：ここを入れ替えれば画面の並びが変わる（あとで使う人が選べるようにする時の土台） */
-const BLOCK_ORDER = ["inbox", "today", "upcoming", "month", "day", "tiles", "memo", "dup", "undated", "calendarLink", "backup"];
+const BLOCK_ORDER = ["inbox", "today", "month", "day", "tiles", "memo", "dup", "undated", "calendarLink", "backup"];
 (function arrange() {
   const wrap = document.querySelector(".wrap"), tail = wrap.querySelector(":scope > p.note:last-of-type");
   for (const k of BLOCK_ORDER) { const el = wrap.querySelector(`:scope > [data-block="${k}"]`); if (el) wrap.insertBefore(el, tail); }
@@ -615,6 +617,7 @@ $("thisMonth").onclick = () => { const n = (+t0.slice(0, 4) - ym.y) * 12 + (+t0.
 })();
 $("cal").onclick = e => { const b = e.target.closest("[data-d]"); if (!b) return; sel = b.dataset.d; editing = null; render(); $("dayCard").scrollIntoView({ behavior: "smooth", block: "nearest" }); };
 document.addEventListener("click", e => {
+  if (e.target.closest("#dayClose")) { sel = t0; editing = null; render(); return; }
   const dn = e.target.closest("[data-done]");
   if (dn) { const items = load(), it = items.find(x => x.id === dn.dataset.done); if (it) { if (dn.checked) it.done = Date.now(); else delete it.done; save(items); setTimeout(render, 250); } return; }
   const cb = e.target.closest("[data-cal]");
@@ -627,7 +630,7 @@ document.addEventListener("click", e => {
       addEventListener("focus", later, { once: true }); document.addEventListener("visibilitychange", () => { if (!document.hidden) later(); }, { once: true }); setTimeout(later, 4000); });
     return; }
   const cl = e.target.closest(".row [data-clear]"); if (cl) { const el = cl.closest(".row").querySelector(`[data-f="${cl.dataset.clear}"]`); if (el) el.value = ""; return; }
-  const ed = e.target.closest("[data-edit]"); if (ed) { editing = ed.dataset.edit; const blk = ed.closest("[data-block]"); editWhere = blk ? ({ day: "day", upcoming: "upcoming", undated: "undated" }[blk.dataset.block] || "") : ""; render(); return; }
+  const ed = e.target.closest("[data-edit]"); if (ed) { editing = ed.dataset.edit; const blk = ed.closest("[data-block]"); editWhere = ed.closest("#upcoming") ? "upcoming" : blk ? ({ day: "day", undated: "undated" }[blk.dataset.block] || "") : ""; render(); return; }
   if (e.target.closest("[data-cancel]")) { editing = null; render(); return; }
   const sv = e.target.closest("[data-save]");
   if (sv) { const items = load(), it = items.find(x => x.id === sv.dataset.save); if (!it) return;
