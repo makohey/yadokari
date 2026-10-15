@@ -83,6 +83,9 @@
   .calBtn{background:none;border:0;padding:2px 6px;font-size:15px;float:right}
   .calMark{font-size:11px;color:var(--muted);padding-left:1em}
   .calMark.old{color:#8a5a14}
+  .pickWrap{position:relative;flex:0 0 44px;height:44px}
+  .pickBtn{display:grid;place-items:center;width:44px;height:44px;border:1px solid var(--line);border-radius:14px;background:#fff;font-size:20px}
+  .pickWrap input{position:absolute;inset:0;width:100%;height:100%;opacity:0;font-size:16px;cursor:pointer}
   .inbox textarea{min-height:44px!important;transition:min-height .15s}
   .inbox textarea:focus,.inbox textarea.has{min-height:88px!important}
   .card{padding:10px 12px;margin:8px 0}
@@ -132,7 +135,10 @@
   </div>
 
   <section class="card inbox" data-block="inbox">
-    <textarea id="pIn" rows="1" placeholder="ひとこと入れる（例：今日牛乳買う）"></textarea>
+    <div style="display:flex;gap:6px;align-items:flex-start">
+      <textarea id="pIn" rows="1" placeholder="ひとこと入れる（例：今日牛乳買う）" style="flex:1"></textarea>
+      <span class="pickWrap" title="日付を選ぶ"><span class="pickBtn">🗓️</span><input type="date" id="pickDate" aria-label="日付を選ぶ"></span>
+    </div>
     <div class="ctrl">
       <button type="button" id="pRule" class="main">読み取る（AIなし）</button>
       <button type="button" id="pAi" disabled>AIに読み取ってもらう</button>
@@ -236,7 +242,7 @@
   <p class="note">予定は上の「ひとこと入れる」か、実験室の練習台から入れます（どちらも同じ所に入ります）。数えるのは毎回コードが計算し直しています。まちがいに気づいたら ✏️ で直してください。</p>
 </div>
 
-<script src="./plan-core.js?v=20261015d"></script>
+<script src="./plan-core.js?v=20261015e"></script>
 <script>
 (() => {
 "use strict";
@@ -288,7 +294,7 @@ function calendar(items) {
   for (let d = 1; d <= days; d++) {
     const ds = `${ym.y}-${z(ym.m)}-${z(d)}`, wd = new Date(Date.UTC(ym.y, ym.m - 1, d)).getUTCDay();
     const list = items.filter(it => it.date === ds).sort((a, b) => sortKey(a) < sortKey(b) ? -1 : 1);
-    const tags = list.slice(0, 2).map(it => `<span class="tag t-${color(it)}">${esc(it.what)}</span>`).join("");
+    const tags = list.slice(0, 2).map(it => `<span class="tag t-${color(it)}">${esc(cleanWhat(it.what))}</span>`).join("");
     cells += `<button type="button" class="day${ds === t0 ? " today" : ""}${ds === sel ? " sel" : ""}" data-d="${ds}"><span class="n ${wd === 0 ? "sun" : wd === 6 ? "sat" : ""}">${d}</span>${tags}${list.length > 2 ? `<span class="more">ほか${list.length - 2}件</span>` : ""}</button>`;
   }
   $("cal").innerHTML = heads + cells;
@@ -300,7 +306,7 @@ function rowHtml(it) {
     return `<div class="row"><div class="pf"><span>種類</span><select id="eKind">${opts(KINDS, it.kind)}</select></div>
       <div class="pf"><span>日付</span><input type="date" id="eDate" value="${esc(it.date)}"></div>
       <div class="pf"><span>時刻</span><span style="display:flex;gap:6px"><input type="time" id="eTime" value="${esc(it.time)}" style="flex:1"><button type="button" data-clear="eTime" style="flex:0 0 auto">なし</button></span></div>
-      <div class="pf"><span>何</span><input id="eWhat" value="${esc(it.what)}"></div>
+      <div class="pf"><span>何</span><input id="eWhat" value="${esc(cleanWhat(it.what))}"></div>
       <div class="pf"><span>場所</span><input id="ePlace" value="${esc(it.place)}" placeholder="なければ空のまま"></div>
       <div class="pf"><span>すること</span><select id="eAct">${opts(ACTS, it.activity)}</select></div>
       <div class="pf"><span>備考</span><textarea id="eMemo">${esc(it.memo)}</textarea></div>
@@ -310,7 +316,7 @@ function rowHtml(it) {
   const calB = calAllowed() && it.date ? `<button type="button" class="calBtn" data-cal="${esc(it.id)}" aria-label="カレンダーへ">📅</button>` : "";
   const calM = it.calAt ? (it.calSig === calSig(it) ? `<div class="calMark">📅 カレンダーに出した（${esc(new Date(it.calAt).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }))}）</div>` : `<div class="calMark old">📅 出したあとに直しました。カレンダー側は古いままです（もう一度 📅 で出すか、カレンダーで直してね）</div>`) : "";
   return `<div class="row"><button type="button" class="edit" data-edit="${esc(it.id)}" aria-label="直す">✏️</button>${calB}
-    <div><b>${esc(DF(it.date))}</b> ${esc(it.time || it.part || "")} <span class="pk">${esc(it.kind)}</span><span class="pk">${esc(it.activity)}</span>${it.done ? '<span class="pk ok">済</span>' : ""}${esc(it.what)}${it.place ? ` <small>＠${esc(it.place)}</small>` : ""}${isSudden(it) && it.activity === "出勤" ? ' <span class="pk">急</span>' : ""}</div>
+    <div><b>${esc(DF(it.date))}</b> ${esc(it.time || it.part || "")} <span class="pk">${esc(it.kind)}</span><span class="pk">${esc(it.activity)}</span>${it.done ? '<span class="pk ok">済</span>' : ""}${esc(cleanWhat(it.what))}${it.place ? ` <small>＠${esc(it.place)}</small>` : ""}${isSudden(it) && it.activity === "出勤" ? ' <span class="pk">急</span>' : ""}</div>
     ${it.memo ? `<div class="memo">📝 ${esc(it.memo)}</div>` : ""}${calM}
     ${isOff((it.what || "") + " " + (it.src || "")) && it.activity !== "休み" ? `<div class="memo" style="color:#8a5a14">⚠ 「休み」と書いてあるのに、すること＝${esc(it.activity)} になっています。✏️ で直すと、休みの日数に入ります</div>` : ""}
     ${isWork((it.what || "") + " " + (it.src || "")) && it.activity !== "出勤" ? `<div class="memo" style="color:#8a5a14">⚠ 「出勤」と書いてあるのに、すること＝${esc(it.activity)} になっています。✏️ で直すと、出勤の日数に入ります</div>` : ""}</div>`;
@@ -329,7 +335,7 @@ let aiVerdict = {};  /* ローカルくんの答え（この画面を開いて�
 function dups(items) {
   const list = findDups(items), card = $("dupCard");
   card.style.display = list.length ? "" : "none"; if (!list.length) { $("dupList").innerHTML = ""; return; }
-  const line = it => `${esc(DF(it.date))} ${esc(it.time || it.part || "")} ${esc(it.what)}${it.memo ? ` <small>📝${esc(it.memo)}</small>` : ""}`;
+  const line = it => `${esc(DF(it.date))} ${esc(it.time || it.part || "")} ${esc(cleanWhat(it.what))}${it.memo ? ` <small>📝${esc(it.memo)}</small>` : ""}`;
   $("dupList").innerHTML = list.slice(0, 8).map(({ a, b, score, sure }) => { const k = pairKey(a, b), v = aiVerdict[k];
     const why = sure ? "言葉がよく似ています（コードの判定）" : v === true ? "🤖 ローカルくん：同じ予定だと思う" : v === false ? "🤖 ローカルくん：別の予定だと思う" : "少し似ています（コードでは決めきれない）";
     return `<div class="dup"><div class="ab">A：${line(a)}</div><div class="ab">B：${line(b)}</div><div class="why">${why}・似かた ${Math.round(Math.max(0, score) * 100)}%</div>
@@ -357,8 +363,8 @@ function today(items) {
   const todos = items.filter(it => it.kind === "やること" && !it.done && (!it.date || it.date <= t0)).sort((a, b) => (a.date || "0") < (b.date || "0") ? -1 : 1);
   const doneToday = items.filter(it => it.kind === "やること" && it.done && new Date(it.done + 9 * 3600000).toISOString().slice(0, 10) === t0);
   const cb = it => calAllowed() && it.date ? `<button type="button" class="calBtn" data-cal="${esc(it.id)}" aria-label="カレンダーへ" style="float:none;flex:0 0 auto">📅</button>` : "";
-  const plan = it => `<div class="todo"><span style="flex:0 0 22px;text-align:center">${it.activity === "出勤" ? "💼" : it.activity === "休み" ? "🌙" : "•"}</span><div class="t">${esc(it.time || it.part || "")} ${esc(it.what)}${it.place ? ` <small>＠${esc(it.place)}</small>` : ""}${it.memo ? `<div class="sub">📝 ${esc(it.memo)}</div>` : ""}${it.calAt ? '<div class="sub">📅 出した</div>' : ""}</div>${cb(it)}</div>`;
-  const todo = it => `<label class="todo${it.done ? " done" : ""}"><input type="checkbox" data-done="${esc(it.id)}"${it.done ? " checked" : ""}><div class="t">${esc(it.what)}${it.date && it.date < t0 ? `<div class="sub">${esc(DF(it.date))}から</div>` : ""}${it.memo ? `<div class="sub">📝 ${esc(it.memo)}</div>` : ""}${it.calAt ? '<div class="sub">📅 出した</div>' : ""}</div>${cb(it)}</label>`;
+  const plan = it => `<div class="todo"><span style="flex:0 0 22px;text-align:center">${it.activity === "出勤" ? "💼" : it.activity === "休み" ? "🌙" : "•"}</span><div class="t">${esc(it.time || it.part || "")} ${esc(cleanWhat(it.what))}${it.place ? ` <small>＠${esc(it.place)}</small>` : ""}${it.memo ? `<div class="sub">📝 ${esc(it.memo)}</div>` : ""}${it.calAt ? '<div class="sub">📅 出した</div>' : ""}</div>${cb(it)}</div>`;
+  const todo = it => `<label class="todo${it.done ? " done" : ""}"><input type="checkbox" data-done="${esc(it.id)}"${it.done ? " checked" : ""}><div class="t">${esc(cleanWhat(it.what))}${it.date && it.date < t0 ? `<div class="sub">${esc(DF(it.date))}から</div>` : ""}${it.memo ? `<div class="sub">📝 ${esc(it.memo)}</div>` : ""}${it.calAt ? '<div class="sub">📅 出した</div>' : ""}</div>${cb(it)}</label>`;
   $("today").innerHTML = `<div class="sub" style="font-size:12px;color:var(--muted)">${esc(DF(t0))}・今日</div>`
     + (plans.length ? plans.map(plan).join("") : '<div class="empty">今日の予定はありません</div>')
     + `<div class="sub" style="font-size:12px;color:var(--muted);margin-top:6px">やること${todos.length ? `（${todos.length}）` : ""}</div>`
@@ -476,6 +482,16 @@ $("resetAll").onclick = async () => {
   try { const regs = await navigator.serviceWorker?.getRegistrations?.(); for (const r of regs || []) await r.unregister(); } catch (_) {}
   alert("消しました。画面を読み直します。"); location.reload();
 };
+/* 🗓️：選んだ日付を、書いている行の頭に「10/19 」と入れる（もう日付があれば置きかえる） */
+$("pickDate").addEventListener("change", () => {
+  const v = $("pickDate").value; if (!v) return;
+  const ta = $("pIn"), md = `${+v.slice(5, 7)}/${+v.slice(8, 10)} `, pos = ta.selectionStart ?? ta.value.length;
+  const s = ta.value, ls = s.lastIndexOf("\n", pos - 1) + 1, le = s.indexOf("\n", pos) < 0 ? s.length : s.indexOf("\n", pos);
+  let line = s.slice(ls, le).replace(/^\s*\d{1,2}\s*[\/月.・-]\s*\d{1,2}\s*日?\s*/, "");
+  ta.value = s.slice(0, ls) + md + line + s.slice(le);
+  ta.classList.add("has"); const c = ls + md.length + line.length; ta.focus(); try { ta.setSelectionRange(c, c); } catch (_) {}
+  $("pickDate").value = "";
+});
 /* 1つの欄で止まっても、ほかの欄は出す */
 function render() { const items = load(); for (const f of [today, tiles, calendar, memos, dups, dayCard, lists]) { try { f(items); } catch (e) { console.error(e); } } }
 

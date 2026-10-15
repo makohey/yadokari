@@ -74,6 +74,12 @@ function cutWhat(text, d, tm) {
   what = what.replace(/急遽|急に/g, " ").replace(/^\s*(明け方|朝|昼|夕方|夜|晩|午前|午後)\s*/, "").replace(/\s+/g, " ");
   return what.replace(/^[\s、,。]+|予定$|になった$|[\s、,。]+$/g, "").replace(/^\s*(から|に|の|へ)\s*/, "").replace(/^[にのへ\s]+/, "").trim();
 }
+/* 「何」から日付・時刻の言葉を外す（表示にも使う。外すと空になる時は元のまま） */
+function cleanWhat(s) {
+  const w = zen(s || "").replace(/\d{4}\s*[\/年.・-]\s*\d{1,2}\s*[\/月.・-]\s*\d{1,2}日?|\d{1,2}\s*[\/月.・-]\s*\d{1,2}日?|\d{1,2}:\d{2}|\d{1,2}\s*時(半|\d{1,2}\s*分)?/g, " ")
+    .replace(/\s+/g, " ").replace(/^[\s、,。]+|[\s、,。]+$/g, "").replace(/^(から|まで|に|の|へ)\s*/, "").trim();
+  return w || String(s || "");
+}
 /* 打ち消し：「仕事ない」「出勤なし」「シフト入ってない」「出なくていい」は出勤ではなく休み。
    「休日出勤」「休みだけど出勤」は出勤のまま（打ち消しの言葉がないため） */
 const WORK_NEG_RE = /(仕事|出勤|シフト|会社|バイト)\s*(は|が|も)?\s*(ない|無い|なし|無し|なくなった|休み|入ってない|入ってへん|入ってません|ありません|ないです)|出なくて(いい|よい|ok)|行かなくて(いい|よい)|休んで(いい|よい)/i;
@@ -273,7 +279,7 @@ async function aiRead(text) {
   if (!readDate(text) && dw && !d) out.notes.push(`AIの日付（${dw.how}）は元の文になかったので使いませんでした`);
   if (!readTime(text) && tw && !tm && tw.time) out.notes.push(`AIの時刻（${tw.how}）は元の文になかったので使いませんでした`);
   /* 「何」に日付・時刻の言葉が残っていたら外す */
-  { const w = zen(out.what).replace(/\d{4}\s*[\/年.・-]\s*\d{1,2}\s*[\/月.・-]\s*\d{1,2}日?|\d{1,2}\s*[\/月.・-]\s*\d{1,2}日?|\d{1,2}:\d{2}|\d{1,2}\s*時(半|\d{1,2}\s*分)?/g, "").replace(/^[\s、,。にのへ]+|[\s、,。]+$/g, "").trim(); if (w && w !== out.what) out.what = w; }
+  { const w = cleanWhat(out.what); if (w && w !== out.what) out.what = w; }
   /* 見張り2：場所も元の文にない名前なら消す */
   if (out.place && !zen(text).includes(zen(out.place))) { out.notes.push(`AIの「場所」（${out.place}）は元の文になかったので外しました`); out.place = ""; }
   /* 見張り3：出勤は数える物（出勤日・時間）なので、手がかりの言葉がない時は使わない */
