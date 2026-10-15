@@ -82,6 +82,7 @@
   .calOpt{display:flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:6px 12px;background:#fff;font-size:14px}
   .calBtn{background:none;border:0;padding:2px 6px;font-size:15px;float:right}
   .calMark{font-size:11px;color:var(--muted);padding-left:1em}
+  .row.sent>div{opacity:.55}
   .calMark.old{color:#8a5a14}
   .pickWrap{position:relative;flex:0 0 44px;height:44px}
   .pickBtn{display:grid;place-items:center;width:44px;height:44px;border:1px solid var(--line);border-radius:14px;background:#fff;font-size:20px}
@@ -194,7 +195,7 @@
   </section>
 
   <section class="card" data-block="upcoming">
-    <div class="sect">直近の予定</div>
+    <div class="sect">これからの予定</div>
     <div id="upcoming"></div>
   </section>
 
@@ -325,7 +326,7 @@ function rowHtml(it) {
   }
   const calB = calAllowed() && it.date ? `<button type="button" class="calBtn" data-cal="${esc(it.id)}" aria-label="カレンダーへ">📅</button>` : "";
   const calM = it.calAt ? (it.calSig === calSig(it) ? `<div class="calMark">📅 カレンダーに出した（${esc(new Date(it.calAt).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }))}）</div>` : `<div class="calMark old">📅 出したあとに直しました。カレンダー側は古いままです（もう一度 📅 で出すか、カレンダーで直してね）</div>`) : "";
-  return `<div class="row"><button type="button" class="edit" data-edit="${esc(it.id)}" aria-label="直す">✏️</button>${calB}
+  return `<div class="row${it.calAt && it.calSig === calSig(it) ? " sent" : ""}"><button type="button" class="edit" data-edit="${esc(it.id)}" aria-label="直す">✏️</button>${calB}
     <div><b>${esc(DF(it.date))}</b> ${esc(it.time || it.part || "")} <span class="pk">${esc(it.kind)}</span><span class="pk">${esc(it.activity)}</span>${it.done ? '<span class="pk ok">済</span>' : ""}${esc(cleanWhat(it.what))}${it.place ? ` <small>＠${esc(it.place)}</small>` : ""}${isSudden(it) && it.activity === "出勤" ? ' <span class="pk">急</span>' : ""}</div>
     ${it.memo ? `<div class="memo">📝 ${esc(it.memo)}</div>` : ""}${calM}
     ${isOff((it.what || "") + " " + (it.src || "")) && it.activity !== "休み" ? `<div class="memo" style="color:#8a5a14">⚠ 「休み」と書いてあるのに、すること＝${esc(it.activity)} になっています。✏️ で直すと、休みの日数に入ります</div>` : ""}
@@ -335,9 +336,26 @@ function dayCard(items) {
   const list = items.filter(it => it.date === sel).sort((a, b) => sortKey(a) < sortKey(b) ? -1 : 1);
   $("dayCard").innerHTML = `<div class="sect">${esc(DF(sel))}${sel === t0 ? "・今日" : ""}</div>` + (list.length ? list.map(rowHtml).join("") : '<div class="empty">この日の予定はありません</div>');
 }
+/* 小さい行（これからの予定用）。✏️ を押すと、いつもの直す形になる */
+function miniRow(it) {
+  if (editing === it.id) return rowHtml(it);
+  const sent = it.calAt && it.calSig === calSig(it), cal = calAllowed() && it.date ? `<button type="button" class="calBtn" data-cal="${esc(it.id)}" aria-label="カレンダーへ" style="float:none;flex:0 0 auto;padding:0 4px">📅</button>` : "";
+  const ic = it.activity === "出勤" ? "💼" : it.activity === "休み" ? "🌙" : it.kind === "やること" ? "☐" : "•";
+  return `<div class="todo" style="padding:5px 0;font-size:14px${sent ? ";opacity:.55" : ""}"><span style="flex:0 0 20px;text-align:center">${ic}</span><div class="t">${esc(it.time || it.part || "")} ${esc(cleanWhat(it.what))}${it.place ? ` <small>＠${esc(it.place)}</small>` : ""}${sent ? ' <small>📅</small>' : ""}</div>${cal}<button type="button" class="edit" data-edit="${esc(it.id)}" aria-label="直す" style="float:none;flex:0 0 auto;padding:0 4px">✏️</button></div>`;
+}
+const miniDay = list => { let out = "", last = ""; for (const it of list) { if (it.date !== last) { out += `<div class="sub" style="font-size:12px;color:var(--muted);margin-top:4px">${esc(DF(it.date))}</div>`; last = it.date; } out += miniRow(it); } return out; };
+/* 直近の予定：明日の分だけ開いて見せ、あさって以降は1行に畳む（今日の分は一番上の「今日とやること」にある） */
+const FOLD_KEY = "yadokari.dash.laterOpen";
 function lists(items) {
-  const up = items.filter(it => it.date && it.date >= t0).sort((a, b) => sortKey(a) < sortKey(b) ? -1 : 1).slice(0, 7);
-  $("upcoming").innerHTML = up.length ? up.map(rowHtml).join("") : '<div class="empty">まだありません。実験室の練習台から入れてみてね</div>';
+  const tm = addDaysStr(t0, 1);
+  const fut = items.filter(it => it.date && it.date > t0 && !(it.kind === "やること" && it.done)).sort((a, b) => sortKey(a) < sortKey(b) ? -1 : 1);
+  const tomorrow = fut.filter(it => it.date === tm), later = fut.filter(it => it.date > tm);
+  const open = (() => { try { return localStorage.getItem(FOLD_KEY) === "1"; } catch (_) { return false; } })();
+  const next = later[0];
+  $("upcoming").innerHTML = `<div class="sub" style="font-size:12px;color:var(--muted)">${esc(DF(tm))}・明日</div>`
+    + (tomorrow.length ? tomorrow.map(miniRow).join("") : '<div class="empty" style="padding:2px 0">明日の予定はありません</div>')
+    + (later.length ? `<details id="laterBox"${open ? " open" : ""} style="margin-top:6px"><summary style="font-size:13px">あさって以降（${later.length}件${next ? `・次は ${esc(DF(next.date))} ${esc(cleanWhat(next.what))}` : ""}）</summary>${miniDay(later.slice(0, 30))}${later.length > 30 ? `<p class="note">ほか ${later.length - 30}件（カレンダーで見てね）</p>` : ""}</details>` : "");
+  const lb = $("laterBox"); if (lb) lb.addEventListener("toggle", () => { try { localStorage.setItem(FOLD_KEY, lb.open ? "1" : "0"); } catch (_) {} });
   const un = items.filter(it => !it.date);
   $("undated").innerHTML = un.length ? un.map(rowHtml).join("") : '<div class="empty">ありません</div>';
 }
@@ -382,7 +400,7 @@ function today(items) {
     + (doneToday.length ? `<details style="margin-top:4px"><summary>今日済んだ（${doneToday.length}）</summary>${doneToday.map(todo).join("")}</details>` : "");
 }
 /* 並び順の表：ここを入れ替えれば画面の並びが変わる（あとで使う人が選べるようにする時の土台） */
-const BLOCK_ORDER = ["inbox", "today", "month", "day", "tiles", "memo", "dup", "upcoming", "undated", "calendarLink", "backup"];
+const BLOCK_ORDER = ["inbox", "today", "upcoming", "month", "day", "tiles", "memo", "dup", "undated", "calendarLink", "backup"];
 (function arrange() {
   const wrap = document.querySelector(".wrap"), tail = wrap.querySelector(":scope > p.note:last-of-type");
   for (const k of BLOCK_ORDER) { const el = wrap.querySelector(`:scope > [data-block="${k}"]`); if (el) wrap.insertBefore(el, tail); }
@@ -523,14 +541,17 @@ $("pickDate").addEventListener("change", () => {
   /* 選んだ日付は空に戻さない（iPhone は押した瞬間に知らせてくるため、戻すと選び直せなくなる） */
 });
 /* ---------- まとめてカレンダーへ ---------- */
-const addDaysStr = (d, n) => new Date(Date.parse(d + "T12:00:00Z") + n * 86400000).toISOString().slice(0, 10);
+function addDaysStr(d, n) { return new Date(Date.parse(d + "T12:00:00Z") + n * 86400000).toISOString().slice(0, 10); }
 let bulkSel = {};
 function bulkRender() {
   const from = $("bulkFrom").value || t0, to = $("bulkTo").value || addDaysStr(t0, 30);
   const list = load().filter(it => it.date && it.date >= from && it.date <= to && it.kind !== "メモ").sort((a, b) => sortKey(a) < sortKey(b) ? -1 : 1);
   for (const it of list) if (bulkSel[it.id] === undefined) bulkSel[it.id] = !(it.calAt && it.calSig === calSig(it));
   const n = list.filter(it => bulkSel[it.id]).length;
-  $("bulkList").innerHTML = list.length ? list.map(it => `<label class="todo"><input type="checkbox" data-bulk="${esc(it.id)}"${bulkSel[it.id] ? " checked" : ""}><div class="t"><b>${esc(DF(it.date))}</b> ${esc(it.time || "")} ${esc(cleanWhat(it.what))}${it.calAt ? `<div class="sub">${it.calSig === calSig(it) ? "📅 出した" : "📅 出したあとに直した"}</div>` : ""}</div></label>`).join("") : '<div class="empty">この間に予定はありません</div>';
+  const row = it => `<label class="todo"><input type="checkbox" data-bulk="${esc(it.id)}"${bulkSel[it.id] ? " checked" : ""}><div class="t"><b>${esc(DF(it.date))}</b> ${esc(it.time || "")} ${esc(cleanWhat(it.what))}${it.calAt ? `<div class="sub">${it.calSig === calSig(it) ? "📅 出した" : "📅 出したあとに直した"}</div>` : ""}</div></label>`;
+  const sent = list.filter(it => it.calAt && it.calSig === calSig(it)), rest = list.filter(it => !sent.includes(it));
+  $("bulkList").innerHTML = list.length ? (rest.length ? rest.map(row).join("") : '<div class="empty">まだ出していない予定はありません</div>')
+    + (sent.length ? `<details style="margin-top:6px"><summary>📅 もう出した（${sent.length}件）</summary>${sent.map(row).join("")}</details>` : "") : '<div class="empty">この間に予定はありません</div>';
   $("bulkSend").textContent = n ? `選んだ ${n}件をカレンダーへ` : "選んだ予定をカレンダーへ"; $("bulkSend").disabled = !n;
 }
 $("bulkOpen").onclick = () => { const b = $("bulk"), on = b.style.display === "none"; b.style.display = on ? "" : "none"; if (on) { if (!$("bulkFrom").value) $("bulkFrom").value = t0; if (!$("bulkTo").value) $("bulkTo").value = addDaysStr(t0, 30); bulkSel = {}; bulkRender(); } };
