@@ -67,18 +67,23 @@ const ACT_RE = {
   遊び: /釣り|つり|映画|ライブ|飲み会|遊び|カラオケ/,
   外出: /スタバ|カフェ|散歩|外食|出かけ|行く|寄る/,
 };
+/* 行の頭の「に・の・へ・から」は、日付や時刻を外したあとに残った時だけ外す（「にんじん」「のり」を守る） */
 function cutWhat(text, d, tm) {
-  let what = zen(text);
+  let what = zen(text); const before = what;
   for (const h of [d?.how, tm?.how]) if (h) what = what.replace(h, "");
   /* 「急遽」などは元の文に残っているので、「何」からは外す（数えるのは元の文から） */
   what = what.replace(/急遽|急に/g, " ").replace(/^\s*(明け方|朝|昼|夕方|夜|晩|午前|午後)\s*/, "").replace(/\s+/g, " ");
-  return what.replace(/^[\s、,。]+|予定$|になった$|[\s、,。]+$/g, "").replace(/^\s*(から|に|の|へ)\s*/, "").replace(/^[にのへ\s]+/, "").trim();
+  what = what.replace(/^[\s、,。]+|予定$|になった$|[\s、,。]+$/g, "");
+  if (what !== before) what = what.replace(/^\s*(から|まで|に|の|へ)\s*(?![ぁ-ゖ])/, "");
+  return what.trim();
 }
 /* 「何」から日付・時刻の言葉を外す（表示にも使う。外すと空になる時は元のまま） */
 function cleanWhat(s) {
   const w = zen(s || "").replace(/\d{4}\s*[\/年.・-]\s*\d{1,2}\s*[\/月.・-]\s*\d{1,2}日?|\d{1,2}\s*[\/月.・-]\s*\d{1,2}日?|\d{1,2}:\d{2}|\d{1,2}\s*時(半|\d{1,2}\s*分)?/g, " ")
-    .replace(/\s+/g, " ").replace(/^[\s、,。]+|[\s、,。]+$/g, "").replace(/^(から|まで|に|の|へ)\s*/, "").trim();
-  return w || String(s || "");
+    .replace(/\s+/g, " ").replace(/^[\s、,。]+|[\s、,。]+$/g, "").trim();
+  const changed = w !== zen(s || "").trim();
+  const w2 = changed ? w.replace(/^(から|まで|に|の|へ)\s*(?![ぁ-ゖ])/, "").trim() : w;
+  return w2 || String(s || "");
 }
 /* 打ち消し：「仕事ない」「出勤なし」「シフト入ってない」「出なくていい」は出勤ではなく休み。
    「休日出勤」「休みだけど出勤」は出勤のまま（打ち消しの言葉がないため） */
