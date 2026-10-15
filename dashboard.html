@@ -365,7 +365,7 @@ function today(items) {
   const doneToday = items.filter(it => it.kind === "やること" && it.done && new Date(it.done + 9 * 3600000).toISOString().slice(0, 10) === t0);
   const cb = it => calAllowed() && it.date ? `<button type="button" class="calBtn" data-cal="${esc(it.id)}" aria-label="カレンダーへ" style="float:none;flex:0 0 auto">📅</button>` : "";
   const plan = it => `<div class="todo"><span style="flex:0 0 22px;text-align:center">${it.activity === "出勤" ? "💼" : it.activity === "休み" ? "🌙" : "•"}</span><div class="t">${esc(it.time || it.part || "")} ${esc(cleanWhat(it.what))}${it.place ? ` <small>＠${esc(it.place)}</small>` : ""}${it.memo ? `<div class="sub">📝 ${esc(it.memo)}</div>` : ""}${it.calAt ? '<div class="sub">📅 出した</div>' : ""}</div>${cb(it)}</div>`;
-  const todo = it => `<label class="todo${it.done ? " done" : ""}"><input type="checkbox" data-done="${esc(it.id)}"${it.done ? " checked" : ""}><div class="t">${esc(cleanWhat(it.what))}${it.date && it.date < t0 ? `<div class="sub">${esc(DF(it.date))}から</div>` : ""}${it.memo ? `<div class="sub">📝 ${esc(it.memo)}</div>` : ""}${it.calAt ? '<div class="sub">📅 出した</div>' : ""}</div>${cb(it)}</label>`;
+  const todo = it => `<div class="todo${it.done ? " done" : ""}"><label style="display:flex;gap:10px;flex:1;min-width:0;align-items:flex-start"><input type="checkbox" data-done="${esc(it.id)}"${it.done ? " checked" : ""}><div class="t">${esc(cleanWhat(it.what))}${it.date && it.date < t0 ? `<div class="sub">${esc(DF(it.date))}から</div>` : ""}${it.memo ? `<div class="sub">📝 ${esc(it.memo)}</div>` : ""}${it.calAt ? '<div class="sub">📅 出した</div>' : ""}</div></label>${cb(it)}</div>`;
   $("today").innerHTML = `<div class="sub" style="font-size:12px;color:var(--muted)">${esc(DF(t0))}・今日</div>`
     + (plans.length ? plans.map(plan).join("") : '<div class="empty">今日の予定はありません</div>')
     + `<div class="sub" style="font-size:12px;color:var(--muted);margin-top:6px">やること${todos.length ? `（${todos.length}）` : ""}</div>`
@@ -531,7 +531,11 @@ document.addEventListener("click", e => {
   const cb = e.target.closest("[data-cal]");
   if (cb) { const items = load(), it = items.find(x => x.id === cb.dataset.cal); if (!it) return;
     if (it.calAt && it.calSig === calSig(it) && !confirm("この予定は、もうカレンダーに出しています。もう一度出しますか？（二重になるか、上書きされるかの実験にもなります）")) return;
-    sendIcs(it).then(ok => { if (!ok) return; const all = load(), x = all.find(y => y.id === it.id); if (x) { x.calAt = Date.now(); x.calSig = calSig(x); save(all); render(); } });
+    e.preventDefault(); e.stopPropagation();
+    sendIcs(it).then(ok => { if (!ok) return; const all = load(), x = all.find(y => y.id === it.id); if (x) { x.calAt = Date.now(); x.calSig = calSig(x); save(all); }
+      /* 「追加」の画面が出ている間は描き直さない。戻ってきた時（または数秒後）に並べ直す */
+      let done = false; const later = () => { if (done) return; done = true; render(); };
+      addEventListener("focus", later, { once: true }); document.addEventListener("visibilitychange", () => { if (!document.hidden) later(); }, { once: true }); setTimeout(later, 4000); });
     return; }
   const cl = e.target.closest("#dayCard [data-clear], #upcoming [data-clear], #undated [data-clear]"); if (cl) { const el = $(cl.dataset.clear); if (el) el.value = ""; return; }
   const ed = e.target.closest("[data-edit]"); if (ed) { editing = ed.dataset.edit; render(); return; }
