@@ -85,9 +85,10 @@
   .calMark.old{color:#8a5a14}
   .pickWrap{position:relative;flex:0 0 44px;height:44px}
   .pickBtn{display:grid;place-items:center;width:44px;height:44px;border:1px solid var(--line);border-radius:14px;background:#fff;font-size:20px}
-  .pickWrap input{position:absolute;inset:0;width:100%;height:100%;opacity:0;font-size:16px;cursor:pointer}
+  .pickBtn{padding:0;cursor:pointer}
+  .pickWrap input{position:absolute;left:0;top:0;width:44px;height:44px;opacity:0;pointer-events:none;font-size:16px;border:0}
   .inbox textarea{min-height:44px!important;transition:min-height .15s}
-  .inbox textarea:focus,.inbox textarea.has{min-height:88px!important}
+  .inbox textarea.has{min-height:88px!important}
   .card{padding:10px 12px;margin:8px 0}
   .todo{display:flex;gap:10px;align-items:flex-start;border-bottom:1px solid var(--line);padding:7px 0;font-size:15px}
   .todo:last-child{border-bottom:0}
@@ -137,7 +138,7 @@
   <section class="card inbox" data-block="inbox">
     <div style="display:flex;gap:6px;align-items:flex-start">
       <textarea id="pIn" rows="1" placeholder="ひとこと入れる（例：今日牛乳買う）" style="flex:1"></textarea>
-      <span class="pickWrap" title="日付を選ぶ"><span class="pickBtn">🗓️</span><input type="date" id="pickDate" aria-label="日付を選ぶ"></span>
+      <span class="pickWrap"><button type="button" class="pickBtn" id="pickBtn" aria-label="日付を選ぶ">🗓️</button><input type="date" id="pickDate" tabindex="-1" aria-hidden="true"></span>
     </div>
     <div class="ctrl">
       <button type="button" id="pRule" class="main">読み取る（AIなし）</button>
@@ -483,6 +484,12 @@ $("resetAll").onclick = async () => {
   alert("消しました。画面を読み直します。"); location.reload();
 };
 /* 🗓️：選んだ日付を、書いている行の頭に「10/19 」と入れる（もう日付があれば置きかえる） */
+$("pickBtn").addEventListener("click", () => {
+  const d = $("pickDate");
+  /* 選ぶ画面を、ボタンから直接開く。開けない古いブラウザでは、日付の欄を押したことにする */
+  try { if (typeof d.showPicker === "function") { d.showPicker(); return; } } catch (_) {}
+  d.style.pointerEvents = "auto"; d.focus(); d.click(); setTimeout(() => { d.style.pointerEvents = ""; }, 500);
+});
 $("pickDate").addEventListener("change", () => {
   const v = $("pickDate").value; if (!v) return;
   const ta = $("pIn"), md = `${+v.slice(5, 7)}/${+v.slice(8, 10)} `, pos = ta.selectionStart ?? ta.value.length;
