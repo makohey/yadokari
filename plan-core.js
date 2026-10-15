@@ -383,8 +383,17 @@ function offGuard(o, text) {
   }
   return o;
 }
+/* 見張り6：「買う・電話・出す・払う」などの用事で、時刻がなく、出勤・休みでもないものは、日付があっても「やること」
+   （「今日牛乳を買う」は、今日の予定ではなく、今日のやること） */
+const TODO_RE = /買う|かう|買い物|電話|出す|払う|振り込|返す|連絡|予約|申し込|見とく|しとく|やっとく|片付け|掃除|洗濯|調べる/;
+function todoGuard(o, text) {
+  if (o.kind === "予定" && !o.time && TODO_RE.test(text) && !ACT_RE.出勤.test(text) && !ACT_RE.休み.test(text) && !/行く|いく|寄る|会う|集合/.test(text)) {
+    o.kind = "やること"; (o.notes ||= []).push("時刻のない用事なので「やること」にしました（日付は残しています）");
+  }
+  return o;
+}
 function showCards(list, who, secs) {
-  for (const o of list) { workGuard(o, o.src || ""); offGuard(o, o.src || ""); }
+  for (const o of list) { workGuard(o, o.src || ""); offGuard(o, o.src || ""); todoGuard(o, o.src || ""); }
   for (const o of list) { const hint = dupHint(o); if (hint) (o.notes ||= []).push(hint); }
   drafts = list.map(o => ({ ...o }));
   const n = list.length;

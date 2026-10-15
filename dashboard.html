@@ -82,6 +82,18 @@
   .calBtn{background:none;border:0;padding:2px 6px;font-size:15px;float:right}
   .calMark{font-size:11px;color:var(--muted);padding-left:1em}
   .calMark.old{color:#8a5a14}
+  .inbox textarea{min-height:44px!important;transition:min-height .15s}
+  .inbox textarea:focus,.inbox textarea.has{min-height:88px!important}
+  .card{padding:10px 12px;margin:8px 0}
+  .todo{display:flex;gap:10px;align-items:flex-start;border-bottom:1px solid var(--line);padding:7px 0;font-size:15px}
+  .todo:last-child{border-bottom:0}
+  .todo input{width:22px;height:22px;flex:0 0 22px;margin-top:1px;accent-color:#c98f6a}
+  .todo .t{flex:1;min-width:0}
+  .todo .sub{font-size:11px;color:var(--muted)}
+  .todo.done .t{text-decoration:line-through;color:var(--muted)}
+  .pk.ok{color:#3d8b4f;border-color:#bfe0c1}
+  .inbox .aiState{font-size:11px;padding:3px 8px;margin-top:6px}
+  @media (max-width:480px){.day{min-height:48px}.cal{gap:2px}}
 </style>
 </head>
 <body>
@@ -91,9 +103,8 @@
     <div class="nav"><a href="./lab.html">実験室</a><a href="./">ヤドカリ</a></div>
   </header>
 
-  <section class="card inbox">
-    <div class="sect">🦀 ひとこと入れる</div>
-    <textarea id="pIn" placeholder="例：10.16日役所に行く（改行すれば、何行でもまとめて入れられます）"></textarea>
+  <section class="card inbox" data-block="inbox">
+    <textarea id="pIn" rows="1" placeholder="ひとこと入れる（例：今日牛乳買う）"></textarea>
     <div class="ctrl">
       <button type="button" id="pRule" class="main">読み取る（AIなし）</button>
       <button type="button" id="pAi" disabled>AIに読み取ってもらう</button>
@@ -112,20 +123,25 @@
     </details>
   </section>
 
-  <section class="card">
-    <div class="month"><button type="button" id="prev" aria-label="前の月">‹</button><h2 id="mTitle"></h2><button type="button" id="next" aria-label="次の月">›</button></div>
+  <section class="card" data-block="today">
+    <div class="sect">今日とやること</div>
+    <div id="today"></div>
+  </section>
+
+  <section class="card" data-block="tiles">
     <div class="tiles" id="tiles"></div>
     <p class="note" id="tileNote"></p>
   </section>
 
-  <section class="card">
+  <section class="card" data-block="month">
+    <div class="month"><button type="button" id="prev" aria-label="前の月">‹</button><h2 id="mTitle"></h2><button type="button" id="next" aria-label="次の月">›</button></div>
     <div class="cal" id="cal"></div>
     <div class="legend"><span><i style="background:var(--work)"></i>出勤</span><span><i style="background:var(--off)"></i>休み</span><span><i style="background:var(--go)"></i>出かける用事</span><span><i style="background:var(--todo)"></i>家のこと・習慣</span><span><i style="background:var(--other)"></i>その他</span></div>
   </section>
 
-  <section class="card" id="dayCard"></section>
+  <section class="card" id="dayCard" data-block="day"></section>
 
-  <section class="card" id="memoCard" style="display:none">
+  <section class="card" id="memoCard" data-block="memo" style="display:none">
     <div class="sect">🦀 ヤドカリのメモから（予定かも？）</div>
     <p class="note">ふだんのヤドカリに書いたメモのうち、予定っぽいものです。ヤドカリ本体には何も書き込みません。「読み取る」で上の確認カードに出ます。「明日」は、そのメモを書いた日の明日として読みます。</p>
     <div id="memoList"></div>
@@ -133,7 +149,7 @@
     <p class="note" id="memoNote"></p>
   </section>
 
-  <section class="card" id="dupCard" style="display:none">
+  <section class="card" id="dupCard" data-block="dup" style="display:none">
     <div class="sect">🦀 重なっているかも</div>
     <p class="note">同じ日に似た予定があります。どちらを残すか選んでね（消す方の備考だけ、残す方に足します。時刻や場所は残す方のまま）。ちがう用事なら「別の予定」を押してね。勝手には消しません。</p>
     <div id="dupList"></div>
@@ -141,17 +157,17 @@
     <p class="note" id="dupNote"></p>
   </section>
 
-  <section class="card">
+  <section class="card" data-block="upcoming">
     <div class="sect">直近の予定</div>
     <div id="upcoming"></div>
   </section>
 
-  <section class="card">
+  <section class="card" data-block="undated">
     <div class="sect">日付なし（やること・メモ・習慣）</div>
     <div id="undated"></div>
   </section>
 
-  <section class="card" id="calCard">
+  <section class="card" id="calCard" data-block="calendarLink">
     <div class="sect">📅 カレンダーへの接続（実験）</div>
     <p class="note">許可すると、日付のある予定に 📅 が出ます。押した予定だけ、iPhone や iPad のカレンダーに「追加」できます。自動では何も送りません。</p>
     <div class="ctrl">
@@ -171,7 +187,7 @@
     </div>
   </section>
 
-  <section class="card">
+  <section class="card" data-block="backup">
     <div class="sect">控え・えさ（手本帳）</div>
     <p class="note">予定はこの端末の中だけ。控えは押した時だけファイルになります。控えには手本帳（えさ）も入っていて、別の端末で読み込むと今ある中身に<b>足し合わせ</b>ます（消えません）。iPhone で書き出して AirDrop（エアドロップ）＝近くの端末へ直接送る仕組み で iPad へ、のように運べます。</p>
     <div class="ctrl"><button type="button" id="xExp">控えを書き出す</button><button type="button" id="xImp">控え・えさを読み込む</button><input type="file" id="xFile" accept="application/json,.json" style="display:none" /></div>
@@ -181,7 +197,7 @@
   <p class="note">予定は上の「ひとこと入れる」か、実験室の練習台から入れます（どちらも同じ所に入ります）。数えるのは毎回コードが計算し直しています。まちがいに気づいたら ✏️ で直してください。</p>
 </div>
 
-<script src="./plan-core.js?v=20261015a"></script>
+<script src="./plan-core.js?v=20261015b"></script>
 <script>
 (() => {
 "use strict";
@@ -254,7 +270,7 @@ function rowHtml(it) {
   const calB = calAllowed() && it.date ? `<button type="button" class="calBtn" data-cal="${esc(it.id)}" aria-label="カレンダーへ">📅</button>` : "";
   const calM = it.calAt ? (it.calSig === calSig(it) ? `<div class="calMark">📅 カレンダーに出した（${esc(new Date(it.calAt).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }))}）</div>` : `<div class="calMark old">📅 出したあとに直しました。カレンダー側は古いままです（もう一度 📅 で出すか、カレンダーで直してね）</div>`) : "";
   return `<div class="row"><button type="button" class="edit" data-edit="${esc(it.id)}" aria-label="直す">✏️</button>${calB}
-    <div><b>${esc(DF(it.date))}</b> ${esc(it.time || it.part || "")} <span class="pk">${esc(it.kind)}</span><span class="pk">${esc(it.activity)}</span>${esc(it.what)}${it.place ? ` <small>＠${esc(it.place)}</small>` : ""}${isSudden(it) && it.activity === "出勤" ? ' <span class="pk">急</span>' : ""}</div>
+    <div><b>${esc(DF(it.date))}</b> ${esc(it.time || it.part || "")} <span class="pk">${esc(it.kind)}</span><span class="pk">${esc(it.activity)}</span>${it.done ? '<span class="pk ok">済</span>' : ""}${esc(it.what)}${it.place ? ` <small>＠${esc(it.place)}</small>` : ""}${isSudden(it) && it.activity === "出勤" ? ' <span class="pk">急</span>' : ""}</div>
     ${it.memo ? `<div class="memo">📝 ${esc(it.memo)}</div>` : ""}${calM}
     ${!/出勤|仕事|シフト|夜勤|早番|遅番/.test((it.what || "") + (it.src || "")) && /休み|やすみ|OFF|オフ|公休|有給|有休|休日|非番/i.test((it.what || "") + (it.src || "")) && it.activity !== "休み" ? `<div class="memo" style="color:#8a5a14">⚠ 「休み」と書いてあるのに、すること＝${esc(it.activity)} になっています。✏️ で直すと、休みの日数に入ります</div>` : ""}
     ${/出勤|仕事|シフト|夜勤|早番|遅番/.test((it.what || "") + (it.src || "")) && it.activity !== "出勤" ? `<div class="memo" style="color:#8a5a14">⚠ 「出勤」と書いてあるのに、すること＝${esc(it.activity)} になっています。✏️ で直すと、出勤の日数に入ります</div>` : ""}</div>`;
@@ -294,6 +310,26 @@ function memos() {
   $("memoAi").disabled = !engine || !unasked.length;
   $("memoNote").textContent = rest.length ? `言葉で拾えなかったメモ：${rest.length}件${engine ? "" : "（ローカルくんを読み込むと見てもらえます）"}` : "";
 }
+/* ---------- 今日とやること（いちばん上） ----------
+   今日の予定と、まだ済んでいないやること（日付なし・今日まで）を並べる。チェックで済み */
+function today(items) {
+  const plans = items.filter(it => it.date === t0 && it.kind !== "やること" && it.kind !== "メモ").sort((a, b) => sortKey(a) < sortKey(b) ? -1 : 1);
+  const todos = items.filter(it => it.kind === "やること" && !it.done && (!it.date || it.date <= t0)).sort((a, b) => (a.date || "0") < (b.date || "0") ? -1 : 1);
+  const doneToday = items.filter(it => it.kind === "やること" && it.done && new Date(it.done + 9 * 3600000).toISOString().slice(0, 10) === t0);
+  const plan = it => `<div class="todo"><span style="flex:0 0 22px;text-align:center">${it.activity === "出勤" ? "💼" : it.activity === "休み" ? "🌙" : "•"}</span><div class="t">${esc(it.time || it.part || "")} ${esc(it.what)}${it.place ? ` <small>＠${esc(it.place)}</small>` : ""}${it.memo ? `<div class="sub">📝 ${esc(it.memo)}</div>` : ""}</div></div>`;
+  const todo = it => `<label class="todo${it.done ? " done" : ""}"><input type="checkbox" data-done="${esc(it.id)}"${it.done ? " checked" : ""}><div class="t">${esc(it.what)}${it.date && it.date < t0 ? `<div class="sub">${esc(DF(it.date))}から</div>` : ""}${it.memo ? `<div class="sub">📝 ${esc(it.memo)}</div>` : ""}</div></label>`;
+  $("today").innerHTML = `<div class="sub" style="font-size:12px;color:var(--muted)">${esc(DF(t0))}・今日</div>`
+    + (plans.length ? plans.map(plan).join("") : '<div class="empty">今日の予定はありません</div>')
+    + `<div class="sub" style="font-size:12px;color:var(--muted);margin-top:6px">やること${todos.length ? `（${todos.length}）` : ""}</div>`
+    + (todos.length ? todos.map(todo).join("") : '<div class="empty">ありません</div>')
+    + (doneToday.length ? `<details style="margin-top:4px"><summary>今日済んだ（${doneToday.length}）</summary>${doneToday.map(todo).join("")}</details>` : "");
+}
+/* 並び順の表：ここを入れ替えれば画面の並びが変わる（あとで使う人が選べるようにする時の土台） */
+const BLOCK_ORDER = ["inbox", "today", "month", "day", "tiles", "memo", "dup", "upcoming", "undated", "calendarLink", "backup"];
+(function arrange() {
+  const wrap = document.querySelector(".wrap"), tail = wrap.querySelector(":scope > p.note:last-of-type");
+  for (const k of BLOCK_ORDER) { const el = wrap.querySelector(`:scope > [data-block="${k}"]`); if (el) wrap.insertBefore(el, tail); }
+})();
 /* ---------- カレンダーへの接続（実験）----------
    許可した時だけ 📅 を出す。押した予定だけ .ics（アイシーエス）＝予定1件分のファイル にして渡す。自動では送らない。
    月まとめが本物、カレンダーは控え。出したあとに直したら「カレンダー側は古いまま」と見せる */
@@ -360,13 +396,15 @@ function testItem(timed) {
 $("calTestDay").onclick = () => sendIcs(testItem(false));
 $("calTestTime").onclick = () => sendIcs(testItem(true));
 /* 1つの欄で止まっても、ほかの欄は出す */
-function render() { const items = load(); for (const f of [tiles, calendar, memos, dups, dayCard, lists]) { try { f(items); } catch (e) { console.error(e); } } }
+function render() { const items = load(); for (const f of [today, tiles, calendar, memos, dups, dayCard, lists]) { try { f(items); } catch (e) { console.error(e); } } }
 
 /* ---------- 操作 ---------- */
 $("prev").onclick = () => { ym.m--; if (ym.m < 1) { ym.m = 12; ym.y--; } render(); };
 $("next").onclick = () => { ym.m++; if (ym.m > 12) { ym.m = 1; ym.y++; } render(); };
 $("cal").onclick = e => { const b = e.target.closest("[data-d]"); if (!b) return; sel = b.dataset.d; editing = null; render(); $("dayCard").scrollIntoView({ behavior: "smooth", block: "nearest" }); };
 document.addEventListener("click", e => {
+  const dn = e.target.closest("[data-done]");
+  if (dn) { const items = load(), it = items.find(x => x.id === dn.dataset.done); if (it) { if (dn.checked) it.done = Date.now(); else delete it.done; save(items); setTimeout(render, 250); } return; }
   const cb = e.target.closest("[data-cal]");
   if (cb) { const items = load(), it = items.find(x => x.id === cb.dataset.cal); if (!it) return;
     if (it.calAt && it.calSig === calSig(it) && !confirm("この予定は、もうカレンダーに出しています。もう一度出しますか？（二重になるか、上書きされるかの実験にもなります）")) return;
@@ -421,6 +459,7 @@ $("dupAi").onclick = async () => {
   } finally { setBusy(false); render(); }
 };
 calSetupUI();
+$("pIn").addEventListener("input", () => $("pIn").classList.toggle("has", !!$("pIn").value));
 setBusy(false); autoLoad();
 addEventListener("pageshow", render);
 render();
