@@ -86,12 +86,13 @@
   /* 薄くした中身がボタンの上に重ならないように、ボタンを前に出す */
   .row>.edit,.row>.calBtn,.todo>.edit,.todo>.calBtn{position:relative;z-index:2}
   .calMark.old{color:#8a5a14}
-  .pickWrap{position:relative;flex:0 0 44px;height:44px}
-  .pickBtn{display:grid;place-items:center;width:44px;height:44px;border:1px solid var(--line);border-radius:14px;background:#fff;font-size:20px}
-  .pickBtn{padding:0;cursor:pointer}
-  .pickWrap input{position:absolute;left:0;top:0;width:44px;height:44px;opacity:0.011;font-size:16px;border:0;z-index:2;cursor:pointer;-webkit-appearance:none;appearance:none;background:transparent;color:transparent}
-  .inbox textarea{min-height:44px!important;transition:min-height .15s}
-  .inbox textarea.has{min-height:88px!important}
+  .pickCol{display:flex;flex-direction:column;gap:4px;flex:0 0 44px}
+  .pickWrap{position:relative;width:44px;height:40px}
+  /* 絵を一番上に置き、指は素通りさせて下の透明な欄に届ける（欄がどう描かれても絵は隠れない） */
+  .pickBtn{position:absolute;inset:0;display:grid;place-items:center;border:1px solid var(--line);border-radius:12px;background:#fff;font-size:19px;z-index:3;pointer-events:none}
+  .pickWrap input{position:absolute;inset:0;width:100%;height:100%;opacity:0.011;font-size:16px;border:0;z-index:2;cursor:pointer;-webkit-appearance:none;appearance:none;background:transparent;color:transparent;margin:0;padding:0}
+  .inbox textarea{min-height:84px!important;transition:min-height .15s}
+  .inbox textarea.has{min-height:84px!important}
   .card{padding:10px 12px;margin:8px 0}
   .todo{display:flex;gap:10px;align-items:flex-start;border-bottom:1px solid var(--line);padding:7px 0;font-size:15px}
   .todo:last-child{border-bottom:0}
@@ -141,7 +142,10 @@
   <section class="card inbox" data-block="inbox">
     <div style="display:flex;gap:6px;align-items:flex-start">
       <textarea id="pIn" rows="1" placeholder="ひとこと入れる（例：今日牛乳買う）" style="flex:1"></textarea>
-      <span class="pickWrap"><span class="pickBtn" id="pickBtn" aria-hidden="true">🗓️</span><input type="date" id="pickDate" aria-label="日付を選ぶ"></span>
+      <span class="pickCol">
+        <span class="pickWrap"><input type="date" id="pickDate" aria-label="日付を選ぶ"><span class="pickBtn" aria-hidden="true">🗓️</span></span>
+        <span class="pickWrap"><input type="time" id="pickTime" aria-label="時刻を選ぶ"><span class="pickBtn" aria-hidden="true">🕘</span></span>
+      </span>
     </div>
     <div class="ctrl">
       <button type="button" id="pRule" class="main">読み取る（AIなし）</button>
@@ -564,6 +568,27 @@ $("pickDate").addEventListener("change", () => {
   ta.value = s.slice(0, ls) + md + line + s.slice(le);
   ta.classList.add("has"); const c = ls + md.length + line.length; try { ta.setSelectionRange(c, c); } catch (_) {}
   /* 選んだ日付は空に戻さない（iPhone は押した瞬間に知らせてくるため、戻すと選び直せなくなる） */
+});
+/* 🕘：選んだ時刻を、書いている行の日付の後ろ（なければ行の頭）に「9:30 」と入れる。もう時刻があれば置きかえる */
+const TIME_RE = /\s*(\d{1,2}:\d{2}|\d{1,2}\s*時\s*(半|\d{1,2}\s*分)?)\s*/;
+const HEAD_DATE_RE = /^\s*\d{1,2}\s*[\/月.・-]\s*\d{1,2}\s*日?\s*/;
+function timePreset() {
+  const ta = $("pIn"), s = ta.value, pos = ta.selectionStart ?? s.length, ls = s.lastIndexOf("\n", pos - 1) + 1, le = s.indexOf("\n", pos) < 0 ? s.length : s.indexOf("\n", pos);
+  pickLine = pos; let r = null; try { r = readTime(s.slice(ls, le)); } catch (_) {}
+  $("pickTime").value = r && r.time ? r.time : "09:00";
+}
+$("pickTime").addEventListener("touchstart", timePreset, { passive: true });
+$("pickTime").addEventListener("mousedown", timePreset);
+$("pickTime").addEventListener("change", () => {
+  const v = $("pickTime").value; if (!v) return;
+  const tm = `${+v.slice(0, 2)}:${v.slice(3, 5)} `;
+  const ta = $("pIn"), pos = pickLine ?? ta.selectionStart ?? ta.value.length;
+  const s = ta.value, ls = s.lastIndexOf("\n", pos - 1) + 1, le = s.indexOf("\n", pos) < 0 ? s.length : s.indexOf("\n", pos);
+  let line = s.slice(ls, le).replace(TIME_RE, " ").replace(/^\s+/, "");
+  const m = line.match(HEAD_DATE_RE), head = m ? m[0].replace(/\s*$/, " ") : "", rest = m ? line.slice(m[0].length) : line;
+  const out = head + tm + rest.replace(/^\s+/, "");
+  ta.value = s.slice(0, ls) + out + s.slice(le);
+  ta.classList.add("has"); const c = ls + out.length; try { ta.setSelectionRange(c, c); } catch (_) {}
 });
 /* ---------- まとめてカレンダーへ ---------- */
 function addDaysStr(d, n) { return new Date(Date.parse(d + "T12:00:00Z") + n * 86400000).toISOString().slice(0, 10); }
