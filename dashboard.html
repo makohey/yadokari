@@ -91,11 +91,6 @@
   /* 絵を一番上に置き、指は素通りさせて下の透明な欄に届ける（欄がどう描かれても絵は隠れない） */
   .pickBtn{position:absolute;inset:0;display:grid;place-items:center;border:1px solid var(--line);border-radius:12px;background:#fff;font-size:19px;z-index:3;pointer-events:none}
   .pickWrap input{position:absolute;inset:0;width:100%;height:100%;opacity:0.011;font-size:16px;border:0;z-index:2;cursor:pointer;-webkit-appearance:none;appearance:none;background:transparent;color:transparent;margin:0;padding:0}
-  .pickWrap>button.pickBtn{pointer-events:auto;cursor:pointer;padding:0;color:inherit;font:inherit;font-size:19px}
-  .emoPanel{margin-top:6px;border:1px solid var(--line);border-radius:12px;padding:6px 8px;background:#fff}
-  .emoRow{display:flex;flex-wrap:wrap;gap:4px;margin:2px 0}
-  .emoRow button{font-size:22px;line-height:1;padding:6px 7px;border:1px solid var(--line);border-radius:10px;background:#fff;min-width:42px;position:relative}
-  .emoRow button .x{position:absolute;top:-6px;right:-6px;font-size:11px;background:#c0504d;color:#fff;border-radius:999px;width:16px;height:16px;line-height:16px;text-align:center}
   .emoLbl{font-size:11px;color:var(--mut,#777);margin:4px 0 0}
   .emoCount{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:17px;margin-top:6px}
   .emoCount b{font-size:14px;margin-left:2px}
@@ -153,10 +148,8 @@
       <span class="pickCol">
         <span class="pickWrap"><input type="date" id="pickDate" aria-label="日付を選ぶ"><span class="pickBtn" aria-hidden="true">🗓️</span></span>
         <span class="pickWrap"><input type="time" id="pickTime" aria-label="時刻を選ぶ"><span class="pickBtn" aria-hidden="true">🕘</span></span>
-        <span class="pickWrap"><button type="button" class="pickBtn" id="emoBtn" aria-label="絵文字を入れる">😊</button></span>
       </span>
     </div>
-    <div class="emoPanel" id="emoPanel" hidden></div>
     <div class="ctrl">
       <button type="button" id="pRule" class="main">読み取る（AIなし）</button>
       <button type="button" id="pAi" disabled>AIに読み取ってもらう</button>
@@ -341,28 +334,6 @@ function emojisIn(s) {
     out.push(k);
   }
   return out;
-}
-const EMO_KEY = "yadokari.dash.emoji";
-const getMyEmo = () => { try { const v = JSON.parse(localStorage.getItem(EMO_KEY) || "[]"); return Array.isArray(v) ? v.filter(x => typeof x === "string" && x).slice(0, 24) : []; } catch (_) { return []; } };
-const setMyEmo = v => { try { localStorage.setItem(EMO_KEY, JSON.stringify(v.slice(0, 24))); } catch (_) {} };
-let emoEdit = false, emoCaret = null;
-function emoRender() {
-  const mine = getMyEmo();
-  const cnt = new Map();
-  for (const it of load()) for (const e of emojisIn([it.what, it.memo].join(" "))) cnt.set(e, (cnt.get(e) || 0) + 1);
-  const used = [...cnt].sort((a, b) => b[1] - a[1]).map(x => x[0]).filter(e => !mine.includes(e)).slice(0, 12);
-  const btn = (e, i) => `<button type="button" data-emo="${esc(e)}"${i != null ? ` data-emoi="${i}"` : ""}>${esc(e)}${emoEdit && i != null ? `<span class="x">✕</span>` : ""}</button>`;
-  $("emoPanel").innerHTML =
-    `<p class="emoLbl">自分の絵文字</p><div class="emoRow">${mine.map((e, i) => btn(e, i)).join("") || `<span class="note" style="margin:4px 0">まだありません。下の「＋」で置けます</span>`}</div>` +
-    (used.length ? `<p class="emoLbl">よく使っている</p><div class="emoRow">${used.map(e => btn(e)).join("")}</div>` : "") +
-    (emoEdit
-      ? `<div style="display:flex;gap:6px;margin-top:6px;align-items:center"><input id="emoIn" placeholder="絵文字を入れて「置く」" style="flex:1;font-size:16px;padding:5px 8px;border:1px solid var(--line);border-radius:10px"><button type="button" id="emoAdd">置く</button><button type="button" id="emoDone">できた</button></div><p class="note" style="margin:4px 0 0">いくつかまとめて入れても置けます（最大24）。✕で外せます。</p>`
-      : `<div style="display:flex;gap:6px;margin-top:6px"><button type="button" id="emoEditBtn" style="font-size:12px;padding:3px 10px">＋ 自分の絵文字を置く</button><button type="button" id="emoClose" style="font-size:12px;padding:3px 10px;margin-left:auto">閉じる</button></div>`);
-}
-function emoInsert(e) {
-  const ta = $("pIn"), s = ta.value, pos = emoCaret ?? ta.selectionStart ?? s.length;
-  ta.value = s.slice(0, pos) + e + s.slice(pos); emoCaret = pos + e.length;
-  ta.classList.add("has"); try { ta.setSelectionRange(emoCaret, emoCaret); } catch (_) {}
 }
 function calendar(items) {
   $("mTitle").textContent = `${ym.y}年${ym.m}月`;
@@ -603,26 +574,6 @@ $("resetAll").onclick = async () => {
 /* 🗓️：選んだ日付を、書いている行の頭に「10/19 」と入れる（もう日付があれば置きかえる） */
 /* 透明な日付の欄を🗓️の上に重ねて、指が直接触れる形にする（iPhone で一番確実に選ぶ画面が出る）。
    触れた瞬間に、書いている行の日付（なければ今日）を選んだ状態にしておく */
-/* 😊：自分の絵文字の板。押すと入力欄のカーソルの所に入る（キーボードは開かない） */
-$("pIn").addEventListener("blur", () => { emoCaret = $("pIn").selectionStart; });
-$("pIn").addEventListener("input", () => { emoCaret = null; });
-$("emoBtn").addEventListener("click", () => { const p = $("emoPanel"); p.hidden = !p.hidden; emoEdit = false; if (!p.hidden) emoRender(); });
-$("emoPanel").addEventListener("click", e => {
-  const b = e.target.closest("[data-emo]");
-  if (b) {
-    if (emoEdit && b.dataset.emoi != null) { const v = getMyEmo(); v.splice(+b.dataset.emoi, 1); setMyEmo(v); emoRender(); return; }
-    emoInsert(b.dataset.emo); return;
-  }
-  if (e.target.closest("#emoEditBtn")) { emoEdit = true; emoRender(); setTimeout(() => { const x = $("emoIn"); if (x) x.focus(); }, 50); return; }
-  if (e.target.closest("#emoDone")) { emoEdit = false; emoRender(); return; }
-  if (e.target.closest("#emoClose")) { $("emoPanel").hidden = true; return; }
-  if (e.target.closest("#emoAdd")) {
-    const add = emojisIn($("emoIn").value), v = getMyEmo();
-    for (const x of add) if (!v.includes(x)) v.push(x);
-    if (!add.length) { $("emoIn").value = ""; $("emoIn").placeholder = "絵文字だけ置けます"; return; }
-    setMyEmo(v); emoRender(); setTimeout(() => { const x = $("emoIn"); if (x) x.focus(); }, 50);
-  }
-});
 let pickLine = null;
 function pickPreset() {
   const ta = $("pIn"), s = ta.value, pos = ta.selectionStart ?? s.length, ls = s.lastIndexOf("\n", pos - 1) + 1, le = s.indexOf("\n", pos) < 0 ? s.length : s.indexOf("\n", pos);
@@ -830,7 +781,7 @@ render();
 <!-- 新しい版の知らせ（版を上げるときは version.json とこの APP_VER を同じにする） -->
 <script>
 (() => {
-  const APP_VER = "20261016e";
+  const APP_VER = "20261016f";
   let shown = false;
   const check = () => {
     if (shown || !navigator.onLine) return;
