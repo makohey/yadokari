@@ -108,7 +108,7 @@
 <body>
 <div class="wrap">
   <header>
-    <div><h1>🦀 月まとめ <span style="font-size:11px;font-weight:700;border:1px solid var(--line);border-radius:999px;padding:1px 8px;vertical-align:3px">ベータ</span></h1><small>この端末の中だけ・数えるのはコード</small></div>
+    <div><h1><span id="mascot" data-mascot style="-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;cursor:default">🦀</span> 月まとめ <span style="font-size:11px;font-weight:700;border:1px solid var(--line);border-radius:999px;padding:1px 8px;vertical-align:3px">ベータ</span></h1><small>この端末の中だけ・数えるのはコード</small></div>
     <div class="nav"><a href="#" id="openWelcome">はじめに</a><a href="./lab.html" data-labonly style="display:none">実験室</a><a href="./" data-labonly style="display:none">ヤドカリ</a></div>
   </header>
   <div id="homeTip" class="card" style="display:none;background:#fff3dc;border-color:#f0d9ae;font-size:13px">
@@ -117,7 +117,7 @@
   </div>
   <div id="welcome" style="display:none;position:fixed;inset:0;z-index:50;background:rgba(58,44,36,.45);padding:16px;overflow:auto">
     <div class="card" style="max-width:560px;margin:24px auto;padding:16px">
-      <h2 style="margin:0 0 6px;font-size:18px">🦀 ヤドカリの月まとめ（ベータ）へようこそ</h2>
+      <h2 style="margin:0 0 6px;font-size:18px"><span data-mascot>🦀</span> ヤドカリの月まとめ（ベータ）へようこそ</h2>
       <p style="font-size:14px;margin:6px 0">思いついた予定ややることを、ひとことで入れるだけの手帳です。日付と時刻はプログラムが読み取り、入れる前に確認できます。</p>
       <div class="sect" style="margin-top:10px">大事なこと</div>
       <ul style="font-size:13.5px;margin:4px 0 8px;padding-left:1.2em;line-height:1.7">
@@ -131,7 +131,7 @@
       <div class="sect">使い方</div>
       <ol style="font-size:13.5px;margin:4px 0 8px;padding-left:1.4em;line-height:1.7">
         <li>上の欄に「明日9時から出勤」「今日牛乳買う」のように書いて「読み取る」</li>
-        <li>🦀の一言と確認カードを見て、ちがう所を直して「これで入れる」</li>
+        <li><span data-mascot>🦀</span>の一言と確認カードを見て、ちがう所を直して「これで入れる」</li>
         <li>今日の予定とやることは一番上に。やることは ☐ で済み</li>
         <li>カレンダーは左右に滑らせると月が変わります。✏️ でいつでも直せます</li>
       </ol>
@@ -188,7 +188,7 @@
   <section class="card" id="dayCard" data-block="day"></section>
 
   <section class="card" id="memoCard" data-block="memo" style="display:none">
-    <div class="sect">🦀 ヤドカリのメモから（予定かも？）</div>
+    <div class="sect"><span data-mascot>🦀</span> ヤドカリのメモから（予定かも？）</div>
     <p class="note">ふだんのヤドカリに書いたメモのうち、予定っぽいものです。ヤドカリ本体には何も書き込みません。「読み取る」で上の確認カードに出ます。「明日」は、そのメモを書いた日の明日として読みます。</p>
     <div id="memoList"></div>
     <div class="ctrl"><button type="button" id="memoAi" disabled>言葉で拾えなかったメモを、<span data-ainame>ローカルくん</span>に見てもらう</button></div>
@@ -196,7 +196,7 @@
   </section>
 
   <section class="card" id="dupCard" data-block="dup" style="display:none">
-    <div class="sect">🦀 重なっているかも</div>
+    <div class="sect"><span data-mascot>🦀</span> 重なっているかも</div>
     <p class="note">同じ日に似た予定があります。どちらを残すか選んでね（消す方の備考だけ、残す方に足します。時刻や場所は残す方のまま）。ちがう用事なら「別の予定」を押してね。勝手には消しません。</p>
     <div id="dupList"></div>
     <div class="ctrl"><button type="button" id="dupAi" disabled>決めきれない組を<span data-ainame>ローカルくん</span>に見てもらう</button></div>
@@ -259,7 +259,7 @@
   <p class="note">予定は上の「ひとこと入れる」か、実験室の練習台から入れます（どちらも同じ所に入ります）。数えるのは毎回コードが計算し直しています。まちがいに気づいたら ✏️ で直してください。</p>
 </div>
 
-<script src="./plan-core.js?v=20261015g"></script>
+<script src="./plan-core.js?v=20261016a"></script>
 <script>
 (() => {
 "use strict";
@@ -626,8 +626,31 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) tick
 /* ローカルくんの名前をつける（この端末の中だけ） */
 function showAiName() { const n = aiName(); document.querySelectorAll("[data-ainame]").forEach(el => el.textContent = n); const i = $("aiNameIn"); if (i && document.activeElement !== i) i.value = n === "ローカルくん" ? "" : n; showAIState(); }
 $("aiNameSave").onclick = () => { const v = $("aiNameIn").value.trim().slice(0, 12); try { v ? localStorage.setItem(K.aiName, v) : localStorage.removeItem(K.aiName); } catch (_) {} showAiName(); render();
-  const o = $("pOut"); if (o) o.innerHTML = `<div class="reply"><div class="av">🦀</div><div class="bb">${v ? `これからは「${esc(v)}」だね。よろしくね` : "名前を「ローカルくん」に戻したよ"}</div></div>`; };
+  const o = $("pOut"); if (o) o.innerHTML = `<div class="reply"><div class="av">${esc(avatar())}</div><div class="bb">${v ? `これからは「${esc(v)}」だね。よろしくね` : "名前を「ローカルくん」に戻したよ"}</div></div>`; };
 showAiName();
+/* 絵を長押しすると、好きな絵文字に変えられる（説明はしない） */
+function showMascot() { const a = avatar(); document.querySelectorAll("[data-mascot]").forEach(el => el.textContent = a); }
+(() => {
+  const m = $("mascot"); let timer = null, fired = false;
+  const isOneEmoji = s => { try { const seg = [...new Intl.Segmenter("ja", { granularity: "grapheme" }).segment(s)]; return seg.length === 1 && /\p{Extended_Pictographic}|\p{Regional_Indicator}/u.test(s); } catch (_) { return /^\p{Extended_Pictographic}[️‍\p{Extended_Pictographic}\p{Emoji_Modifier}]*$/u.test(s); } };
+  const open = () => {
+    fired = true;
+    const v = prompt("絵文字をひとつ（空にすると元に戻ります）", avatar() === "🦀" ? "" : avatar());
+    if (v === null) return;
+    const s = v.trim();
+    if (!s) { try { localStorage.removeItem(K.avatar); } catch (_) {} }
+    else if (isOneEmoji(s)) { try { localStorage.setItem(K.avatar, s); } catch (_) {} }
+    else { alert("絵文字をひとつだけ入れてね"); return; }
+    showMascot();
+    const o = $("pOut"); if (o) o.innerHTML = `<div class="reply"><div class="av">${esc(avatar())}</div><div class="bb">${s ? "よろしくね" : "おかえり"}</div></div>`;
+  };
+  const start = () => { fired = false; clearTimeout(timer); timer = setTimeout(open, 650); };
+  const stop = () => clearTimeout(timer);
+  m.addEventListener("touchstart", start, { passive: true }); m.addEventListener("touchend", stop); m.addEventListener("touchmove", stop, { passive: true }); m.addEventListener("touchcancel", stop);
+  m.addEventListener("mousedown", start); m.addEventListener("mouseup", stop); m.addEventListener("mouseleave", stop);
+  m.addEventListener("contextmenu", e => e.preventDefault());
+})();
+showMascot();
 /* 1つの欄で止まっても、ほかの欄は出す */
 function render() { const items = load(); for (const f of [today, tiles, calendar, memos, dups, dayCard, lists]) { try { f(items); } catch (e) { console.error(e); } } }
 

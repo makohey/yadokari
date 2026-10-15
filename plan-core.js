@@ -12,6 +12,9 @@ const z = n => String(n).padStart(2, "0");
 const K = { items: "yadokari.plan.items", fixes: "yadokari.plan.fixes", stats: "yadokari.lab.stats", seat: "yadokari.lab.ai.seat", auto: "yadokari.lab.ai.auto" };
 /* ローカルくんの名前（使う人が付けられる。初めは「ローカルくん」） */
 K.aiName = "yadokari.ai.name";
+/* 見張り役の絵（初めは🦀）。見出しの絵を長押しすると変えられる（説明はしない、見つけた人だけのおまけ） */
+K.avatar = "yadokari.avatar";
+function avatar() { try { const v = (localStorage.getItem(K.avatar) || "").trim(); return v || "🦀"; } catch (_) { return "🦀"; } }
 function aiName() { try { const n = (localStorage.getItem(K.aiName) || "").trim(); return n ? n.slice(0, 12) : "ローカルくん"; } catch (_) { return "ローカルくん"; } }
 const getJ = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k)); return v ?? d; } catch (_) { return d; } };
 const setJ = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (_) { alert("保存できませんでした（容量がいっぱいかも）"); return false; } };
@@ -362,7 +365,7 @@ function card(o, who, sec, i, n) {
   const id = k => `${k}-${i}`;
   return `<div class="pcard" id="${id("pc")}" style="${n > 1 ? "border-top:1px dashed var(--line);padding-top:6px;margin-top:6px" : ""}">
   ${n > 1 ? `<div class="note">${i + 1} / ${n} 行目：${esc(o.src)}</div>` : ""}
-  <div class="reply"><div class="av">🦀</div><div class="bb">${esc(replyLine(o))}</div></div>
+  <div class="reply"><div class="av">${esc(avatar())}</div><div class="bb">${esc(replyLine(o))}</div></div>
   ${o.notes?.length ? o.notes.map(t => `<div class="warn">${esc(t)}</div>`).join("") : ""}
   <div class="note"><span class="chip">読み取った人：${esc(who)}${sec != null ? `・${sec.toFixed(1)}秒` : ""}</span></div>
   <div class="pf"><span>種類</span><select id="${id("pKind")}">${opts(KINDS, o.kind)}</select></div>
@@ -385,7 +388,7 @@ function finishCard(i, html) { if (drafts[i]?.memoKey) { memoMarkSeen(drafts[i].
 function saveCards(list) {
   const items = load(), got = list.map(takeCard); items.push(...got); if (!save(items)) return;
   const calOn = typeof window.calAllowed === "function" && window.calAllowed();
-  list.forEach((i, k) => finishCard(i, `<div class="reply"><div class="av">🦀</div><div class="bb">入れたよ。${esc(replyLine(got[k]))}${calOn && got[k].date ? `<div style="margin-top:6px"><button type="button" data-cal="${esc(got[k].id)}">📅 カレンダーへ</button></div>` : ""}</div></div>`));
+  list.forEach((i, k) => finishCard(i, `<div class="reply"><div class="av">${esc(avatar())}</div><div class="bb">入れたよ。${esc(replyLine(got[k]))}${calOn && got[k].date ? `<div style="margin-top:6px"><button type="button" data-cal="${esc(got[k].id)}">📅 カレンダーへ</button></div>` : ""}</div></div>`));
   dispatchEvent(new Event("yadokari:saved"));
 }
 /* 見張り4：元の文に「出勤・仕事・シフト」などがあるのに、すること が出勤でない時は出勤にする。
