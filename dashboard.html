@@ -100,6 +100,9 @@
   .todo .sub{font-size:11px;color:var(--muted)}
   .todo.done .t{text-decoration:line-through;color:var(--muted)}
   .pk.ok{color:#3d8b4f;border-color:#bfe0c1}
+  .msg{display:flex;margin:6px 0}.msg.me{justify-content:flex-end}
+  .msg .b{max-width:82%;padding:7px 11px;border-radius:14px;font-size:14.5px;line-height:1.5;white-space:pre-wrap;word-break:break-word}
+  .msg.me .b{background:#dcf4d8;border-bottom-right-radius:4px}.msg.ai .b{background:#fff;border:1px solid var(--line);border-bottom-left-radius:4px}
   .inbox .aiState{font-size:11px;padding:3px 8px;margin-top:6px}
   @media (max-width:480px){.day{min-height:48px}.cal{gap:2px}}
 </style>
@@ -160,6 +163,18 @@
       <label class="note" style="display:block"><input type="checkbox" id="aiAuto" checked> 開いた時、前に使った席を自動で読み込む（端末の中にある時だけ。通信なし）</label>
       <p class="note" id="aiLog" style="white-space:pre-wrap"></p>
       <div class="ctrl"><button type="button" id="aiDel" disabled>読み込んだモデルを消す</button></div>
+    </details>
+  </section>
+
+  <section class="card" data-block="chat">
+    <details id="chatBox"><summary style="font-weight:700;font-size:14px">💬 <span data-ainame>ローカルくん</span>と話す</summary>
+      <div id="chatLog" style="max-height:320px;overflow:auto;margin:8px 0;overscroll-behavior:contain"></div>
+      <div style="display:flex;gap:6px;align-items:flex-end">
+        <textarea id="chatIn" rows="1" placeholder="話しかける" style="flex:1;min-height:40px;border:1px solid var(--line);border-radius:12px;padding:8px 10px;font-size:16px;background:#fff;resize:vertical"></textarea>
+        <button type="button" id="chatSend" class="main" style="flex:0 0 auto">送る</button>
+      </div>
+      <div class="ctrl" style="margin-top:6px"><button type="button" id="chatClear" style="font-size:12px;padding:3px 10px">会話を消す</button></div>
+      <p class="note">会話は保存しません（ページを閉じると消えます）。<span data-ainame>ローカルくん</span>は小さなAIなので、返事は外れることがあります。今日と明日の予定だけは、プログラムが正しく渡しています。</p>
     </details>
   </section>
 
@@ -424,7 +439,7 @@ function today(items) {
     + (doneToday.length ? `<details style="margin-top:4px"><summary>今日済んだ（${doneToday.length}）</summary>${doneToday.map(todo).join("")}</details>` : "");
 }
 /* 並び順の表：ここを入れ替えれば画面の並びが変わる（あとで使う人が選べるようにする時の土台） */
-const BLOCK_ORDER = ["inbox", "today", "month", "day", "tiles", "memo", "dup", "undated", "calendarLink", "backup"];
+const BLOCK_ORDER = ["inbox", "chat", "today", "month", "day", "tiles", "memo", "dup", "undated", "calendarLink", "backup"];
 (function arrange() {
   const wrap = document.querySelector(".wrap"), tail = wrap.querySelector(":scope > p.note:last-of-type");
   for (const k of BLOCK_ORDER) { const el = wrap.querySelector(`:scope > [data-block="${k}"]`); if (el) wrap.insertBefore(el, tail); }
@@ -603,6 +618,53 @@ function showAiName() { const n = aiName(); document.querySelectorAll("[data-ain
 $("aiNameSave").onclick = () => { const v = $("aiNameIn").value.trim().slice(0, 12); try { v ? localStorage.setItem(K.aiName, v) : localStorage.removeItem(K.aiName); } catch (_) {} showAiName(); render();
   const o = $("pOut"); if (o) o.innerHTML = `<div class="reply"><div class="av">🦀</div><div class="bb">${v ? `これからは「${esc(v)}」だね。よろしくね` : "名前を「ローカルくん」に戻したよ"}</div></div>`; };
 showAiName();
+/* ---------- ローカルくんと話す（保存しない・短く・手帳の事実はコードが渡す） ---------- */
+let chatHist = [];
+function chatFacts() {
+  const items = load(), tm = addDaysStr(t0, 1);
+  const line = it => `${it.time || it.part || "時刻なし"} ${cleanWhat(it.what)}${it.place ? "（" + it.place + "）" : ""}`;
+  const td = items.filter(it => it.date === t0 && it.kind !== "メモ").sort((a, b) => sortKey(a) < sortKey(b) ? -1 : 1).map(line);
+  const tw = items.filter(it => it.date === tm && it.kind !== "メモ").sort((a, b) => sortKey(a) < sortKey(b) ? -1 : 1).map(line);
+  const todo = items.filter(it => it.kind === "やること" && !it.done && (!it.date || it.date <= t0)).map(it => cleanWhat(it.what));
+  return [`今日は${DF(t0)}。`, `今日の予定：${td.join("、") || "なし"}`, `明日（${DF(tm)}）の予定：${tw.join("、") || "なし"}`, `まだのやること：${todo.join("、") || "なし"}`].join("\n");
+}
+function chatSys() {
+  return [`あなたは「${aiName()}」。この手帳に住んでいる、小さくてやさしい相棒です。`,
+    "日本語で、短く、2文以内で返事をします。むずかしい言葉は使いません。",
+    "下の「手帳の事実」にない予定や出来事を、知っているように言いません。分からないことは「分からない」と言います。",
+    "病気・薬・お金・法律・危ないことの助言はしません。その時は「詳しい人に相談してね」とだけ言います。",
+    "この先の天気の予想はしません。",
+    "ときどき、相手が自分で考えたくなる短い問いを1つ返してもかまいません。",
+    "手帳の事実：", chatFacts()].join("\n");
+}
+function chatRender() {
+  const log = $("chatLog");
+  log.innerHTML = chatHist.length ? chatHist.map(m => `<div class="msg ${m.role === "user" ? "me" : "ai"}"><div class="b">${m.role === "user" ? "" : "🦀 "}${esc(m.content)}</div></div>`).join("")
+    : `<p class="note">${esc(aiName())}に話しかけてみてね。「今日の予定は？」「明日なにがある？」など。</p>`;
+  log.scrollTop = log.scrollHeight;
+}
+function chatTidy(s) {
+  s = String(s || "").replace(/<think>[\s\S]*?<\/think>/g, "").replace(/^\s*(assistant|アシスタント)[:：]\s*/i, "").trim();
+  const parts = s.match(/[^。！？!?\n]+[。！？!?]?/g) || [s];
+  return parts.slice(0, 3).join("").trim().slice(0, 160) || "……";
+}
+async function chatSend() {
+  const t = $("chatIn").value.trim(); if (!t) return;
+  if (!engine) { chatHist.push({ role: "user", content: t }, { role: "assistant", content: `まだ起きていないみたい。上の「${aiName()}（AI）の席」で読み込んでから話しかけてね。` }); $("chatIn").value = ""; chatRender(); return; }
+  chatHist.push({ role: "user", content: t }); $("chatIn").value = ""; chatRender();
+  const wait = document.createElement("div"); wait.className = "msg ai"; wait.innerHTML = `<div class="b">🦀 …</div>`; $("chatLog").appendChild(wait); $("chatLog").scrollTop = 1e9;
+  setBusy(true); $("chatSend").disabled = true;
+  try {
+    const msgs = [{ role: "system", content: chatSys() }, ...chatHist.slice(-6)];
+    const r = await Promise.race([engine.chat.completions.create({ messages: msgs, temperature: 0.6, max_tokens: 120 }), new Promise((_, rej) => setTimeout(() => rej(new Error("時間切れ")), 60000))]);
+    chatHist.push({ role: "assistant", content: chatTidy(r.choices?.[0]?.message?.content) });
+  } catch (e) { chatHist.push({ role: "assistant", content: "ごめんね、うまく返事できなかった。（" + (e?.message || e) + "）" }); }
+  finally { setBusy(false); $("chatSend").disabled = false; chatRender(); }
+}
+$("chatSend").onclick = chatSend;
+$("chatIn").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); chatSend(); } });
+$("chatClear").onclick = () => { chatHist = []; chatRender(); };
+$("chatBox").addEventListener("toggle", () => { if ($("chatBox").open) chatRender(); });
 /* 1つの欄で止まっても、ほかの欄は出す */
 function render() { const items = load(); for (const f of [today, tiles, calendar, memos, dups, dayCard, lists]) { try { f(items); } catch (e) { console.error(e); } } }
 
