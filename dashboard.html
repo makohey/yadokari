@@ -176,10 +176,12 @@
     </div>
     <div id="calMore" style="display:none">
       <div class="pf" style="margin-top:8px"><span>出し方</span><select id="calHow">
-        <option value="open">開く（カレンダーの「追加」画面が出るか試す）</option>
+        <option value="page">開く・ページ経由（Safari向け・おすすめ）</option>
+        <option value="open">開く・そのまま（前の作り）</option>
         <option value="save">ファイルとして保存</option>
         <option value="share">共有シートで渡す</option>
       </select></div>
+      <p class="note" id="calEnv"></p>
       <p class="note">時刻のある予定は「始まりだけ」で出します（終わりの時刻はまだ入れていないため）。カレンダー側で直せます。</p>
       <div class="ctrl"><button type="button" id="calTestDay">🦀テスト（終日）を出す</button><button type="button" id="calTestTime">🦀テスト（1時間後）を出す</button></div>
       <p class="note">テスト予定は今日の日付で「🦀テスト」という名前になります。確かめたら、カレンダーから手で消してね。</p>
@@ -357,13 +359,17 @@ function makeIcs(it) {
 }
 function calLog(t) { const el = $("calLog"); if (el) el.textContent = t; }
 async function sendIcs(it) {
-  const how = (() => { try { return localStorage.getItem(CAL_HOW) || "open"; } catch (_) { return "open"; } })();
+  const how = (() => { try { return localStorage.getItem(CAL_HOW) || "page"; } catch (_) { return "page"; } })();
   const text = makeIcs(it), name = `yadokari-${it.date}-${String(it.id).slice(-6)}.ics`;
   const blob = new Blob([text], { type: "text/calendar;charset=utf-8" });
   if (how === "share") {
     const f = new File([blob], name, { type: "text/calendar" });
     if (navigator.canShare && navigator.canShare({ files: [f] })) { try { await navigator.share({ files: [f], title: it.what }); calLog("共有シートで渡しました。カレンダーが一覧にあったか教えてね"); return true; } catch (e) { calLog("共有をやめたか、渡せませんでした：" + (e?.message || e)); return false; } }
     calLog("このブラウザは共有シートでファイルを渡せないみたい。「開く」か「保存」で試してね"); return false;
+  }
+  if (how === "page") {
+    if (!navigator.serviceWorker?.controller) { calLog("準備中です。ページを一度読み直してから、もう一度押してね（裏の係がまだ動いていません）"); calSWRegister(); return false; }
+    location.href = "./cal.ics?t=" + encodeURIComponent(text); calLog("開きました。「追加」の画面が出たか教えてね"); return true;
   }
   const url = URL.createObjectURL(blob);
   if (how === "open") { location.href = url; calLog("開きました。「追加」の画面が出たか教えてね"); }
@@ -376,11 +382,20 @@ function calFirstNotice() {
   if (ok) { try { localStorage.setItem(CAL_SEEN, "1"); } catch (_) {} }
   return ok;
 }
+/* 裏の係は、カレンダーを許可した時だけ置く */
+function calSWRegister() { try { if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").then(() => setTimeout(calEnv, 800)).catch(e => calEnv("裏の係を置けませんでした：" + (e?.message || e))); } catch (_) {} }
+function calEnv(extra) {
+  const el = $("calEnv"); if (!el) return;
+  const ua = navigator.userAgent, brave = !!navigator.brave || /Brave/i.test(ua), ios = /iPhone|iPad|Macintosh/.test(ua) && "ontouchend" in document;
+  const sw = !("serviceWorker" in navigator) ? "使えない" : navigator.serviceWorker.controller ? "動いている" : "準備中（読み直すと動きます）";
+  el.textContent = `この端末：${ios ? "iPhone/iPad" : "その他"}・${brave ? "Brave" : /CriOS|Chrome/.test(ua) ? "Chrome系" : /FxiOS|Firefox/.test(ua) ? "Firefox" : /Safari/.test(ua) ? "Safari" : "ブラウザ不明"}・裏の係：${sw}` + (brave ? "　※Braveではカレンダーに渡せないかもしれません。Safariでも試してね" : "") + (extra ? "　" + extra : "");
+}
 function calSetupUI() {
   const v = calAllowed() ? "1" : "0";
   document.querySelectorAll('input[name="calAllow"]').forEach(r => { r.checked = r.value === v; });
   $("calMore").style.display = v === "1" ? "" : "none";
-  try { $("calHow").value = localStorage.getItem(CAL_HOW) || "open"; } catch (_) {}
+  try { $("calHow").value = localStorage.getItem(CAL_HOW) || "page"; } catch (_) {}
+  if (v === "1") { calSWRegister(); calEnv(); }
 }
 document.querySelectorAll('input[name="calAllow"]').forEach(r => r.onchange = () => {
   if (r.value === "1" && r.checked && !calFirstNotice()) { calSetupUI(); return; }
