@@ -486,6 +486,9 @@ $("resetAll").onclick = async () => {
 /* 🗓️：選んだ日付を、書いている行の頭に「10/19 」と入れる（もう日付があれば置きかえる） */
 $("pickBtn").addEventListener("click", () => {
   const d = $("pickDate");
+  /* 書いている行にもう日付があれば、その日を選んだ状態で開く。なければ今日 */
+  { const ta = $("pIn"), s = ta.value, pos = ta.selectionStart ?? s.length, ls = s.lastIndexOf("\n", pos - 1) + 1, le = s.indexOf("\n", pos) < 0 ? s.length : s.indexOf("\n", pos);
+    const r = readDate(s.slice(ls, le)); d.value = r ? r.date : t0; }
   /* 選ぶ画面を、ボタンから直接開く。開けない古いブラウザでは、日付の欄を押したことにする */
   try { if (typeof d.showPicker === "function") { d.showPicker(); return; } } catch (_) {}
   d.style.pointerEvents = "auto"; d.focus(); d.click(); setTimeout(() => { d.style.pointerEvents = ""; }, 500);
@@ -496,8 +499,8 @@ $("pickDate").addEventListener("change", () => {
   const s = ta.value, ls = s.lastIndexOf("\n", pos - 1) + 1, le = s.indexOf("\n", pos) < 0 ? s.length : s.indexOf("\n", pos);
   let line = s.slice(ls, le).replace(/^\s*\d{1,2}\s*[\/月.・-]\s*\d{1,2}\s*日?\s*/, "");
   ta.value = s.slice(0, ls) + md + line + s.slice(le);
-  ta.classList.add("has"); const c = ls + md.length + line.length; ta.focus(); try { ta.setSelectionRange(c, c); } catch (_) {}
-  $("pickDate").value = "";
+  ta.classList.add("has"); const c = ls + md.length + line.length; try { ta.setSelectionRange(c, c); } catch (_) {}
+  /* 選んだ日付は空に戻さない（iPhone は押した瞬間に知らせてくるため、戻すと選び直せなくなる） */
 });
 /* 1つの欄で止まっても、ほかの欄は出す */
 function render() { const items = load(); for (const f of [today, tiles, calendar, memos, dups, dayCard, lists]) { try { f(items); } catch (e) { console.error(e); } } }
