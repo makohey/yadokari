@@ -627,31 +627,35 @@ let pickLine = null;
 function pickPreset() {
   const ta = $("pIn"), s = ta.value, pos = ta.selectionStart ?? s.length, ls = s.lastIndexOf("\n", pos - 1) + 1, le = s.indexOf("\n", pos) < 0 ? s.length : s.indexOf("\n", pos);
   pickLine = pos; let r = null; try { r = readDate(s.slice(ls, le)); } catch (_) {}
-  $("pickDate").value = r ? r.date : t0;
+  /* 行に日付がなければ空にしておく（今日を選んでも「変わった」と分かるように） */
+  $("pickDate").value = r ? r.date : ""; pickDone.date = $("pickDate").value;
 }
 $("pickDate").addEventListener("touchstart", pickPreset, { passive: true });
 $("pickDate").addEventListener("mousedown", pickPreset);
-$("pickDate").addEventListener("change", () => {
-  const v = $("pickDate").value; if (!v) return;
+const pickDone = { date: "", time: "" };
+const onPickDate = () => {
+  const v = $("pickDate").value; if (!v || v === pickDone.date) return; pickDone.date = v;
   const ta = $("pIn"), md = `${+v.slice(5, 7)}/${+v.slice(8, 10)} `, pos = pickLine ?? ta.selectionStart ?? ta.value.length;
   const s = ta.value, ls = s.lastIndexOf("\n", pos - 1) + 1, le = s.indexOf("\n", pos) < 0 ? s.length : s.indexOf("\n", pos);
   let line = s.slice(ls, le).replace(/^\s*\d{1,2}\s*[\/月.・-]\s*\d{1,2}\s*日?\s*/, "");
   ta.value = s.slice(0, ls) + md + line + s.slice(le);
   ta.classList.add("has"); const c = ls + md.length + line.length; try { ta.setSelectionRange(c, c); } catch (_) {}
   /* 選んだ日付は空に戻さない（iPhone は押した瞬間に知らせてくるため、戻すと選び直せなくなる） */
-});
+};
+/* iPhone は知らせ方がまちまちなので、変わった・入力・閉じた、のどれでも拾う（同じ値は二度入れない） */
+for (const ev of ["change", "input", "blur"]) $("pickDate").addEventListener(ev, onPickDate);
 /* 🕘：選んだ時刻を、書いている行の日付の後ろ（なければ行の頭）に「9:30 」と入れる。もう時刻があれば置きかえる */
 const TIME_RE = /\s*(\d{1,2}:\d{2}|\d{1,2}\s*時\s*(半|\d{1,2}\s*分)?)\s*/;
 const HEAD_DATE_RE = /^\s*\d{1,2}\s*[\/月.・-]\s*\d{1,2}\s*日?\s*/;
 function timePreset() {
   const ta = $("pIn"), s = ta.value, pos = ta.selectionStart ?? s.length, ls = s.lastIndexOf("\n", pos - 1) + 1, le = s.indexOf("\n", pos) < 0 ? s.length : s.indexOf("\n", pos);
   pickLine = pos; let r = null; try { r = readTime(s.slice(ls, le)); } catch (_) {}
-  $("pickTime").value = r && r.time ? r.time : "09:00";
+  $("pickTime").value = r && r.time ? r.time : ""; pickDone.time = $("pickTime").value;
 }
 $("pickTime").addEventListener("touchstart", timePreset, { passive: true });
 $("pickTime").addEventListener("mousedown", timePreset);
-$("pickTime").addEventListener("change", () => {
-  const v = $("pickTime").value; if (!v) return;
+const onPickTime = () => {
+  const v = $("pickTime").value; if (!v || v === pickDone.time) return; pickDone.time = v;
   const tm = `${+v.slice(0, 2)}:${v.slice(3, 5)} `;
   const ta = $("pIn"), pos = pickLine ?? ta.selectionStart ?? ta.value.length;
   const s = ta.value, ls = s.lastIndexOf("\n", pos - 1) + 1, le = s.indexOf("\n", pos) < 0 ? s.length : s.indexOf("\n", pos);
@@ -660,7 +664,8 @@ $("pickTime").addEventListener("change", () => {
   const out = head + tm + rest.replace(/^\s+/, "");
   ta.value = s.slice(0, ls) + out + s.slice(le);
   ta.classList.add("has"); const c = ls + out.length; try { ta.setSelectionRange(c, c); } catch (_) {}
-});
+};
+for (const ev of ["change", "input", "blur"]) $("pickTime").addEventListener(ev, onPickTime);
 /* ---------- まとめてカレンダーへ ---------- */
 function addDaysStr(d, n) { return new Date(Date.parse(d + "T12:00:00Z") + n * 86400000).toISOString().slice(0, 10); }
 let bulkSel = {};
@@ -825,7 +830,7 @@ render();
 <!-- 新しい版の知らせ（版を上げるときは version.json とこの APP_VER を同じにする） -->
 <script>
 (() => {
-  const APP_VER = "20261016c";
+  const APP_VER = "20261016d";
   let shown = false;
   const check = () => {
     if (shown || !navigator.onLine) return;
