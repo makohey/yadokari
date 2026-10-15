@@ -274,7 +274,7 @@ const isSudden = it => /急遽|急に|急な|代わり|代打|ヘルプ/.test((i
 const sortKey = it => `${it.date || "9999"} ${it.time || ({ 朝: "07:00", 昼: "12:00", 夕方: "17:00" }[it.part] || (it.part ? "20:00" : "99:99"))}`;
 
 const t0 = todayStr();
-let ym = { y: +t0.slice(0, 4), m: +t0.slice(5, 7) }, sel = t0, editing = null;
+let ym = { y: +t0.slice(0, 4), m: +t0.slice(5, 7) }, sel = t0, editing = null; let editWhere = "";
 
 /* ---------- 数えるのはコード（毎回計算し直す） ---------- */
 function tiles(items) {
@@ -311,16 +311,16 @@ function calendar(items) {
   $("cal").innerHTML = heads + cells;
 }
 
-function rowHtml(it) {
-  if (editing === it.id) {
+function rowHtml(it, where) {
+  if (editing === it.id && editWhere === (where || "")) {
     const opts = (list, v) => list.map(x => `<option${x === v ? " selected" : ""}>${esc(x)}</option>`).join("");
-    return `<div class="row"><div class="pf"><span>種類</span><select id="eKind">${opts(KINDS, it.kind)}</select></div>
-      <div class="pf"><span>日付</span><input type="date" id="eDate" value="${esc(it.date)}"></div>
-      <div class="pf"><span>時刻</span><span style="display:flex;gap:6px"><input type="time" id="eTime" value="${esc(it.time)}" style="flex:1"><button type="button" data-clear="eTime" style="flex:0 0 auto">なし</button></span></div>
-      <div class="pf"><span>何</span><input id="eWhat" value="${esc(cleanWhat(it.what))}"></div>
-      <div class="pf"><span>場所</span><input id="ePlace" value="${esc(it.place)}" placeholder="なければ空のまま"></div>
-      <div class="pf"><span>すること</span><select id="eAct">${opts(ACTS, it.activity)}</select></div>
-      <div class="pf"><span>備考</span><textarea id="eMemo">${esc(it.memo)}</textarea></div>
+    return `<div class="row"><div class="pf"><span>種類</span><select data-f="kind">${opts(KINDS, it.kind)}</select></div>
+      <div class="pf"><span>日付</span><input type="date" data-f="date" value="${esc(it.date)}"></div>
+      <div class="pf"><span>時刻</span><span style="display:flex;gap:6px"><input type="time" data-f="time" value="${esc(it.time)}" style="flex:1"><button type="button" data-clear="time" style="flex:0 0 auto">なし</button></span></div>
+      <div class="pf"><span>何</span><input data-f="what" value="${esc(cleanWhat(it.what))}"></div>
+      <div class="pf"><span>場所</span><input data-f="place" value="${esc(it.place)}" placeholder="なければ空のまま"></div>
+      <div class="pf"><span>すること</span><select data-f="act">${opts(ACTS, it.activity)}</select></div>
+      <div class="pf"><span>備考</span><textarea data-f="memo">${esc(it.memo)}</textarea></div>
       <div class="ctrl"><button type="button" data-save="${esc(it.id)}">直す</button><button type="button" data-cancel>やめる</button><button type="button" data-del="${esc(it.id)}">消す</button></div>
       ${it.src ? `<div class="note">元の文：${esc(it.src)}</div>` : ""}</div>`;
   }
@@ -334,11 +334,11 @@ function rowHtml(it) {
 }
 function dayCard(items) {
   const list = items.filter(it => it.date === sel).sort((a, b) => sortKey(a) < sortKey(b) ? -1 : 1);
-  $("dayCard").innerHTML = `<div class="sect">${esc(DF(sel))}${sel === t0 ? "・今日" : ""}</div>` + (list.length ? list.map(rowHtml).join("") : '<div class="empty">この日の予定はありません</div>');
+  $("dayCard").innerHTML = `<div class="sect">${esc(DF(sel))}${sel === t0 ? "・今日" : ""}</div>` + (list.length ? list.map(it => rowHtml(it, "day")).join("") : '<div class="empty">この日の予定はありません</div>');
 }
 /* 小さい行（これからの予定用）。✏️ を押すと、いつもの直す形になる */
 function miniRow(it) {
-  if (editing === it.id) return rowHtml(it);
+  if (editing === it.id && editWhere === "upcoming") return rowHtml(it, "upcoming");
   const sent = it.calAt && it.calSig === calSig(it), cal = calAllowed() && it.date ? `<button type="button" class="calBtn" data-cal="${esc(it.id)}" aria-label="カレンダーへ" style="float:none;flex:0 0 auto;padding:0 4px">📅</button>` : "";
   const ic = it.activity === "出勤" ? "💼" : it.activity === "休み" ? "🌙" : it.kind === "やること" ? "☐" : "•";
   return `<div class="todo" style="padding:5px 0;font-size:14px${sent ? ";opacity:.55" : ""}"><span style="flex:0 0 20px;text-align:center">${ic}</span><div class="t">${esc(it.time || it.part || "")} ${esc(cleanWhat(it.what))}${it.place ? ` <small>＠${esc(it.place)}</small>` : ""}${sent ? ' <small>📅</small>' : ""}</div>${cal}<button type="button" class="edit" data-edit="${esc(it.id)}" aria-label="直す" style="float:none;flex:0 0 auto;padding:0 4px">✏️</button></div>`;
@@ -357,7 +357,7 @@ function lists(items) {
     + (later.length ? `<details id="laterBox"${open ? " open" : ""} style="margin-top:6px"><summary style="font-size:13px">あさって以降（${later.length}件${next ? `・次は ${esc(DF(next.date))} ${esc(cleanWhat(next.what))}` : ""}）</summary>${miniDay(later.slice(0, 30))}${later.length > 30 ? `<p class="note">ほか ${later.length - 30}件（カレンダーで見てね）</p>` : ""}</details>` : "");
   const lb = $("laterBox"); if (lb) lb.addEventListener("toggle", () => { try { localStorage.setItem(FOLD_KEY, lb.open ? "1" : "0"); } catch (_) {} });
   const un = items.filter(it => !it.date);
-  $("undated").innerHTML = un.length ? un.map(rowHtml).join("") : '<div class="empty">ありません</div>';
+  $("undated").innerHTML = un.length ? un.map(it => rowHtml(it, "undated")).join("") : '<div class="empty">ありません</div>';
 }
 let aiVerdict = {};  /* ローカルくんの答え（この画面を開いている間だけ） */
 function dups(items) {
@@ -608,12 +608,14 @@ document.addEventListener("click", e => {
       let done = false; const later = () => { if (done) return; done = true; render(); };
       addEventListener("focus", later, { once: true }); document.addEventListener("visibilitychange", () => { if (!document.hidden) later(); }, { once: true }); setTimeout(later, 4000); });
     return; }
-  const cl = e.target.closest("#dayCard [data-clear], #upcoming [data-clear], #undated [data-clear]"); if (cl) { const el = $(cl.dataset.clear); if (el) el.value = ""; return; }
-  const ed = e.target.closest("[data-edit]"); if (ed) { editing = ed.dataset.edit; render(); return; }
+  const cl = e.target.closest(".row [data-clear]"); if (cl) { const el = cl.closest(".row").querySelector(`[data-f="${cl.dataset.clear}"]`); if (el) el.value = ""; return; }
+  const ed = e.target.closest("[data-edit]"); if (ed) { editing = ed.dataset.edit; const blk = ed.closest("[data-block]"); editWhere = blk ? ({ day: "day", upcoming: "upcoming", undated: "undated" }[blk.dataset.block] || "") : ""; render(); return; }
   if (e.target.closest("[data-cancel]")) { editing = null; render(); return; }
   const sv = e.target.closest("[data-save]");
   if (sv) { const items = load(), it = items.find(x => x.id === sv.dataset.save); if (!it) return;
-    Object.assign(it, { kind: $("eKind").value, date: $("eDate").value, time: $("eTime").value, what: $("eWhat").value.trim() || it.what, place: $("ePlace").value.trim(), activity: $("eAct").value, memo: $("eMemo").value.trim() });
+    /* 押した「直す」と同じ枠の中から読む（同じ予定が2か所に出ていても、まちがえない） */
+    const box = sv.closest(".row"), f = k => box.querySelector(`[data-f="${k}"]`).value;
+    Object.assign(it, { kind: f("kind"), date: f("date"), time: f("time"), what: f("what").trim() || it.what, place: f("place").trim(), activity: f("act"), memo: f("memo").trim() });
     it.part = it.time ? "" : (it.part || "");
     if (save(items)) { editing = null; render(); } return; }
   const dl = e.target.closest("[data-del]");
