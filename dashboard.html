@@ -25,6 +25,7 @@
   .card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:12px;margin:10px 0;box-shadow:0 8px 22px rgba(72,45,28,.08)}
   .month{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
   .month h2{margin:0;font-size:20px}
+  [data-block="month"]{touch-action:pan-y}
   button,input,select,textarea{font:inherit;color:var(--ink)}
   button{border:1px solid var(--line);background:#fffaf5;border-radius:999px;padding:7px 12px;font-size:14px;cursor:pointer}
   .tiles{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
@@ -134,7 +135,8 @@
   </section>
 
   <section class="card" data-block="month">
-    <div class="month"><button type="button" id="prev" aria-label="前の月">‹</button><h2 id="mTitle"></h2><button type="button" id="next" aria-label="次の月">›</button></div>
+    <div class="month"><button type="button" id="prev" aria-label="前の月">‹</button><div style="text-align:center"><h2 id="mTitle"></h2><button type="button" id="thisMonth" style="font-size:11px;padding:2px 10px;margin-top:2px;visibility:hidden">今月へ</button></div><button type="button" id="next" aria-label="次の月">›</button></div>
+    <p class="note" style="text-align:center;margin:2px 0 4px">左右に指を滑らせても月が変わります</p>
     <div class="cal" id="cal"></div>
     <div class="legend"><span><i style="background:var(--work)"></i>出勤</span><span><i style="background:var(--off)"></i>休み</span><span><i style="background:var(--go)"></i>出かける用事</span><span><i style="background:var(--todo)"></i>家のこと・習慣</span><span><i style="background:var(--other)"></i>その他</span></div>
   </section>
@@ -244,6 +246,7 @@ function tiles(items) {
 
 function calendar(items) {
   $("mTitle").textContent = `${ym.y}年${ym.m}月`;
+  { const here = ym.y === +t0.slice(0, 4) && ym.m === +t0.slice(5, 7); $("thisMonth").style.visibility = here ? "hidden" : "visible"; }
   const first = new Date(Date.UTC(ym.y, ym.m - 1, 1)), days = new Date(Date.UTC(ym.y, ym.m, 0)).getUTCDate();
   const lead = (first.getUTCDay() + 6) % 7; /* 月曜はじまり */
   const heads = ["月", "火", "水", "木", "金", "土", "日"].map(w => `<div class="h ${w === "日" ? "sun" : w === "土" ? "sat" : ""}">${w}</div>`).join("");
@@ -417,8 +420,27 @@ $("calTestTime").onclick = () => sendIcs(testItem(true));
 function render() { const items = load(); for (const f of [today, tiles, calendar, memos, dups, dayCard, lists]) { try { f(items); } catch (e) { console.error(e); } } }
 
 /* ---------- 操作 ---------- */
-$("prev").onclick = () => { ym.m--; if (ym.m < 1) { ym.m = 12; ym.y--; } render(); };
-$("next").onclick = () => { ym.m++; if (ym.m > 12) { ym.m = 1; ym.y++; } render(); };
+/* 月を動かす：‹ › のボタン、カレンダーの枠の中で左右に指を滑らせる、「今月へ」 */
+function moveMonth(n) {
+  ym.m += n; while (ym.m < 1) { ym.m += 12; ym.y--; } while (ym.m > 12) { ym.m -= 12; ym.y++; }
+  const cal = $("cal"); cal.style.transition = "none"; cal.style.transform = `translateX(${n > 0 ? 24 : -24}px)`; cal.style.opacity = ".4";
+  render();
+  requestAnimationFrame(() => { cal.style.transition = "transform .18s ease, opacity .18s ease"; cal.style.transform = ""; cal.style.opacity = ""; });
+}
+$("prev").onclick = () => moveMonth(-1);
+$("next").onclick = () => moveMonth(1);
+$("thisMonth").onclick = () => { const n = (+t0.slice(0, 4) - ym.y) * 12 + (+t0.slice(5, 7) - ym.m); if (n) moveMonth(n); };
+(() => {
+  const box = document.querySelector('[data-block="month"]'); let sx = 0, sy = 0, st = 0, on = false;
+  box.addEventListener("touchstart", e => { if (e.touches.length !== 1) return; on = true; sx = e.touches[0].clientX; sy = e.touches[0].clientY; st = Date.now(); }, { passive: true });
+  box.addEventListener("touchend", e => {
+    if (!on) return; on = false; const t = e.changedTouches[0], dx = t.clientX - sx, dy = t.clientY - sy;
+    /* 横に50px以上・縦より十分大きく・1秒以内なら、月を動かす（縦のスクロールの邪魔はしない） */
+    if (Math.abs(dx) >= 50 && Math.abs(dx) > Math.abs(dy) * 1.5 && Date.now() - st < 1000) { moveMonth(dx < 0 ? 1 : -1); box.dataset.swiped = "1"; setTimeout(() => delete box.dataset.swiped, 400); }
+  }, { passive: true });
+  /* 滑らせた直後に日付を押したことにならないように */
+  box.addEventListener("click", e => { if (box.dataset.swiped) { e.stopPropagation(); e.preventDefault(); } }, true);
+})();
 $("cal").onclick = e => { const b = e.target.closest("[data-d]"); if (!b) return; sel = b.dataset.d; editing = null; render(); $("dayCard").scrollIntoView({ behavior: "smooth", block: "nearest" }); };
 document.addEventListener("click", e => {
   const dn = e.target.closest("[data-done]");
