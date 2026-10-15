@@ -28,11 +28,11 @@
   [data-block="month"]{touch-action:pan-y}
   button,input,select,textarea{font:inherit;color:var(--ink)}
   button{border:1px solid var(--line);background:#fffaf5;border-radius:999px;padding:7px 12px;font-size:14px;cursor:pointer}
-  .tiles{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+  .tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
   @media (min-width:600px){.tiles{grid-template-columns:repeat(4,1fr)}}
-  .tile{background:#fff;border:1px solid var(--line);border-radius:14px;padding:8px 10px}
-  .tile .k{font-size:11.5px;color:var(--muted)} .tile .v{font-size:24px;font-weight:800;line-height:1.2} .tile .u{font-size:12px;font-weight:600;margin-left:2px}
-  .tile .s{font-size:11px;color:var(--muted)}
+  .tile{background:#fff;border:1px solid var(--line);border-radius:12px;padding:6px 8px;min-width:0}
+  .tile .k{font-size:11.5px;color:var(--muted)} .tile .v{font-size:21px;font-weight:800;line-height:1.15} .tile .u{font-size:12px;font-weight:600;margin-left:2px}
+  .tile .s{font-size:10.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
   .cal .h{font-size:11px;text-align:center;color:var(--muted);padding:2px 0}
   .cal .h.sun{color:#c0504d}.cal .h.sat{color:#3d6fb0}
@@ -279,6 +279,11 @@ const t0 = todayStr();
 let ym = { y: +t0.slice(0, 4), m: +t0.slice(5, 7) }, sel = t0, editing = null; let editWhere = "";
 
 /* ---------- 数えるのはコード（毎回計算し直す） ---------- */
+/* 数字のタイル：今月の予定・出勤（うち急な出勤）・休み ＋ 自分で足した「数える言葉」 */
+const TILE_KEY = "yadokari.dash.tiles";
+const getCustomTiles = () => { try { const v = JSON.parse(localStorage.getItem(TILE_KEY) || "[]"); return Array.isArray(v) ? v.filter(t => t && typeof t.word === "string" && t.word.trim()).slice(0, 8) : []; } catch (_) { return []; } };
+const setCustomTiles = v => { try { localStorage.setItem(TILE_KEY, JSON.stringify(v.slice(0, 8))); } catch (_) {} };
+let tileEdit = false;
 function tiles(items) {
   const pre = `${ym.y}-${z(ym.m)}-`;
   const inMonth = items.filter(it => it.date && it.date.startsWith(pre));
@@ -287,15 +292,23 @@ function tiles(items) {
   const sudden = inMonth.filter(it => it.activity === "出勤" && isSudden(it));
   const offDays = new Set(inMonth.filter(it => it.activity === "休み").map(it => it.date));
   const rest = inMonth.filter(it => it.date >= t0 && it.kind === "予定").length;
+  const tile = (k, v, u, s, x = "") => `<div class="tile">${x}<div class="k">${k}</div><div class="v">${v}<span class="u">${u}</span></div><div class="s">${s}</div></div>`;
+  const hay = it => [it.what, it.src, it.place, it.memo, it.activity].join(" ");
+  const custom = getCustomTiles().map((t, i) => {
+    const n = inMonth.filter(it => hay(it).includes(t.word)).length;
+    const del = tileEdit ? `<button type="button" data-tdel="${i}" aria-label="消す" style="float:right;padding:0 6px;font-size:12px;border:0;background:none;color:#c0504d">✕</button>` : "";
+    return tile(esc(t.label || t.word), n, "回", `今月の「${esc(t.word)}」`, del);
+  });
   $("tiles").innerHTML = [
-    ["今月の予定", plans.length, "件", `これから ${rest}件`],
-    ["出勤", workDays.size, "日", "出勤の予定がある日"],
-    ["急な出勤", sudden.length, "回", "「急遽」などの言葉"],
-    ["休み", offDays.size, "日", "休み・OFF・有給など"],
-  ].map(([k, v, u, s]) => `<div class="tile"><div class="k">${k}</div><div class="v">${v}<span class="u">${u}</span></div><div class="s">${s}</div></div>`).join("");
-  $("tileNote").textContent = "出勤の時間の合計は、終わりの時刻をまだ入れていないので出していません。";
+    tile("今月の予定", plans.length, "件", `これから ${rest}件`),
+    tile("出勤", workDays.size, "日", `うち急な出勤 ${sudden.length}回`),
+    tile("休み", offDays.size, "日", "OFF・有給など"),
+    ...custom
+  ].join("");
+  $("tileNote").innerHTML = tileEdit
+    ? `<span style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><input id="tileWord" placeholder="数える言葉（例：通院・ジム・釣り）" maxlength="12" style="flex:1;min-width:150px;font-size:16px;padding:5px 8px;border:1px solid var(--line);border-radius:10px"><button type="button" id="tileAdd">足す</button><button type="button" id="tileDone">できた</button></span><span style="display:block;margin-top:4px">その言葉が「何・元の文・場所・備考・すること」に入っている今月の予定を数えます。✕で消せます（最大8つ）。</span>`
+    : `<button type="button" id="tileEditBtn" style="font-size:12px;padding:3px 10px">＋ 数える項目</button>`;
 }
-
 function calendar(items) {
   $("mTitle").textContent = `${ym.y}年${ym.m}月`;
   { const here = ym.y === +t0.slice(0, 4) && ym.m === +t0.slice(5, 7); $("thisMonth").style.visibility = here ? "hidden" : "visible"; }
@@ -617,6 +630,10 @@ $("thisMonth").onclick = () => { const n = (+t0.slice(0, 4) - ym.y) * 12 + (+t0.
 })();
 $("cal").onclick = e => { const b = e.target.closest("[data-d]"); if (!b) return; sel = b.dataset.d; editing = null; render(); $("dayCard").scrollIntoView({ behavior: "smooth", block: "nearest" }); };
 document.addEventListener("click", e => {
+  if (e.target.closest("#tileEditBtn")) { tileEdit = true; render(); setTimeout(() => { const w = $("tileWord"); if (w) w.focus(); }, 50); return; }
+  if (e.target.closest("#tileDone")) { tileEdit = false; render(); return; }
+  if (e.target.closest("#tileAdd")) { const w = ($("tileWord").value || "").trim().slice(0, 12); if (w) { const v = getCustomTiles(); if (!v.some(t => t.word === w)) v.push({ word: w, label: w }); setCustomTiles(v); } render(); setTimeout(() => { const x = $("tileWord"); if (x) x.focus(); }, 50); return; }
+  const td = e.target.closest("[data-tdel]"); if (td) { const v = getCustomTiles(); v.splice(+td.dataset.tdel, 1); setCustomTiles(v); render(); return; }
   if (e.target.closest("#dayClose")) { sel = t0; editing = null; render(); return; }
   const dn = e.target.closest("[data-done]");
   if (dn) { const items = load(), it = items.find(x => x.id === dn.dataset.done); if (it) { if (dn.checked) it.done = Date.now(); else delete it.done; save(items); setTimeout(render, 250); } return; }
