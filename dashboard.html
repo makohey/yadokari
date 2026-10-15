@@ -147,7 +147,9 @@
     </div>
     <p class="aiState" data-ai-state></p>
     <div id="pOut"></div>
-    <details class="ai"><summary>ローカルくん（AI）の席</summary>
+    <details class="ai"><summary><span data-ainame>ローカルくん</span>（AI）の席</summary>
+      <div class="pf" style="margin-top:6px"><span>名前</span><span style="display:flex;gap:6px"><input id="aiNameIn" maxlength="12" placeholder="ローカルくん" style="flex:1"><button type="button" id="aiNameSave" style="flex:0 0 auto">つける</button></span></div>
+      <p class="note" style="margin-top:2px">日付や数字は見張りがついているので安心してね。<span data-ainame>ローカルくん</span>が選んだ仕分けや返事は外れることがあります。直すと<span data-ainame>ローカルくん</span>が覚えます（手本帳）。</p>
       <div class="ctrl">
         <button type="button" id="aiLight">軽い：Qwen2.5 0.5B・約0.4GB</button>
         <button type="button" id="aiJp">少し上：TinySwallow 1.5B・約1.2GB</button>
@@ -182,7 +184,7 @@
     <div class="sect">🦀 ヤドカリのメモから（予定かも？）</div>
     <p class="note">ふだんのヤドカリに書いたメモのうち、予定っぽいものです。ヤドカリ本体には何も書き込みません。「読み取る」で上の確認カードに出ます。「明日」は、そのメモを書いた日の明日として読みます。</p>
     <div id="memoList"></div>
-    <div class="ctrl"><button type="button" id="memoAi" disabled>言葉で拾えなかったメモを、ローカルくんに見てもらう</button></div>
+    <div class="ctrl"><button type="button" id="memoAi" disabled>言葉で拾えなかったメモを、<span data-ainame>ローカルくん</span>に見てもらう</button></div>
     <p class="note" id="memoNote"></p>
   </section>
 
@@ -190,7 +192,7 @@
     <div class="sect">🦀 重なっているかも</div>
     <p class="note">同じ日に似た予定があります。どちらを残すか選んでね（消す方の備考だけ、残す方に足します。時刻や場所は残す方のまま）。ちがう用事なら「別の予定」を押してね。勝手には消しません。</p>
     <div id="dupList"></div>
-    <div class="ctrl"><button type="button" id="dupAi" disabled>決めきれない組をローカルくんに見てもらう</button></div>
+    <div class="ctrl"><button type="button" id="dupAi" disabled>決めきれない組を<span data-ainame>ローカルくん</span>に見てもらう</button></div>
     <p class="note" id="dupNote"></p>
   </section>
 
@@ -253,7 +255,7 @@
   <p class="note">予定は上の「ひとこと入れる」か、実験室の練習台から入れます（どちらも同じ所に入ります）。数えるのは毎回コードが計算し直しています。まちがいに気づいたら ✏️ で直してください。</p>
 </div>
 
-<script src="./plan-core.js?v=20261015f"></script>
+<script src="./plan-core.js?v=20261015g"></script>
 <script>
 (() => {
 "use strict";
@@ -365,7 +367,7 @@ function dups(items) {
   card.style.display = list.length ? "" : "none"; if (!list.length) { $("dupList").innerHTML = ""; return; }
   const line = it => `${esc(DF(it.date))} ${esc(it.time || it.part || "")} ${esc(cleanWhat(it.what))}${it.memo ? ` <small>📝${esc(it.memo)}</small>` : ""}`;
   $("dupList").innerHTML = list.slice(0, 8).map(({ a, b, score, sure }) => { const k = pairKey(a, b), v = aiVerdict[k];
-    const why = sure ? "言葉がよく似ています（コードの判定）" : v === true ? "🤖 ローカルくん：同じ予定だと思う" : v === false ? "🤖 ローカルくん：別の予定だと思う" : "少し似ています（コードでは決めきれない）";
+    const why = sure ? "言葉がよく似ています（コードの判定）" : v === true ? `🤖 ${aiName()}：同じ予定だと思う` : v === false ? `🤖 ${aiName()}：別の予定だと思う` : "少し似ています（コードでは決めきれない）";
     return `<div class="dup"><div class="ab">A：${line(a)}</div><div class="ab">B：${line(b)}</div><div class="why">${why}・似かた ${Math.round(Math.max(0, score) * 100)}%</div>
       <div class="ctrl"><button type="button" data-keep="${esc(a.id)}" data-drop="${esc(b.id)}">Aを残す</button><button type="button" data-keep="${esc(b.id)}" data-drop="${esc(a.id)}">Bを残す</button><button type="button" data-diff="${esc(k)}">別の予定</button></div></div>`; }).join("")
     + (list.length > 8 ? `<p class="note">ほか ${list.length - 8} 組</p>` : "");
@@ -374,7 +376,7 @@ function dups(items) {
 let memoAiPick = {};  /* ローカルくんが「予定っぽい」と言ったメモ（この画面を開いている間だけ） */
 function memos() {
   const all = readMemos(), withClue = [], rest = [];
-  for (const m of all) { const c = memoClue(m); if (c) withClue.push({ m, why: "手がかり：" + c }); else if (memoAiPick[m.key] === true) withClue.push({ m, why: "🤖 ローカルくん：予定っぽい" }); else rest.push(m); }
+  for (const m of all) { const c = memoClue(m); if (c) withClue.push({ m, why: "手がかり：" + c }); else if (memoAiPick[m.key] === true) withClue.push({ m, why: `🤖 ${aiName()}：予定っぽい` }); else rest.push(m); }
   const card = $("memoCard"); card.style.display = (withClue.length || rest.length) ? "" : "none";
   $("memoList").innerHTML = withClue.length ? withClue.slice(0, 10).map(({ m, why }) => `<div class="dup"><div class="ab">${esc(m.text)}</div><div class="why">${esc(m.date ? DF(m.date) : "日付不明")} ${esc(m.time)} に書いた・${esc(m.from)}・${esc(why)}</div>
       <div class="ctrl"><button type="button" class="main" data-mread="${esc(m.key)}">読み取る</button><button type="button" data-mskip="${esc(m.key)}">予定じゃない</button></div></div>`).join("")
@@ -382,7 +384,7 @@ function memos() {
     : '<div class="empty">今は、言葉で拾える予定っぽいメモはありません</div>';
   const unasked = rest.filter(m => memoAiPick[m.key] === undefined);
   $("memoAi").disabled = !engine || !unasked.length;
-  $("memoNote").textContent = rest.length ? `言葉で拾えなかったメモ：${rest.length}件${engine ? "" : "（ローカルくんを読み込むと見てもらえます）"}` : "";
+  $("memoNote").textContent = rest.length ? `言葉で拾えなかったメモ：${rest.length}件${engine ? "" : `（${aiName()}を読み込むと見てもらえます）`}` : "";
 }
 /* ---------- 今日とやること（いちばん上） ----------
    今日の予定と、まだ済んでいないやること（日付なし・今日まで）を並べる。チェックで済み */
@@ -579,6 +581,11 @@ $("bulkSend").onclick = async () => {
 function tick() { if (todayStr() !== t0) { location.reload(); return; } try { today(load()); } catch (_) {} }
 setInterval(tick, 60000);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) tick(); });
+/* ローカルくんの名前をつける（この端末の中だけ） */
+function showAiName() { const n = aiName(); document.querySelectorAll("[data-ainame]").forEach(el => el.textContent = n); const i = $("aiNameIn"); if (i && document.activeElement !== i) i.value = n === "ローカルくん" ? "" : n; showAIState(); }
+$("aiNameSave").onclick = () => { const v = $("aiNameIn").value.trim().slice(0, 12); try { v ? localStorage.setItem(K.aiName, v) : localStorage.removeItem(K.aiName); } catch (_) {} showAiName(); render();
+  const o = $("pOut"); if (o) o.innerHTML = `<div class="reply"><div class="av">🦀</div><div class="bb">${v ? `これからは「${esc(v)}」だね。よろしくね` : "名前を「ローカルくん」に戻したよ"}</div></div>`; };
+showAiName();
 /* 1つの欄で止まっても、ほかの欄は出す */
 function render() { const items = load(); for (const f of [today, tiles, calendar, memos, dups, dayCard, lists]) { try { f(items); } catch (e) { console.error(e); } } }
 
@@ -648,9 +655,9 @@ $("memoList").onclick = e => {
 $("memoAi").onclick = async () => {
   const todo = readMemos().filter(m => !memoClue(m) && memoAiPick[m.key] === undefined).slice(0, 15); if (!todo.length) return;
   setBusy(true); $("memoAi").disabled = true; let hit = 0;
-  try { for (let i = 0; i < todo.length; i++) { $("memoNote").textContent = `🤖 ローカルくんがメモを見ています… ${i + 1}/${todo.length}`;
+  try { for (let i = 0; i < todo.length; i++) { $("memoNote").textContent = `🤖 ${aiName()}がメモを見ています… ${i + 1}/${todo.length}`;
       try { const v = await Promise.race([aiIsPlan(todo[i].text), new Promise((_, r) => setTimeout(() => r(new Error("時間切れ")), 60000))]); memoAiPick[todo[i].key] = v; if (v) hit++; } catch (_) { memoAiPick[todo[i].key] = null; } }
-  } finally { setBusy(false); render(); $("memoNote").textContent += `　ローカルくんが「予定っぽい」と言ったのは ${hit} 件（目安です）`; }
+  } finally { setBusy(false); render(); $("memoNote").textContent += `　${aiName()}が「予定っぽい」と言ったのは ${hit} 件（目安です）`; }
 };
 addEventListener("yadokari:memo", () => render());
 addEventListener("yadokari:ai", () => { try { memos(); } catch (_) {} });
@@ -662,9 +669,9 @@ $("dupList").onclick = e => {
 $("dupAi").onclick = async () => {
   const todo = findDups(load()).filter(x => !x.sure && aiVerdict[pairKey(x.a, x.b)] === undefined).slice(0, 5); if (!todo.length) return;
   setBusy(true); $("dupAi").disabled = true;
-  try { for (let i = 0; i < todo.length; i++) { $("dupNote").textContent = `🤖 ローカルくんが見ています… ${i + 1}/${todo.length}`; const { a, b } = todo[i];
+  try { for (let i = 0; i < todo.length; i++) { $("dupNote").textContent = `🤖 ${aiName()}が見ています… ${i + 1}/${todo.length}`; const { a, b } = todo[i];
       try { aiVerdict[pairKey(a, b)] = await Promise.race([aiSame(a, b), new Promise((_, r) => setTimeout(() => r(new Error("時間切れ")), 60000))]); } catch (_) { aiVerdict[pairKey(a, b)] = null; } }
-    $("dupNote").textContent = "ローカルくんの答えは目安です。どちらを残すかは自分で決めてね。";
+    $("dupNote").textContent = `${aiName()}の答えは目安です。どちらを残すかは自分で決めてね。`;
   } finally { setBusy(false); render(); }
 };
 calSetupUI();

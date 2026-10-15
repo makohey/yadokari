@@ -10,6 +10,9 @@ const z = n => String(n).padStart(2, "0");
 
 /* ---------- 保存（この端末の中だけ。名前は yadokari. で始める） ---------- */
 const K = { items: "yadokari.plan.items", fixes: "yadokari.plan.fixes", stats: "yadokari.lab.stats", seat: "yadokari.lab.ai.seat", auto: "yadokari.lab.ai.auto" };
+/* ローカルくんの名前（使う人が付けられる。初めは「ローカルくん」） */
+K.aiName = "yadokari.ai.name";
+function aiName() { try { const n = (localStorage.getItem(K.aiName) || "").trim(); return n ? n.slice(0, 12) : "ローカルくん"; } catch (_) { return "ローカルくん"; } }
 const getJ = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k)); return v ?? d; } catch (_) { return d; } };
 const setJ = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (_) { alert("保存できませんでした（容量がいっぱいかも）"); return false; } };
 const load = () => { const v = getJ(K.items, []); return Array.isArray(v) ? v : []; };
@@ -191,8 +194,8 @@ let loadingAI = false;
 function showAIState() {
   const name = curId ? curId.split("-").slice(0, 2).join(" ") : "";
   const [cls, txt] = loadingAI ? ["wait", "🤖 AI：読み込み中…（終わるまでAIのボタンは押せません）"]
-    : engine ? ["on", `🤖 AI：あり・使えます（${name}）`]
-    : ["", "🤖 AI：なし（ローカルくんの席を選ぶと使えます。AIなしの読み取りはそのまま使えます）"];
+    : engine ? ["on", `🤖 AI：あり・${aiName()}が使えます（${name}）`]
+    : ["", `🤖 AI：なし（${aiName()}の席を選ぶと使えます。AIなしの読み取りはそのまま使えます）`];
   document.querySelectorAll("[data-ai-state]").forEach(el => { el.className = "aiState " + cls; el.textContent = txt; });
 }
 function setBusy(b) {
@@ -430,8 +433,8 @@ async function go(useAi) {
   const lines = splitLines($("pIn").value); if (!lines.length) return;
   if (!useAi) { showCards(lines.map(t => { const o = applyFixes({ ...ruleRead(t), notes: [] }, t); o.src = t; return o; }), "AIなし"); return; }
   setBusy(true); const t0 = performance.now(); let k = 0;
-  $("pOut").innerHTML = '<p class="aiState wait" id="pWait">🤖 ローカルくんが読み取っています… 0秒</p>';
-  const tick = setInterval(() => { const el = $("pWait"); if (el) el.textContent = `🤖 ローカルくんが読み取っています…${lines.length > 1 ? ` ${k + 1}/${lines.length}行目` : ""} ${Math.round((performance.now() - t0) / 1000)}秒`; }, 1000);
+  $("pOut").innerHTML = `<p class="aiState wait" id="pWait">🤖 ${esc(aiName())}が読み取っています… 0秒</p>`;
+  const tick = setInterval(() => { const el = $("pWait"); if (el) el.textContent = `🤖 ${aiName()}が読み取っています…${lines.length > 1 ? ` ${k + 1}/${lines.length}行目` : ""} ${Math.round((performance.now() - t0) / 1000)}秒`; }, 1000);
   try {
     const out = [], secs = [];
     for (k = 0; k < lines.length; k++) {
@@ -440,7 +443,7 @@ async function go(useAi) {
       if (o.bad) { o = { ...ruleRead(t), notes: ["AIが読み取れなかったので、この行はAIなしで読みました"] }; }
       applyFixes(o, t); o.src = t; out.push(o); secs.push((performance.now() - s0) / 1000);
     }
-    showCards(out, "AI（" + curId.split("-").slice(0, 2).join(" ") + "）", secs);
+    showCards(out, aiName() + "（" + curId.split("-").slice(0, 2).join(" ") + "）", secs);
   } catch (e) { $("pOut").innerHTML = `<p class="ng">止まりました：${esc(e?.message || e)}</p>`; }
   finally { clearInterval(tick); setBusy(false); }
 }
