@@ -197,5 +197,27 @@ setBusy(false); list(); showStats(); showFixInfo(); autoLoad();
 window.__lab = { readDate, readTime, ruleRead, score, TESTS, whatIsFromSource, want };  /* 点検用 */
 })();
 </script>
+<!-- 新しい版の知らせ（版を上げるときは version.json とこの APP_VER を同じにする） -->
+<script>
+(() => {
+  const APP_VER = "20261016b";
+  let shown = false;
+  const check = () => {
+    if (shown || !navigator.onLine) return;
+    fetch("./version.json?t=" + Date.now(), { cache: "no-store" }).then(r => r.ok ? r.json() : null).then(j => {
+      if (!j || !j.v || j.v === APP_VER || shown) return;
+      shown = true;
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = "新しい版があります（押すと更新）";
+      b.style.cssText = "position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 8px);z-index:9999;border:0;border-radius:999px;padding:9px 16px;font:600 14px/1.2 system-ui,sans-serif;background:#2f6f5e;color:#fff;box-shadow:0 2px 10px rgba(0,0,0,.25);cursor:pointer";
+      b.onclick = () => { const u = new URL(location.href); u.searchParams.set("u", j.v); location.replace(u.toString()); };
+      document.body.appendChild(b);
+    }).catch(() => {});
+  };
+  window.addEventListener("load", () => setTimeout(check, 1500));
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") check(); });
+})();
+</script>
 </body>
 </html>
