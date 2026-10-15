@@ -74,9 +74,14 @@ function cutWhat(text, d, tm) {
   what = what.replace(/急遽|急に/g, " ").replace(/^\s*(明け方|朝|昼|夕方|夜|晩|午前|午後)\s*/, "").replace(/\s+/g, " ");
   return what.replace(/^[\s、,。]+|予定$|になった$|[\s、,。]+$/g, "").replace(/^\s*(から|に|の|へ)\s*/, "").replace(/^[にのへ\s]+/, "").trim();
 }
+/* 打ち消し：「仕事ない」「出勤なし」「シフト入ってない」「出なくていい」は出勤ではなく休み。
+   「休日出勤」「休みだけど出勤」は出勤のまま（打ち消しの言葉がないため） */
+const WORK_NEG_RE = /(仕事|出勤|シフト|会社|バイト)\s*(は|が|も)?\s*(ない|無い|なし|無し|なくなった|休み|入ってない|入ってへん|入ってません|ありません|ないです)|出なくて(いい|よい|ok)|行かなくて(いい|よい)|休んで(いい|よい)/i;
+const isWork = text => ACT_RE.出勤.test(text) && !WORK_NEG_RE.test(text);
+const isOff = text => WORK_NEG_RE.test(text) || (ACT_RE.休み.test(text) && !ACT_RE.出勤.test(text));
 function ruleRead(text) {
   const d = readDate(text), tm = readTime(text);
-  const act = Object.keys(ACT_RE).find(k => ACT_RE[k].test(text)) || "その他";
+  const act = isOff(text) ? "休み" : isWork(text) ? "出勤" : (Object.keys(ACT_RE).filter(k => k !== "出勤" && k !== "休み").find(k => ACT_RE[k].test(text)) || "その他");
   const kind = /毎日|毎朝|毎晩|毎週|習慣/.test(text) ? "習慣" : (d || tm) ? "予定" : /買う|かう|出す|払う|やる|する|片付け|返す|連絡|電話|見とく|しとく/.test(text) ? "やること" : "メモ";
   const what = cutWhat(text, d, tm);
   const m = what.match(/スタバ|[ァ-ヶー]{2,}|([一-龠]{1,3})?(駅|港|海岸|公園|役所|病院|郵便局|銀行)/);
@@ -272,7 +277,7 @@ async function aiRead(text) {
   /* 見張り2：場所も元の文にない名前なら消す */
   if (out.place && !zen(text).includes(zen(out.place))) { out.notes.push(`AIの「場所」（${out.place}）は元の文になかったので外しました`); out.place = ""; }
   /* 見張り3：出勤は数える物（出勤日・時間）なので、手がかりの言葉がない時は使わない */
-  if (out.activity === "出勤" && !ACT_RE.出勤.test(text)) { const r2 = ruleRead(text).activity; out.notes.push(`「出勤」の手がかりになる言葉がないので「${r2}」にしました`); out.activity = r2; }
+  if (out.activity === "出勤" && !isWork(text)) { const r2 = ruleRead(text).activity; out.notes.push(`「出勤」の手がかりになる言葉がないので「${r2}」にしました`); out.activity = r2; }
   /* 日付・時刻があるのに予定でなければ、予定に寄せる */
   if ((out.date || out.time) && out.kind === "メモ") out.kind = "予定";
   return out;
@@ -372,14 +377,14 @@ function saveCards(list) {
 /* 見張り4：元の文に「出勤・仕事・シフト」などがあるのに、すること が出勤でない時は出勤にする。
    出勤は日数を数える物なので、AIや手本帳より、書かれた言葉を優先する */
 function workGuard(o, text) {
-  if (ACT_RE.出勤.test(text) && o.activity !== "出勤") { (o.notes ||= []).push(`「${(text.match(ACT_RE.出勤) || [""])[0]}」と書いてあるので、すること を「${o.activity}」から「出勤」にしました`); o.activity = "出勤"; }
+  if (isWork(text) && o.activity !== "出勤") { (o.notes ||= []).push(`「${(text.match(ACT_RE.出勤) || [""])[0]}」と書いてあるので、すること を「${o.activity}」から「出勤」にしました`); o.activity = "出勤"; }
   return o;
 }
 /* 見張り5：「休み・OFF・オフ・有給」などがあれば、すること は休み。日付があれば種類は予定。
    休みも出勤と同じく日数を数える物なので、書かれた言葉を優先する（出勤の言葉もある時は出勤のまま） */
 function offGuard(o, text) {
-  if (ACT_RE.休み.test(text) && !ACT_RE.出勤.test(text)) {
-    if (o.activity !== "休み") { (o.notes ||= []).push(`「${(text.match(ACT_RE.休み) || [""])[0]}」と書いてあるので、すること を「休み」にしました`); o.activity = "休み"; }
+  if (isOff(text)) {
+    if (o.activity !== "休み") { (o.notes ||= []).push(WORK_NEG_RE.test(text) ? `「${text.match(WORK_NEG_RE)[0]}」は打ち消しなので、すること を「休み」にしました` : `「${(text.match(ACT_RE.休み) || [""])[0]}」と書いてあるので、すること を「休み」にしました`); o.activity = "休み"; }
     if (o.date && o.kind !== "予定") o.kind = "予定";
   }
   return o;
@@ -388,7 +393,7 @@ function offGuard(o, text) {
    （「今日牛乳を買う」は、今日の予定ではなく、今日のやること） */
 const TODO_RE = /買う|かう|買い物|電話|出す|払う|振り込|返す|連絡|予約|申し込|見とく|しとく|やっとく|片付け|掃除|洗濯|調べる/;
 function todoGuard(o, text) {
-  if (o.kind === "予定" && !o.time && TODO_RE.test(text) && !ACT_RE.出勤.test(text) && !ACT_RE.休み.test(text) && !/行く|いく|寄る|会う|集合/.test(text)) {
+  if (o.kind === "予定" && !o.time && TODO_RE.test(text) && !isWork(text) && !isOff(text) && !/行く|いく|寄る|会う|集合/.test(text)) {
     o.kind = "やること"; (o.notes ||= []).push("時刻のない用事なので「やること」にしました（日付は残しています）");
   }
   return o;
@@ -451,7 +456,7 @@ function memoClue(m) {
   const t = m.text; const d = withBase(m.date, () => readDate(t)), tm = readTime(t);
   /* 「今日は〜」はその日の出来事の記録が多いので、それだけでは拾わない（時刻や出勤・休みの言葉がある時は拾う） */
   if (d && !/^(今日|きょう|本日)$/.test(d.how)) return `日付「${d.how.trim()}」`; if (tm && tm.time) return `時刻「${tm.how}」`;
-  if (ACT_RE.出勤.test(t)) return `「${t.match(ACT_RE.出勤)[0]}」`; if (ACT_RE.休み.test(t)) return `「${t.match(ACT_RE.休み)[0]}」`;
+  if (WORK_NEG_RE.test(t)) return `「${t.match(WORK_NEG_RE)[0]}」`; if (ACT_RE.出勤.test(t)) return `「${t.match(ACT_RE.出勤)[0]}」`; if (ACT_RE.休み.test(t)) return `「${t.match(ACT_RE.休み)[0]}」`;
   return "";
 }
 async function aiIsPlan(text) {
