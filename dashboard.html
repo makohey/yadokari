@@ -209,7 +209,7 @@
     <p class="note" id="swipeNote" style="text-align:center;margin:2px 0 4px">左右に指を滑らせても月が変わります</p>
     <div class="cal" id="cal"></div>
     <div class="wdSw"><span>曜日 <span class="en">Days</span></span><button type="button" data-wd="ja">月火水</button><button type="button" data-wd="en">Mon Tue</button></div>
-    <div class="legend"><span><i style="background:var(--work)"></i>出勤</span><span><i style="background:var(--off)"></i>休み</span><span><i style="background:var(--go)"></i>出かける用事</span><span><i style="background:var(--todo)"></i>家のこと・習慣</span><span><i style="background:var(--other)"></i>その他</span></div>
+    <div class="legend"><span><i style="background:var(--work)"></i>出勤<span class="en">Work</span></span><span><i style="background:var(--off)"></i>休み<span class="en">Off</span></span><span><i style="background:var(--go)"></i>出かける用事<span class="en">Out</span></span><span><i style="background:var(--todo)"></i>家のこと・習慣<span class="en">Home</span></span><span><i style="background:var(--other)"></i>その他<span class="en">Other</span></span></div>
   </section>
 
   <section class="card" id="dayCard" data-block="day"></section>
@@ -293,7 +293,7 @@
   <p class="note">予定は上の「ひとこと入れる」か、実験室の練習台から入れます（どちらも同じ所に入ります）。数えるのは毎回コードが計算し直しています。まちがいに気づいたら ✏️ で直してください。</p>
 </div>
 
-<script src="./plan-core.js?v=20261016t"></script>
+<script src="./plan-core.js?v=20261016u"></script>
 <script>
 (() => {
 "use strict";
@@ -416,7 +416,7 @@ function emojisIn(s) {
 function calendar(items) {
   document.querySelectorAll("[data-view]").forEach(b => b.classList.toggle("on", b.dataset.view === view));
   document.querySelectorAll("[data-wd]").forEach(b => b.classList.toggle("on", (b.dataset.wd === "en") === wdEn()));
-  $("swipeNote").textContent = view === "week" ? "左右に指を滑らせても週が変わります" : "左右に指を滑らせても月が変わります";
+  $("swipeNote").innerHTML = view === "week" ? `左右に指を滑らせても週が変わります<span class="en">Swipe</span>` : `左右に指を滑らせても月が変わります<span class="en">Swipe</span>`;
   if (view === "week") return weekView(items);
   $("cal").className = "cal";
   $("thisMonth").innerHTML = `今月へ<span class="en">This month</span>`;
@@ -483,13 +483,13 @@ function dayCard(items) {
   const y = +sel.slice(0, 4), mo = +sel.slice(5, 7), dd = sel.slice(8, 10);
   const back = [];
   const pm = mo === 1 ? `${y - 1}-12-${dd}` : `${y}-${z(mo - 1)}-${dd}`;
-  back.push([pm, "先月の同じ日"]);
-  for (let k = 1; k <= 3; k++) back.push([`${y - k}-${sel.slice(5)}`, k === 1 ? "去年のこの日" : `${k}年前のこの日`]);
-  const past = back.map(([ds, label]) => [ds, label, items.filter(it => it.date === ds).sort((a, b) => sortKey(a) < sortKey(b) ? -1 : 1)]).filter(x => x[2].length);
-  const pastHtml = past.length ? `<div class="pastBox">` + past.map(([ds, label, l]) => `<div class="sub" style="font-size:12px;color:var(--muted);margin-top:4px">${esc(label)}（${esc(DF(ds))}）</div>` + l.slice(0, 5).map(it => `<div class="pastRow">${esc(it.time || it.part || "")} ${esc(cleanWhat(it.what))}${it.memo ? ` <small>📝${esc(it.memo)}</small>` : ""}</div>`).join("") + (l.length > 5 ? `<div class="pastRow" style="color:var(--muted)">ほか${l.length - 5}件</div>` : "")).join("") + `</div>` : "";
-  card.innerHTML = `<div class="sect" style="display:flex;justify-content:space-between;align-items:center">${esc(HDF(sel))}<button type="button" id="dayClose" aria-label="閉じる" style="padding:2px 10px;font-size:13px">✕ 閉じる</button></div>`
+  back.push([pm, "先月の同じ日", "Last month"]);
+  for (let k = 1; k <= 3; k++) back.push([`${y - k}-${sel.slice(5)}`, k === 1 ? "去年のこの日" : `${k}年前のこの日`, k === 1 ? "Last year" : `${k} years ago`]);
+  const past = back.map(([ds, label, en]) => [ds, label, items.filter(it => it.date === ds).sort((a, b) => sortKey(a) < sortKey(b) ? -1 : 1)]).map((x, i) => [...x, back[i][2]]).filter(x => x[2].length);
+  const pastHtml = past.length ? `<div class="pastBox">` + past.map(([ds, label, l, en]) => `<div class="sub" style="font-size:12px;color:var(--muted);margin-top:4px">${esc(label)}（${esc(DF(ds))}）<span class="en">${esc(en)}</span></div>` + l.slice(0, 5).map(it => `<div class="pastRow">${esc(it.time || it.part || "")} ${esc(cleanWhat(it.what))}${it.memo ? ` <small>📝${esc(it.memo)}</small>` : ""}</div>`).join("") + (l.length > 5 ? `<div class="pastRow" style="color:var(--muted)">ほか${l.length - 5}件</div>` : "")).join("") + `</div>` : "";
+  card.innerHTML = `<div class="sect" style="display:flex;justify-content:space-between;align-items:center">${esc(HDF(sel))}<button type="button" id="dayClose" aria-label="閉じる" style="padding:2px 10px;font-size:13px">✕ 閉じる<span class="en">Close</span></button></div>`
     + (list.length ? list.map(it => rowHtml(it, "day")).join("") : '<div class="empty">この日の予定はありません</div>')
-    + `<div style="display:flex;gap:6px;margin-top:8px"><input id="dayIn" data-d="${esc(sel)}" placeholder="この日に入れる" style="flex:1;min-width:0;font-size:16px;padding:6px 8px;border:1px solid var(--line);border-radius:10px"><button type="button" id="dayAdd" style="flex:0 0 auto">読み取る</button></div>`
+    + `<div style="display:flex;gap:6px;margin-top:8px"><input id="dayIn" data-d="${esc(sel)}" placeholder="この日に入れる / Add" style="flex:1;min-width:0;font-size:16px;padding:6px 8px;border:1px solid var(--line);border-radius:10px"><button type="button" id="dayAdd" style="flex:0 0 auto">読み取る<span class="en">Add</span></button></div>`
     + pastHtml
     + (list.length ? `<div style="margin-top:8px"><button type="button" id="dayShare" style="font-size:13px;padding:4px 12px">⤴︎ この日の予定を送る<span class="en">Share</span></button><p class="note" style="margin:4px 0 0">送り先（ジャーナル・メモ・LINEなど）はあなたが選びます。送った先はヤドカリのおうちの外です。</p></div>` : "");
   if (keep) $("dayIn").value = keep;
@@ -963,7 +963,7 @@ render();
 <!-- 新しい版の知らせ（版を上げるときは version.json とこの APP_VER を同じにする） -->
 <script>
 (() => {
-  const APP_VER = "20261016t";
+  const APP_VER = "20261016u";
   let shown = false;
   const check = () => {
     if (shown || !navigator.onLine) return;
