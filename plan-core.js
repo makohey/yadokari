@@ -23,6 +23,24 @@ const save = items => setJ(K.items, items);
 
 const KINDS = ["予定", "やること", "習慣", "メモ"];
 const ACTS = ["出勤", "休み", "外出", "手続き", "買い物", "通院", "家のこと", "移動", "遊び", "その他"];
+/* すること は、使う人が足したり隠したりできる。出勤・休み・その他 は見張りがついているので動かさない */
+const FIXED_ACTS = ["出勤", "休み", "その他"];
+const ACTS_KEY = "yadokari.acts";
+function getActs() {
+  try {
+    const v = JSON.parse(localStorage.getItem(ACTS_KEY) || "{}");
+    const add = (Array.isArray(v.add) ? v.add : []).filter(x => typeof x === "string").map(x => x.trim().slice(0, 10)).filter(x => x && !ACTS.includes(x));
+    const hide = (Array.isArray(v.hide) ? v.hide : []).filter(x => ACTS.includes(x) && !FIXED_ACTS.includes(x));
+    return { add: [...new Set(add)].slice(0, 12), hide: [...new Set(hide)] };
+  } catch (_) { return { add: [], hide: [] }; }
+}
+function setActs(v) { try { localStorage.setItem(ACTS_KEY, JSON.stringify(v)); } catch (_) {} }
+/* 選べる並び（隠したものは出さない。足したものは「その他」の前） */
+function acts() { const a = getActs(); return [...ACTS.filter(x => x !== "その他" && !a.hide.includes(x)), ...a.add, "その他"]; }
+/* 中身として正しいか（隠していても、前に使った分は正しいまま） */
+const actOK = x => ACTS.includes(x) || getActs().add.includes(x);
+/* 直す時の並び：いまの値が隠れていても選べるようにする */
+const actList = v => acts().includes(v) || !v ? acts() : [...acts().slice(0, -1), v, "その他"];
 const WD = ["日", "月", "火", "水", "木", "金", "土"];
 
 /* ---------- 日本時間の「今日」 ---------- */
@@ -116,9 +134,16 @@ const getFixes = () => { const v = getJ(K.fixes, []); return Array.isArray(v) ? 
 function fixKey(o) { return (o.place || o.what || "").trim().slice(0, 20); }
 function applyFixes(o, text) {
   const hit = getFixes().find(f => f.key && text.includes(f.key));
-  if (!hit) return o;
-  if (hit.fixAct && ACTS.includes(hit.activity) && hit.activity !== o.activity) { o.activity = hit.activity; o.notes.push(`手本帳から：「${hit.key}」は ${hit.activity}`); }
+  if (!hit) return ownActGuard(o, text);
+  if (hit.fixAct && actOK(hit.activity) && hit.activity !== o.activity) { o.activity = hit.activity; o.notes.push(`手本帳から：「${hit.key}」は ${hit.activity}`); }
   if (hit.fixKind && KINDS.includes(hit.kind) && hit.kind !== o.kind) { o.kind = hit.kind; o.notes.push(`手本帳から：「${hit.key}」は ${hit.kind}`); }
+  return o;
+}
+/* 自分で足した すること の言葉が文に入っていたら、それを選ぶ（出勤・休みの見張りと手本帳のほうが先） */
+function ownActGuard(o, text) {
+  if (o.activity === "出勤" || o.activity === "休み") return o;
+  const hit = getActs().add.find(a => text.includes(a));
+  if (hit) { o.activity = hit; (o.notes ||= []).push(`自分の「すること」から：${hit}`); }
   return o;
 }
 function rememberFix(it, before) {
@@ -144,7 +169,7 @@ function mergeFixes(a, b) {
 
 /* ---------- 控え（押した時だけ）：書き出す／足し合わせて読み込む ---------- */
 function exportPlan() {
-  const blob = new Blob([JSON.stringify({ app: "yadokari-lab-plan", format: 2, exportedAt: new Date().toISOString(), items: load(), fixes: getFixes() })], { type: "application/json" });
+  const blob = new Blob([JSON.stringify({ app: "yadokari-lab-plan", format: 2, exportedAt: new Date().toISOString(), items: load(), fixes: getFixes(), acts: getActs() })], { type: "application/json" });
   const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `yadokari-techo-${addDays(0)}.json`;
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 10000);
 }
@@ -154,21 +179,25 @@ function cleanItem(it) {
   const date = /^\d{4}-\d{2}-\d{2}$/.test(it.date) ? it.date : "", time = /^\d{2}:\d{2}$/.test(it.time) ? it.time : "";
   return { id: str(it.id, 24).replace(/[^0-9a-z]/gi, "") || Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
     kind: KINDS.includes(it.kind) ? it.kind : "メモ", date, time, part: str(it.part, 4), what: str(it.what), place: str(it.place, 60),
-    activity: ACTS.includes(it.activity) ? it.activity : "その他", memo: str(it.memo, 1000), src: str(it.src, 500), made: Number(it.made) || Date.now() };
+    activity: actOK(it.activity) ? it.activity : "その他", memo: str(it.memo, 1000), src: str(it.src, 500), made: Number(it.made) || Date.now() };
 }
 function cleanFix(f) {
   if (!f || typeof f.key !== "string" || !f.key.trim()) return null;
-  return { key: f.key.slice(0, 20), src: str(f.src), kind: KINDS.includes(f.kind) ? f.kind : "", activity: ACTS.includes(f.activity) ? f.activity : "その他",
-    fixAct: f.fixAct === undefined ? ACTS.includes(f.activity) : !!f.fixAct, fixKind: !!f.fixKind && KINDS.includes(f.kind), at: Number(f.at) || 0 };
+  return { key: f.key.slice(0, 20), src: str(f.src), kind: KINDS.includes(f.kind) ? f.kind : "", activity: actOK(f.activity) ? f.activity : "その他",
+    fixAct: f.fixAct === undefined ? actOK(f.activity) : !!f.fixAct, fixKind: !!f.fixKind && KINDS.includes(f.kind), at: Number(f.at) || 0 };
 }
 async function importPlan(file) {
   let data; try { data = JSON.parse(await file.text()); } catch (_) { alert("このファイルは読めませんでした"); return; }
   if (!data || data.app !== "yadokari-lab-plan" || !Array.isArray(data.items)) { alert("手帳の控えファイルではないみたいです"); return; }
+  /* 先に「自分の すること」を足し合わせる（でないと、その種類の予定が「その他」になる） */
+  const inActs = data.acts && Array.isArray(data.acts.add) ? data.acts.add : [];
+  const actsBefore = getActs();
+  if (inActs.length) { const a = getActs(); setActs({ add: [...a.add, ...inActs.filter(x => typeof x === "string")], hide: a.hide }); }
   const inItems = data.items.map(cleanItem).filter(Boolean), inFixes = (Array.isArray(data.fixes) ? data.fixes : []).map(cleanFix).filter(Boolean);
   const cur = load(), seen = new Set(cur.map(x => x.id)), sig = x => `${x.date}|${x.time}|${x.what}|${x.src}`, seenSig = new Set(cur.map(sig));
   const add = inItems.filter(x => !seen.has(x.id) && !seenSig.has(sig(x)));
   const fx = mergeFixes(getFixes(), inFixes), newFix = fx.length - getFixes().length;
-  if (!confirm(`控えを足し合わせます。\n予定など：新しく ${add.length} 件（同じものは入れません）\n手本帳（えさ）：${inFixes.length} 件を合わせて、全部で ${fx.length} 件に\n\n今ある中身は消えません。読み込んでもいい？`)) return;
+  if (!confirm(`控えを足し合わせます。${inActs.length ? `\n自分の すること：${inActs.join("・")}` : ""}\n予定など：新しく ${add.length} 件（同じものは入れません）\n手本帳（えさ）：${inFixes.length} 件を合わせて、全部で ${fx.length} 件に\n\n今ある中身は消えません。読み込んでもいい？`)) { setActs(actsBefore); return; }
   if (save(cur.concat(add))) { setJ(K.fixes, fx); dispatchEvent(new Event("yadokari:saved")); alert(`足し合わせました（予定など +${add.length}・手本帳 ${newFix >= 0 ? "+" + newFix : fx.length + "件"}）`); }
 }
 function fixSummary() { const f = getFixes(); return f.length ? `手本帳（えさ）：${f.length}件（${f.slice(0, 4).map(x => `${x.key}→${x.fixKind ? x.kind : x.activity}`).join("、")}${f.length > 4 ? "…" : ""}）` : "手本帳（えさ）：まだ空です"; }
@@ -255,7 +284,7 @@ const SYS = [
   `kind：${KINDS.join("・")} から選ぶ（日時が決まっている用事は予定、いつかやる用事はやること、毎日・毎週のことは習慣、それ以外はメモ）`,
   "what：何をするかを、書かれた言葉をそのまま使って短く（日付や時刻の言葉は入れない。書かれていない言葉を足さない）",
   "place：行く場所や店の名前。なければ空",
-  `activity：${ACTS.join("・")} から選ぶ。どれにも当てはまらなければ「その他」。仕事に行く時だけ「出勤」、休みの日（OFF・オフ・有給など）は「休み」`,
+  `activity：${"{ACTS}"} から選ぶ。どれにも当てはまらなければ「その他」。仕事に行く時だけ「出勤」、休みの日（OFF・オフ・有給など）は「休み」`,
   "when：日付と時刻の言葉を、書かれたまま抜き出す。なければ空",
   '例：「10・14朝9時スタバへ寄ってから出勤予定」→ {"kind":"予定","what":"スタバへ寄ってから出勤","place":"スタバ","activity":"出勤","when":"10・14朝9時"}',
   '例：「10.16日役所に行く」→ {"kind":"予定","what":"役所に行く","place":"役所","activity":"手続き","when":"10.16日"}',
@@ -274,8 +303,8 @@ function whatIsFromSource(what, src) {
 async function aiRead(text) {
   if (!engine) throw new Error("AIが読み込まれていません（01で読み込んでください）");
   const ex = fixExamples(text);
-  const msgs = [{ role: "system", content: SYS + (ex.length ? "\n" + ex.join("\n") : "") }, { role: "user", content: text }];
-  let r; try { r = await engine.chat.completions.create({ messages: msgs, temperature: 0, max_tokens: 120, response_format: { type: "json_object", schema: JSON.stringify(SCHEMA) } }); }
+  const msgs = [{ role: "system", content: SYS.replace("{ACTS}", acts().join("・")) + (ex.length ? "\n" + ex.join("\n") : "") }, { role: "user", content: text }];
+  let r; try { r = await engine.chat.completions.create({ messages: msgs, temperature: 0, max_tokens: 120, response_format: { type: "json_object", schema: JSON.stringify({ ...SCHEMA, properties: { ...SCHEMA.properties, activity: { type: "string", enum: acts() } } }) } }); }
   catch (_) { r = await engine.chat.completions.create({ messages: msgs, temperature: 0, max_tokens: 120 }); }
   const raw = (r.choices?.[0]?.message?.content || "").trim(), m = raw.match(/\{[\s\S]*\}/); let o = null; try { o = JSON.parse(m ? m[0] : raw); } catch (_) {}
   if (!o) return { bad: true, raw };
@@ -283,7 +312,7 @@ async function aiRead(text) {
   const inText = r => r && zen(text).includes(zen(r.how));
   const dw = readDate(o.when || ""), tw = readTime(o.when || "");
   const d = readDate(text) || (inText(dw) ? dw : null), tm = readTime(text) || (inText(tw) ? tw : null);
-  const out = { kind: KINDS.includes(o.kind) ? o.kind : "メモ", what: String(o.what || ""), place: String(o.place || ""), activity: ACTS.includes(o.activity) ? o.activity : "その他",
+  const out = { kind: KINDS.includes(o.kind) ? o.kind : "メモ", what: String(o.what || ""), place: String(o.place || ""), activity: actOK(o.activity) ? o.activity : "その他",
     date: d?.date || "", time: tm?.time || "", part: tm?.part || "", notes: [], raw };
   /* 見張り1：「何」は元の文から */
   if (!whatIsFromSource(out.what, text)) { out.notes.push(`AIの「何」（${out.what || "空"}）は元の文にない言葉だったので、元の文から切り出しました`); out.what = cutWhat(text, d, tm) || text; }
@@ -373,7 +402,7 @@ function card(o, who, sec, i, n) {
   <div class="pf"><span>時刻</span><span style="display:flex;gap:6px"><input type="time" id="${id("pTime")}" value="${esc(o.time)}" style="flex:1"><button type="button" data-clear="${id("pTime")}" style="flex:0 0 auto">なし</button></span></div>
   <div class="pf"><span>何</span><input id="${id("pWhat")}" value="${esc(o.what)}"></div>
   <div class="pf"><span>場所</span><input id="${id("pPlace")}" value="${esc(o.place)}"></div>
-  <div class="pf"><span>すること</span><select id="${id("pAct")}">${opts(ACTS, o.activity)}</select></div>
+  <div class="pf"><span>すること</span><select id="${id("pAct")}">${opts(actList(o.activity), o.activity)}</select></div>
   <div class="pf"><span>備考</span><textarea id="${id("pMemo")}" placeholder="空欄のままでも入れられます"></textarea></div>
   <div class="ctrl"><button type="button" class="main" data-pok="${i}">これで入れる</button><button type="button" data-pno="${i}">やめる</button></div></div>`;
 }

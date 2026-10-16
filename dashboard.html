@@ -218,6 +218,12 @@
     <div id="undated"></div>
   </section>
 
+  <section class="card" data-block="acts">
+    <details id="actsBox"><summary class="sect" style="display:list-item;cursor:pointer">🏷️ すること（種類）を足す・隠す</summary>
+      <div id="actsBody"></div>
+    </details>
+  </section>
+
   <section class="card" id="calCard" data-block="calendarLink">
     <div class="sect">📅 カレンダーへの接続</div>
     <p class="note">許可すると、日付のある予定に 📅 が出ます。押した予定だけ、iPhone や iPad のカレンダーに「追加」できます。自動では何も送りません。</p>
@@ -267,7 +273,7 @@
   <p class="note">予定は上の「ひとこと入れる」か、実験室の練習台から入れます（どちらも同じ所に入ります）。数えるのは毎回コードが計算し直しています。まちがいに気づいたら ✏️ で直してください。</p>
 </div>
 
-<script src="./plan-core.js?v=20261016a"></script>
+<script src="./plan-core.js?v=20261016j"></script>
 <script>
 (() => {
 "use strict";
@@ -283,7 +289,7 @@ const save = items => { try { localStorage.setItem(KEY, JSON.stringify(items)); 
 
 function todayStr() { const j = new Date(Date.now() + 9 * 3600000); return `${j.getUTCFullYear()}-${z(j.getUTCMonth() + 1)}-${z(j.getUTCDate())}`; }
 const DF = d => { if (!d) return "日付なし"; const t = new Date(Date.parse(d + "T12:00:00+09:00")); return `${t.getUTCMonth() + 1}/${t.getUTCDate()}（${WD[t.getUTCDay()]}）`; };
-const color = it => it.activity === "出勤" ? "work" : it.activity === "休み" ? "off" : ["外出", "手続き", "買い物", "通院", "移動", "遊び"].includes(it.activity) ? "go" : (it.activity === "家のこと" || it.kind === "習慣" || it.kind === "やること") ? "todo" : "other";
+const color = it => it.activity === "出勤" ? "work" : it.activity === "休み" ? "off" : (["外出", "手続き", "買い物", "通院", "移動", "遊び"].includes(it.activity) || getActs().add.includes(it.activity)) ? "go" : (it.activity === "家のこと" || it.kind === "習慣" || it.kind === "やること") ? "todo" : "other";
 const isSudden = it => /急遽|急に|急な|代わり|代打|ヘルプ/.test((it.src || "") + (it.what || "") + (it.memo || ""));
 const sortKey = it => `${it.date || "9999"} ${it.time || ({ 朝: "07:00", 昼: "12:00", 夕方: "17:00" }[it.part] || (it.part ? "20:00" : "99:99"))}`;
 
@@ -344,7 +350,8 @@ function tiles(items) {
     tile("今月の予定", plans.length, "件", `これから ${rest}件`),
     tile("出勤", workDays.size, "日", `うち急な出勤 ${sudden.length}回`),
     tile("休み", offDays.size, "日", "OFF・有給など"),
-    ...custom
+    ...custom,
+    ...getActs().add.map(a => [a, inMonth.filter(it => it.activity === a).length]).filter(x => x[1]).map(([a, n]) => tile(esc(a), n, "回", "今月の すること"))
   ].join("");
   $("tileNote").innerHTML = tileEdit
     ? `<span style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><input id="tileWord" placeholder="数える言葉（例：通院・ジム・釣り）" maxlength="12" style="flex:1;min-width:150px;font-size:16px;padding:5px 8px;border:1px solid var(--line);border-radius:10px"><button type="button" id="tileAdd">足す</button><button type="button" id="tileDone">できた</button></span><span style="display:block;margin-top:4px">その言葉が「何・元の文・場所・備考・すること」に入っている今月の予定を数えます。✕で消せます（最大8つ）。</span>`
@@ -354,6 +361,17 @@ function tiles(items) {
   for (const it of inMonth) for (const e of emojisIn([it.what, it.memo].join(" "))) cnt.set(e, (cnt.get(e) || 0) + 1);
   const top = [...cnt].sort((a, b) => b[1] - a[1]);
   $("emoCount").innerHTML = top.length ? `<span class="emoLbl" style="width:100%">今月の絵文字</span>` + top.map(([e, n]) => `<span>${esc(e)}<b>${n}</b></span>`).join("") : "";
+}
+/* ---------- すること の並び：足す・隠す（出勤・休み・その他 は動かさない） ---------- */
+function actsUI() {
+  const a = getActs(), chip = (label, attr, on, lock) => `<button type="button" ${attr} style="font-size:13px;padding:4px 10px;border-radius:999px;margin:3px 2px;${on ? "" : "opacity:.45;text-decoration:line-through;"}${lock ? "cursor:default;" : ""}">${esc(label)}${lock ? " 🔒" : ""}</button>`;
+  $("actsBody").innerHTML =
+    `<p class="note" style="margin:6px 0 2px">いつもの種類（押すと隠す／戻す。🔒は動かせません）</p><div>` +
+    ACTS.map(x => FIXED_ACTS.includes(x) ? chip(x, "data-actlock", true, true) : chip(x, `data-acthide="${esc(x)}"`, !a.hide.includes(x), false)).join("") + `</div>` +
+    `<p class="note" style="margin:8px 0 2px">自分で足した種類（✕で外す。前に入れた予定はそのまま）</p><div>` +
+    (a.add.length ? a.add.map(x => `<button type="button" data-actdel="${esc(x)}" style="font-size:13px;padding:4px 10px;border-radius:999px;margin:3px 2px">${esc(x)} ✕</button>`).join("") : `<span class="note">まだありません</span>`) + `</div>` +
+    `<div style="display:flex;gap:6px;margin-top:6px"><input id="actIn" maxlength="10" placeholder="例：釣り・ジム・推し活" style="flex:1;min-width:0;font-size:16px;padding:5px 8px;border:1px solid var(--line);border-radius:10px"><button type="button" id="actAdd">足す</button></div>` +
+    `<p class="note" style="margin:6px 0 0">足した種類の言葉が文に入っていると、その種類を選びます（例：「日曜 釣り」→ 釣り）。確認カードで直すと手本帳が覚えます。今月使った分はタイルで数えます。控えにも入ります（最大12）。</p>`;
 }
 /* ---------- 絵文字：見た目が同じなら同じものとして数える（見えない印 FE0F をそろえる） ---------- */
 const EMO_RE = /\p{Extended_Pictographic}|\p{Regional_Indicator}/u;
@@ -393,7 +411,7 @@ function rowHtml(it, where) {
       <div class="pf"><span>時刻</span><span style="display:flex;gap:6px"><input type="time" data-f="time" value="${esc(it.time)}" style="flex:1"><button type="button" data-clear="time" style="flex:0 0 auto">なし</button></span></div>
       <div class="pf"><span>何</span><input data-f="what" value="${esc(cleanWhat(it.what))}"></div>
       <div class="pf"><span>場所</span><input data-f="place" value="${esc(it.place)}" placeholder="なければ空のまま"></div>
-      <div class="pf"><span>すること</span><select data-f="act">${opts(ACTS, it.activity)}</select></div>
+      <div class="pf"><span>すること</span><select data-f="act">${opts(actList(it.activity), it.activity)}</select></div>
       <div class="pf"><span>備考</span><textarea data-f="memo">${esc(it.memo)}</textarea></div>
       <div class="ctrl"><button type="button" data-save="${esc(it.id)}">直す</button><button type="button" data-cancel>やめる</button><button type="button" data-del="${esc(it.id)}">消す</button></div>
       ${it.src ? `<div class="note">元の文：${esc(it.src)}</div>` : ""}</div>`;
@@ -514,7 +532,7 @@ function today(items) {
     + (doneToday.length ? `<details style="margin-top:4px"><summary>今日済んだ（${doneToday.length}）</summary>${doneToday.map(todo).join("")}</details>` : "");
 }
 /* 並び順の表：ここを入れ替えれば画面の並びが変わる（あとで使う人が選べるようにする時の土台） */
-const BLOCK_ORDER = ["inbox", "today", "month", "day", "tiles", "memo", "dup", "undated", "calendarLink", "backup"];
+const BLOCK_ORDER = ["inbox", "today", "month", "day", "tiles", "memo", "dup", "undated", "acts", "calendarLink", "backup"];
 (function arrange() {
   const wrap = document.querySelector(".wrap"), tail = wrap.querySelector(":scope > p.note:last-of-type");
   for (const k of BLOCK_ORDER) { const el = wrap.querySelector(`:scope > [data-block="${k}"]`); if (el) wrap.insertBefore(el, tail); }
@@ -768,7 +786,7 @@ $("thisMonth").onclick = () => { const n = (+t0.slice(0, 4) - ym.y) * 12 + (+t0.
   box.addEventListener("click", e => { if (box.dataset.swiped) { e.stopPropagation(); e.preventDefault(); } }, true);
 })();
 $("cal").onclick = e => { const b = e.target.closest("[data-d]"); if (!b) return; sel = b.dataset.d; editing = null; render(); $("dayCard").scrollIntoView({ behavior: "smooth", block: "nearest" }); };
-document.addEventListener("keydown", e => { if (e.target.id === "dayIn" && e.key === "Enter" && !e.isComposing) { e.preventDefault(); dayAddGo(); } });
+document.addEventListener("keydown", e => { if (e.target.id === "actIn" && e.key === "Enter" && !e.isComposing) { e.preventDefault(); $("actAdd").click(); return; } if (e.target.id === "dayIn" && e.key === "Enter" && !e.isComposing) { e.preventDefault(); dayAddGo(); } });
 document.addEventListener("click", e => {
   if (e.target.closest("#tileEditBtn")) { tileEdit = true; render(); setTimeout(() => { const w = $("tileWord"); if (w) w.focus(); }, 50); return; }
   if (e.target.closest("#tileDone")) { tileEdit = false; render(); return; }
@@ -776,6 +794,17 @@ document.addEventListener("click", e => {
   const td = e.target.closest("[data-tdel]"); if (td) { const v = getCustomTiles(); v.splice(+td.dataset.tdel, 1); setCustomTiles(v); render(); return; }
   if (e.target.closest("#dayClose")) { sel = t0; editing = null; render(); return; }
   if (e.target.closest("#dayAdd")) { dayAddGo(); return; }
+  const ah = e.target.closest("[data-acthide]");
+  if (ah) { const a = getActs(), x = ah.dataset.acthide; a.hide = a.hide.includes(x) ? a.hide.filter(y => y !== x) : [...a.hide, x]; setActs(a); actsUI(); return; }
+  const ad = e.target.closest("[data-actdel]");
+  if (ad) { const x = ad.dataset.actdel; if (!confirm(`「${x}」を種類の並びから外します。前に入れた予定の種類はそのまま残ります。いい？`)) return; const a = getActs(); a.add = a.add.filter(y => y !== x); setActs(a); actsUI(); render(); return; }
+  if (e.target.closest("#actAdd")) {
+    const v = ($("actIn").value || "").trim().slice(0, 10), a = getActs();
+    if (!v) return;
+    if (ACTS.includes(v)) { $("actIn").value = ""; $("actIn").placeholder = `「${v}」はもうあります`; return; }
+    if (a.add.length >= 12) { alert("足せるのは12までです"); return; }
+    if (!a.add.includes(v)) a.add.push(v); setActs(a); actsUI(); render(); setTimeout(() => { const x = $("actIn"); if (x) x.focus(); }, 50); return;
+  }
   if (e.target.closest("#dayShare")) {
     const text = dayText(sel);
     if (navigator.share) { navigator.share({ text }).catch(() => {}); }
@@ -816,6 +845,7 @@ log("gpu" in navigator ? "席を選ぶと読み込みが始まります。使わ
 $("xExp").onclick = exportPlan; $("xImp").onclick = () => $("xFile").click();
 $("xFile").onchange = async () => { const f = $("xFile").files?.[0]; $("xFile").value = ""; if (f) await importPlan(f); };
 const showFix = () => { $("fixInfo").textContent = fixSummary(); }; addEventListener("yadokari:saved", showFix); showFix();
+try { actsUI(); } catch (e) { console.error(e); } addEventListener("yadokari:saved", () => { try { actsUI(); } catch (_) {} });
 addEventListener("yadokari:ai", () => { const b = $("dupAi"); if (b) b.disabled = !engine || !findDups(load()).some(x => !x.sure && aiVerdict[pairKey(x.a, x.b)] === undefined); });
 $("memoList").onclick = e => {
   const r = e.target.closest("[data-mread]"), s = e.target.closest("[data-mskip]");
@@ -854,7 +884,7 @@ render();
 <!-- 新しい版の知らせ（版を上げるときは version.json とこの APP_VER を同じにする） -->
 <script>
 (() => {
-  const APP_VER = "20261016i";
+  const APP_VER = "20261016j";
   let shown = false;
   const check = () => {
     if (shown || !navigator.onLine) return;
