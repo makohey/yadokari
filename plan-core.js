@@ -117,7 +117,10 @@ function cleanWhat(s) {
    「休日出勤」「休みだけど出勤」は出勤のまま（打ち消しの言葉がないため） */
 const WORK_NEG_RE = /(仕事|出勤|シフト|会社|バイト)\s*(は|が|も)?\s*(ない|無い|なし|無し|なくなった|休み|入ってない|入ってへん|入ってません|ありません|ないです)|出なくて(いい|よい|ok)|行かなくて(いい|よい)|休んで(いい|よい)/i;
 const isWork = text => ACT_RE.出勤.test(text) && !WORK_NEG_RE.test(text);
-const isOff = text => WORK_NEG_RE.test(text) || (ACT_RE.休み.test(text) && !ACT_RE.出勤.test(text));
+/* 希望休：「希望休」「休み希望」、または日付・時刻のほかに「希望」しか書いていない行（シフトの希望休の書き方） */
+const HOPE_OFF_RE = /希望休|休み希望|休希望|希望の休み/;
+const onlyHope = text => String(text || "").replace(/[0-9０-９\/／月日.・\-ー〜~\s:：時分（）()年]|今日|明日|あした|明後日|あさって|[月火水木金土日]曜?/g, "") === "希望";
+const isOff = text => WORK_NEG_RE.test(text) || HOPE_OFF_RE.test(text) || onlyHope(text) || (ACT_RE.休み.test(text) && !ACT_RE.出勤.test(text));
 function ruleRead(text) {
   const d = readDate(text), tm = readTime(text);
   const act = isOff(text) ? "休み" : isWork(text) ? "出勤" : (Object.keys(ACT_RE).filter(k => k !== "出勤" && k !== "休み").find(k => ACT_RE[k].test(text)) || "その他");
@@ -455,7 +458,7 @@ function workGuard(o, text) {
    休みも出勤と同じく日数を数える物なので、書かれた言葉を優先する（出勤の言葉もある時は出勤のまま） */
 function offGuard(o, text) {
   if (isOff(text)) {
-    if (o.activity !== "休み") { (o.notes ||= []).push(WORK_NEG_RE.test(text) ? `「${text.match(WORK_NEG_RE)[0]}」は打ち消しなので、すること を「休み」にしました` : `「${(text.match(ACT_RE.休み) || [""])[0]}」と書いてあるので、すること を「休み」にしました`); o.activity = "休み"; }
+    if (o.activity !== "休み") { (o.notes ||= []).push(WORK_NEG_RE.test(text) ? `「${text.match(WORK_NEG_RE)[0]}」は打ち消しなので、すること を「休み」にしました` : `「${(text.match(ACT_RE.休み) || text.match(HOPE_OFF_RE) || ["希望"])[0]}」と書いてあるので、すること を「休み」にしました`); o.activity = "休み"; }
     if (o.date && o.kind !== "予定") o.kind = "予定";
   }
   return o;

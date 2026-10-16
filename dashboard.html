@@ -281,6 +281,7 @@
     <p class="note">予定はこの端末の中だけ。控えは押した時だけファイルになります。控えには手本帳（えさ）も入っていて、別の端末で読み込むと今ある中身に<b>足し合わせ</b>ます（消えません）。iPhone で書き出して AirDrop（エアドロップ）＝近くの端末へ直接送る仕組み で iPad へ、のように運べます。</p>
     <div class="ctrl"><button type="button" id="xExp">控えを書き出す</button><button type="button" id="xImp">控え・えさを読み込む</button><input type="file" id="xFile" accept="application/json,.json" style="display:none" /></div>
     <p class="note" id="fixInfo"></p>
+    <details id="fixBox" style="margin-top:4px"><summary class="note" style="cursor:pointer">手本帳の中を見る・まちがいを外す</summary><div id="fixList"></div></details>
     <details style="margin-top:8px"><summary>全部消す</summary>
       <p class="note">この端末の月まとめの中身（予定・やること・手本帳・設定）を全部消します。元には戻せません。先に「控えを書き出す」をおすすめします。</p>
       <label class="note" style="display:block"><input type="checkbox" id="resetMemo"> ヤドカリ（ひとりメモ）のメモも消す</label>
@@ -292,7 +293,7 @@
   <p class="note">予定は上の「ひとこと入れる」か、実験室の練習台から入れます（どちらも同じ所に入ります）。数えるのは毎回コードが計算し直しています。まちがいに気づいたら ✏️ で直してください。</p>
 </div>
 
-<script src="./plan-core.js?v=20261016s"></script>
+<script src="./plan-core.js?v=20261016t"></script>
 <script>
 (() => {
 "use strict";
@@ -864,6 +865,8 @@ document.addEventListener("click", e => {
   const td = e.target.closest("[data-tdel]"); if (td) { const v = getCustomTiles(); v.splice(+td.dataset.tdel, 1); setCustomTiles(v); render(); return; }
   if (e.target.closest("#dayClose")) { sel = t0; editing = null; render(); return; }
   if (e.target.closest("#dayAdd")) { dayAddGo(); return; }
+  const fd = e.target.closest("[data-fixdel]");
+  if (fd) { const f = getFixes(), x = f[+fd.dataset.fixdel]; if (!x || !confirm(`手本帳から「${x.key}」→ ${x.fixKind ? x.kind : x.activity} を外します。いい？`)) return; f.splice(+fd.dataset.fixdel, 1); setJ(K.fixes, f); fixListUI(); showFix(); return; }
   const ah = e.target.closest("[data-acthide]");
   if (ah) { const a = getActs(), x = ah.dataset.acthide; a.hide = a.hide.includes(x) ? a.hide.filter(y => y !== x) : [...a.hide, x]; setActs(a); actsUI(); return; }
   const ad = e.target.closest("[data-actdel]");
@@ -915,7 +918,13 @@ log("gpu" in navigator ? "席を選ぶと読み込みが始まります。使わ
 $("xExp").onclick = exportPlan; $("xImp").onclick = () => $("xFile").click();
 $("xFile").onchange = async () => { const f = $("xFile").files?.[0]; $("xFile").value = ""; if (f) await importPlan(f); };
 const showFix = () => { $("fixInfo").textContent = fixSummary(); }; addEventListener("yadokari:saved", showFix); showFix();
-try { actsUI(); } catch (e) { console.error(e); } addEventListener("yadokari:saved", () => { try { actsUI(); } catch (_) {} });
+try { actsUI(); } catch (e) { console.error(e); }
+/* 手本帳の中身：覚えた言葉と、どう読むか。まちがって覚えたものは ✕ で外せる */
+function fixListUI() {
+  const f = getFixes();
+  $("fixList").innerHTML = f.length ? f.map((x, i) => `<div class="todo" style="padding:4px 0;font-size:13px"><div class="t">「${esc(x.key)}」→ ${esc(x.fixKind ? x.kind : x.activity)}${x.src ? ` <small style="color:var(--muted)">（${esc(String(x.src).slice(0, 24))}）</small>` : ""}</div><button type="button" data-fixdel="${i}" aria-label="外す" style="flex:0 0 auto;padding:0 8px;color:#c0504d">✕</button></div>`).join("") + `<p class="note" style="margin:4px 0 0">外すと、その言葉は次から覚える前の読み方に戻ります。直し直せば、また覚えます。</p>` : `<p class="note">まだ何も覚えていません</p>`;
+}
+try { fixListUI(); } catch (e) { console.error(e); } addEventListener("yadokari:saved", () => { try { fixListUI(); } catch (_) {} }); addEventListener("yadokari:saved", () => { try { actsUI(); } catch (_) {} });
 addEventListener("yadokari:ai", () => { const b = $("dupAi"); if (b) b.disabled = !engine || !findDups(load()).some(x => !x.sure && aiVerdict[pairKey(x.a, x.b)] === undefined); });
 $("memoList").onclick = e => {
   const r = e.target.closest("[data-mread]"), s = e.target.closest("[data-mskip]");
@@ -954,7 +963,7 @@ render();
 <!-- 新しい版の知らせ（版を上げるときは version.json とこの APP_VER を同じにする） -->
 <script>
 (() => {
-  const APP_VER = "20261016s";
+  const APP_VER = "20261016t";
   let shown = false;
   const check = () => {
     if (shown || !navigator.onLine) return;
