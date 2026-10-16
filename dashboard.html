@@ -179,7 +179,7 @@
       <p class="note" style="margin-top:2px">日付や数字は見張りがついているので安心してね。<span data-ainame>ローカルくん</span>が選んだ仕分けや返事は外れることがあります。直すと<span data-ainame>ローカルくん</span>が覚えます（手本帳）。</p>
       <div class="ctrl">
         <button type="button" id="aiLight">📱💻 軽い：Qwen2.5 0.5B・約0.4GB</button>
-        <button type="button" id="aiG1">📱💻 試し：Gemma 3 1B・約0.7GB</button>
+        <button type="button" id="aiG1">💻 試し：Gemma 3 1B・約0.7GB</button>
         <button type="button" id="aiJp">💻 少し上：TinySwallow 1.5B・約1.2GB</button>
       </div>
       <p class="note" style="margin:2px 0 0">📱 iPhone でも動く／💻 iPad・パソコン向け（iPhone では止まります）</p>
@@ -290,7 +290,7 @@
   <p class="note">予定は上の「ひとこと入れる」か、実験室の練習台から入れます（どちらも同じ所に入ります）。数えるのは毎回コードが計算し直しています。まちがいに気づいたら ✏️ で直してください。</p>
 </div>
 
-<script src="./plan-core.js?v=20261016o"></script>
+<script src="./plan-core.js?v=20261016p"></script>
 <script>
 (() => {
 "use strict";
@@ -939,7 +939,7 @@ render();
 <!-- 新しい版の知らせ（版を上げるときは version.json とこの APP_VER を同じにする） -->
 <script>
 (() => {
-  const APP_VER = "20261016o";
+  const APP_VER = "20261016p";
   let shown = false;
   const check = () => {
     if (shown || !navigator.onLine) return;
