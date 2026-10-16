@@ -46,6 +46,8 @@
   .tag{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-radius:5px;padding:0 3px;margin-top:2px;font-size:10px;line-height:1.5}
   .t-work{background:#fde2df}.t-off{background:#ece6df;color:#6b5d52}.t-go{background:#e2f1f9}.t-todo{background:#e6f4e6}.t-other{background:#efe7fa}
   .more{font-size:10px;color:var(--muted)}
+  .en{font-size:.72em;font-weight:500;color:var(--muted);margin-left:4px;letter-spacing:.02em}
+  .viewSw button.on .en{color:#e8ddd3}
   .viewSw{display:flex;justify-content:center;gap:0;margin:4px 0 0}
   .viewSw button{border-radius:0;padding:3px 16px;font-size:13px}
   .viewSw button:first-child{border-radius:999px 0 0 999px}.viewSw button:last-child{border-radius:0 999px 999px 0;border-left:0}
@@ -128,7 +130,7 @@
 <div class="wrap">
   <header>
     <div><h1><span id="mascot" data-mascot style="-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;cursor:default">🦀</span> 月まとめ <span style="font-size:11px;font-weight:700;border:1px solid var(--line);border-radius:999px;padding:1px 8px;vertical-align:3px">ベータ</span></h1><small>この端末の中だけ・数えるのはコード</small></div>
-    <div class="nav"><a href="#" id="openWelcome">はじめに</a><a href="./lab.html" data-labonly style="display:none">実験室</a><a href="./" data-labonly style="display:none">ヤドカリ</a></div>
+    <div class="nav"><a href="#" id="openWelcome">はじめに<span class="en">Guide</span></a><a href="./lab.html" data-labonly style="display:none">実験室</a><a href="./" data-labonly style="display:none">ヤドカリ</a></div>
   </header>
   <div id="homeTip" class="card" style="display:none;background:#fff3dc;border-color:#f0d9ae;font-size:13px">
     📲 <b>ホーム画面に追加</b>すると、データが消えにくくなります。Safari の共有ボタン（□に↑）→「ホーム画面に追加」。<br><small>追加したら、そのアイコンから使ってね。今の中身は「控えを書き出す」→ アイコンの方で「読み込む」で引っ越せます。</small>
@@ -187,7 +189,7 @@
   </section>
 
   <section class="card" data-block="today">
-    <div class="sect">今日とこれから</div>
+    <div class="sect">今日とこれから<span class="en">Today</span></div>
     <div id="today"></div>
     <div id="upcoming" style="border-top:1px solid var(--line);margin-top:6px;padding-top:4px"></div>
   </section>
@@ -200,7 +202,7 @@
 
   <section class="card" data-block="month">
     <div class="month"><button type="button" id="prev" aria-label="前の月">‹</button><div style="text-align:center"><h2 id="mTitle"></h2><button type="button" id="thisMonth" style="font-size:11px;padding:2px 10px;margin-top:2px;visibility:hidden">今月へ</button></div><button type="button" id="next" aria-label="次の月">›</button></div>
-    <div class="viewSw"><button type="button" data-view="month">月</button><button type="button" data-view="week">週</button></div>
+    <div class="viewSw"><button type="button" data-view="month">月<span class="en">Month</span></button><button type="button" data-view="week">週<span class="en">Week</span></button></div>
     <p class="note" id="swipeNote" style="text-align:center;margin:2px 0 4px">左右に指を滑らせても月が変わります</p>
     <div class="cal" id="cal"></div>
     <div class="legend"><span><i style="background:var(--work)"></i>出勤</span><span><i style="background:var(--off)"></i>休み</span><span><i style="background:var(--go)"></i>出かける用事</span><span><i style="background:var(--todo)"></i>家のこと・習慣</span><span><i style="background:var(--other)"></i>その他</span></div>
@@ -232,7 +234,7 @@
   </section>
 
   <section class="card" data-block="acts">
-    <details id="actsBox"><summary class="sect" style="display:list-item;cursor:pointer">🏷️ すること（種類）を足す・隠す</summary>
+    <details id="actsBox"><summary class="sect" style="display:list-item;cursor:pointer">🏷️ すること（種類）を足す・隠す<span class="en">Tags</span></summary>
       <div id="actsBody"></div>
     </details>
   </section>
@@ -286,7 +288,7 @@
   <p class="note">予定は上の「ひとこと入れる」か、実験室の練習台から入れます（どちらも同じ所に入ります）。数えるのは毎回コードが計算し直しています。まちがいに気づいたら ✏️ で直してください。</p>
 </div>
 
-<script src="./plan-core.js?v=20261016k"></script>
+<script src="./plan-core.js?v=20261016l"></script>
 <script>
 (() => {
 "use strict";
@@ -409,7 +411,7 @@ function calendar(items) {
   $("swipeNote").textContent = view === "week" ? "左右に指を滑らせても週が変わります" : "左右に指を滑らせても月が変わります";
   if (view === "week") return weekView(items);
   $("cal").className = "cal";
-  $("thisMonth").textContent = "今月へ";
+  $("thisMonth").innerHTML = `今月へ<span class="en">This month</span>`;
   $("mTitle").textContent = `${ym.y}年${ym.m}月`;
   { const here = ym.y === +t0.slice(0, 4) && ym.m === +t0.slice(5, 7); $("thisMonth").style.visibility = here ? "hidden" : "visible"; }
   const first = new Date(Date.UTC(ym.y, ym.m - 1, 1)), days = new Date(Date.UTC(ym.y, ym.m, 0)).getUTCDate();
@@ -430,7 +432,7 @@ function weekView(items) {
   const days = [...Array(7)].map((_, i) => addDaysStr(wk, i)), last = days[6];
   $("cal").className = "week";
   $("mTitle").textContent = `${+wk.slice(5, 7)}/${+wk.slice(8, 10)}〜${+last.slice(5, 7)}/${+last.slice(8, 10)}`;
-  $("thisMonth").textContent = "今週へ";
+  $("thisMonth").innerHTML = `今週へ<span class="en">This week</span>`;
   $("thisMonth").style.visibility = wk === mondayOf(t0) ? "hidden" : "visible";
   $("cal").innerHTML = days.map(ds => {
     const t = new Date(ds + "T12:00:00Z"), wd = t.getUTCDay(), h = holiday(ds);
@@ -481,7 +483,7 @@ function dayCard(items) {
     + (list.length ? list.map(it => rowHtml(it, "day")).join("") : '<div class="empty">この日の予定はありません</div>')
     + `<div style="display:flex;gap:6px;margin-top:8px"><input id="dayIn" data-d="${esc(sel)}" placeholder="この日に入れる" style="flex:1;min-width:0;font-size:16px;padding:6px 8px;border:1px solid var(--line);border-radius:10px"><button type="button" id="dayAdd" style="flex:0 0 auto">読み取る</button></div>`
     + pastHtml
-    + (list.length ? `<div style="margin-top:8px"><button type="button" id="dayShare" style="font-size:13px;padding:4px 12px">⤴︎ この日の予定を送る</button><p class="note" style="margin:4px 0 0">送り先（ジャーナル・メモ・LINEなど）はあなたが選びます。送った先はヤドカリのおうちの外です。</p></div>` : "");
+    + (list.length ? `<div style="margin-top:8px"><button type="button" id="dayShare" style="font-size:13px;padding:4px 12px">⤴︎ この日の予定を送る<span class="en">Share</span></button><p class="note" style="margin:4px 0 0">送り先（ジャーナル・メモ・LINEなど）はあなたが選びます。送った先はヤドカリのおうちの外です。</p></div>` : "");
   if (keep) $("dayIn").value = keep;
   if (focused) $("dayIn").focus();
 }
@@ -933,7 +935,7 @@ render();
 <!-- 新しい版の知らせ（版を上げるときは version.json とこの APP_VER を同じにする） -->
 <script>
 (() => {
-  const APP_VER = "20261016k";
+  const APP_VER = "20261016l";
   let shown = false;
   const check = () => {
     if (shown || !navigator.onLine) return;
