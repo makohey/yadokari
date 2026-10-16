@@ -1898,7 +1898,7 @@ resetLockTimer();
 <!-- 新しい版の知らせ（版を上げるときは version.json とこの APP_VER を同じにする） -->
 <script>
 (() => {
-  const APP_VER = "20261016q";
+  const APP_VER = "20261016r";
   let shown = false;
   const check = () => {
     if (shown || !navigator.onLine) return;
@@ -1913,6 +1913,8 @@ resetLockTimer();
       document.body.appendChild(b);
     }).catch(() => {});
   };
+  /* 裏の係：ページを覚えて、電波がない時（飛行機モードなど）でも開けるようにする */
+  window.addEventListener("load", () => { try { if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {}); } catch (_) {} });
   window.addEventListener("load", () => setTimeout(check, 1500));
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") check(); });
 })();

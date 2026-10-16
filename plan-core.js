@@ -41,7 +41,11 @@ function acts() { const a = getActs(); return [...ACTS.filter(x => x !== "その
 const actOK = x => ACTS.includes(x) || getActs().add.includes(x);
 /* 直す時の並び：いまの値が隠れていても選べるようにする */
 const actList = v => acts().includes(v) || !v ? acts() : [...acts().slice(0, -1), v, "その他"];
-const WD = ["日", "月", "火", "水", "木", "金", "土"];
+/* 曜日の書き方は選べる（月火水／Mon Tue Wed）。この端末で覚える */
+const WD_KEY = "yadokari.wd";
+const WD_JA = ["日", "月", "火", "水", "木", "金", "土"], WD_EN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const wdEn = () => { try { return localStorage.getItem(WD_KEY) === "en"; } catch (_) { return false; } };
+const WD = new Proxy(WD_JA, { get: (t, k) => (wdEn() ? WD_EN : WD_JA)[k] });
 
 /* ---------- 日本時間の「今日」 ---------- */
 /* 「明日」などの基準の日。ふだんは今日。ヤドカリのメモを読む時だけ、そのメモを書いた日にする */

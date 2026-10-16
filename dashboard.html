@@ -48,6 +48,8 @@
   .more{font-size:10px;color:var(--muted)}
   .en{font-size:.72em;font-weight:500;color:var(--muted);margin-left:4px;letter-spacing:.02em}
   .viewSw button.on .en{color:#e8ddd3}
+  .wdSw{display:flex;align-items:center;justify-content:flex-end;gap:4px;margin:6px 0 0;font-size:12px;color:var(--muted)}
+  .wdSw button{padding:2px 10px;font-size:12px}.wdSw button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
   .viewSw{display:flex;justify-content:center;gap:0;margin:4px 0 0}
   .viewSw button{border-radius:0;padding:3px 16px;font-size:13px}
   .viewSw button:first-child{border-radius:999px 0 0 999px}.viewSw button:last-child{border-radius:0 999px 999px 0;border-left:0}
@@ -206,6 +208,7 @@
     <div class="viewSw"><button type="button" data-view="month">月<span class="en">Month</span></button><button type="button" data-view="week">週<span class="en">Week</span></button></div>
     <p class="note" id="swipeNote" style="text-align:center;margin:2px 0 4px">左右に指を滑らせても月が変わります</p>
     <div class="cal" id="cal"></div>
+    <div class="wdSw"><span>曜日 <span class="en">Days</span></span><button type="button" data-wd="ja">月火水</button><button type="button" data-wd="en">Mon Tue</button></div>
     <div class="legend"><span><i style="background:var(--work)"></i>出勤</span><span><i style="background:var(--off)"></i>休み</span><span><i style="background:var(--go)"></i>出かける用事</span><span><i style="background:var(--todo)"></i>家のこと・習慣</span><span><i style="background:var(--other)"></i>その他</span></div>
   </section>
 
@@ -289,7 +292,7 @@
   <p class="note">予定は上の「ひとこと入れる」か、実験室の練習台から入れます（どちらも同じ所に入ります）。数えるのは毎回コードが計算し直しています。まちがいに気づいたら ✏️ で直してください。</p>
 </div>
 
-<script src="./plan-core.js?v=20261016q"></script>
+<script src="./plan-core.js?v=20261016r"></script>
 <script>
 (() => {
 "use strict";
@@ -299,7 +302,7 @@ const z = n => String(n).padStart(2, "0");
 const KEY = "yadokari.plan.items";
 const KINDS = ["予定", "やること", "習慣", "メモ"];
 const ACTS = ["出勤", "休み", "外出", "手続き", "買い物", "通院", "家のこと", "移動", "遊び", "その他"];
-const WD = ["日", "月", "火", "水", "木", "金", "土"];
+
 const load = () => { try { const v = JSON.parse(localStorage.getItem(KEY) || "[]"); return Array.isArray(v) ? v : []; } catch (_) { return []; } };
 const save = items => { try { localStorage.setItem(KEY, JSON.stringify(items)); return true; } catch (_) { alert("保存できませんでした"); return false; } };
 
@@ -411,6 +414,7 @@ function emojisIn(s) {
 }
 function calendar(items) {
   document.querySelectorAll("[data-view]").forEach(b => b.classList.toggle("on", b.dataset.view === view));
+  document.querySelectorAll("[data-wd]").forEach(b => b.classList.toggle("on", (b.dataset.wd === "en") === wdEn()));
   $("swipeNote").textContent = view === "week" ? "左右に指を滑らせても週が変わります" : "左右に指を滑らせても月が変わります";
   if (view === "week") return weekView(items);
   $("cal").className = "cal";
@@ -419,7 +423,7 @@ function calendar(items) {
   { const here = ym.y === +t0.slice(0, 4) && ym.m === +t0.slice(5, 7); $("thisMonth").style.visibility = here ? "hidden" : "visible"; }
   const first = new Date(Date.UTC(ym.y, ym.m - 1, 1)), days = new Date(Date.UTC(ym.y, ym.m, 0)).getUTCDate();
   const lead = (first.getUTCDay() + 6) % 7; /* 月曜はじまり */
-  const heads = ["月", "火", "水", "木", "金", "土", "日"].map(w => `<div class="h ${w === "日" ? "sun" : w === "土" ? "sat" : ""}">${w}</div>`).join("");
+  const heads = [1, 2, 3, 4, 5, 6, 0].map(i => `<div class="h ${i === 0 ? "sun" : i === 6 ? "sat" : ""}">${WD[i]}</div>`).join("");
   let cells = "";
   for (let i = 0; i < lead; i++) cells += `<div class="day out"></div>`;
   for (let d = 1; d <= days; d++) {
@@ -441,7 +445,7 @@ function weekView(items) {
     const t = new Date(ds + "T12:00:00Z"), wd = t.getUTCDay(), h = holiday(ds);
     const list = items.filter(it => it.date === ds).sort((a, b) => sortKey(a) < sortKey(b) ? -1 : 1);
     const lines = list.slice(0, 5).map(it => `<div><span class="dot" style="background:var(--${color(it)})"></span>${esc(it.time || it.part || "")} ${esc(cleanWhat(it.what))}</div>`).join("") + (list.length > 5 ? `<div class="none">ほか${list.length - 5}件</div>` : "");
-    return `<button type="button" class="wrow${h ? " hday" : ""}${ds === t0 ? " today" : ""}${ds === sel ? " sel" : ""}" data-d="${ds}"><span class="wd ${wd === 0 || h ? "sun" : wd === 6 ? "sat" : ""}" style="color:${wd === 0 || h ? "#c0504d" : wd === 6 ? "#3d6fb0" : "inherit"}">${t.getUTCDate()}<small>${WD[wd]}${t.getUTCDate() === 1 || ds === wk ? `・${t.getUTCMonth() + 1}月` : ""}</small>${h ? `<span class="hn">${esc(h)}</span>` : ""}</span><span class="wl">${lines || '<div class="none">—</div>'}</span></button>`;
+    return `<button type="button" class="wrow${h ? " hday" : ""}${ds === t0 ? " today" : ""}${ds === sel ? " sel" : ""}" data-d="${ds}"><span class="wd ${wd === 0 || h ? "sun" : wd === 6 ? "sat" : ""}" style="color:${wd === 0 || h ? "#c0504d" : wd === 6 ? "#3d6fb0" : "inherit"}">${t.getUTCDate()}<small>${WD[wd]}${t.getUTCDate() === 1 || ds === wk ? `・${wdEn() ? ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][t.getUTCMonth()] : `${t.getUTCMonth() + 1}月`}` : ""}</small>${h ? `<span class="hn">${esc(h)}</span>` : ""}</span><span class="wl">${lines || '<div class="none">—</div>'}</span></button>`;
   }).join("");
 }
 
@@ -640,7 +644,7 @@ function calFirstNotice() {
   if (ok) { try { localStorage.setItem(CAL_SEEN, "1"); } catch (_) {} }
   return ok;
 }
-/* 裏の係は、カレンダーを許可した時だけ置く */
+/* 裏の係はどのページでも置く（ページを覚える係も兼ねる）。ここではカレンダーの準備ができたかを見る */
 function calSWRegister() { try { if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").then(() => setTimeout(calEnv, 800)).catch(e => calEnv("裏の係を置けませんでした：" + (e?.message || e))); } catch (_) {} }
 function calEnv(extra) {
   const el = $("calEnv"); if (!el) return;
@@ -820,6 +824,7 @@ $("thisMonth").onclick = () => {
   if (view === "week") { const n = Math.round((Date.parse(mondayOf(t0)) - Date.parse(wk)) / (7 * 86400000)); if (n) moveMonth(n); return; }
   const n = (+t0.slice(0, 4) - ym.y) * 12 + (+t0.slice(5, 7) - ym.m); if (n) moveMonth(n);
 };
+document.querySelectorAll("[data-wd]").forEach(b => b.onclick = () => { try { localStorage.setItem(WD_KEY, b.dataset.wd); } catch (_) {} render(); });
 /* 月・週の切り替え。週にする時は、選んでいる日（なければ今日）の週を出す。月に戻る時はその週の月 */
 document.querySelectorAll("[data-view]").forEach(b => b.onclick = () => {
   const v = b.dataset.view; if (v === view) return;
@@ -938,7 +943,7 @@ render();
 <!-- 新しい版の知らせ（版を上げるときは version.json とこの APP_VER を同じにする） -->
 <script>
 (() => {
-  const APP_VER = "20261016q";
+  const APP_VER = "20261016r";
   let shown = false;
   const check = () => {
     if (shown || !navigator.onLine) return;
@@ -953,6 +958,8 @@ render();
       document.body.appendChild(b);
     }).catch(() => {});
   };
+  /* 裏の係：ページを覚えて、電波がない時（飛行機モードなど）でも開けるようにする */
+  window.addEventListener("load", () => { try { if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {}); } catch (_) {} });
   window.addEventListener("load", () => setTimeout(check, 1500));
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") check(); });
 })();
