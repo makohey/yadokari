@@ -203,21 +203,25 @@ async function importPlan(file) {
 function fixSummary() { const f = getFixes(); return f.length ? `手本帳（えさ）：${f.length}件（${f.slice(0, 4).map(x => `${x.key}→${x.fixKind ? x.kind : x.activity}`).join("、")}${f.length > 4 ? "…" : ""}）` : "手本帳（えさ）：まだ空です"; }
 
 /* ---------- ローカルくん（AI）の読み込み：地球儀の実験室と同じ席・同じ版 ---------- */
-const LIBS = { light: "https://esm.run/@mlc-ai/web-llm@0.2.86", jp: "https://esm.run/@mlc-ai/web-llm@0.2.79" };
+const LIBS = { light: "https://esm.run/@mlc-ai/web-llm@0.2.86", g1: "https://esm.run/@mlc-ai/web-llm@0.2.86", jp: "https://esm.run/@mlc-ai/web-llm@0.2.79" };
 const libs = {};
 const SEATS = {
-  light: { label: "軽い：Qwen2.5 0.5B", size: "約0.4GB", f16: "Qwen2.5-0.5B-Instruct-q4f16_1-MLC", f32: "Qwen2.5-0.5B-Instruct-q4f32_1-MLC" },
-  jp: { label: "少し上：TinySwallow 1.5B", size: "約1.2GB", custom: true,
+  /* fit：どの端末向けか（📱 iPhone でも動く／💻 iPad・パソコン向け）。mem：動かす時に使うメモリの目安 */
+  light: { label: "軽い：Qwen2.5 0.5B", size: "約0.4GB", mem: "約0.95GB", fit: "all", f16: "Qwen2.5-0.5B-Instruct-q4f16_1-MLC", f32: "Qwen2.5-0.5B-Instruct-q4f32_1-MLC" },
+  g1: { label: "試し：Gemma 3 1B", size: "約0.7GB", mem: "約0.7GB", fit: "all", f16: "gemma3-1b-it-q4f16_1-MLC", f32: null, noSystem: true },
+  jp: { label: "少し上：TinySwallow 1.5B", size: "約1.2GB", mem: "約1.6GB", fit: "big", custom: true,
     repo: "https://huggingface.co/asai95/TinySwallow-1.5B-Instruct-q4f32_1-MLC", id: "TinySwallow-1.5B-Instruct-q4f32_1-MLC", libFrom: "Qwen2.5-1.5B-Instruct-q4f32_1-MLC" },
 };
 let webllm = null, engine = null, curId = null, lastModel = null;
+/* Gemma の仲間は「係の決まり」を別枠で受け取らないので、最初の文に混ぜて渡す */
+const msgsFor = (sys, user) => /^gemma/i.test(curId || "") ? [{ role: "user", content: `${sys}\n\n---\n${user}` }] : [{ role: "system", content: sys }, { role: "user", content: user }];
 const log = msg => { const el = $("aiLog"); if (el) el.textContent = msg; };
 const setBar = w => { const b = $("aiBar"); if (b) b.style.width = w; };
 const isPhone = () => /iPhone|Android.+Mobile/.test(navigator.userAgent);
 async function hasF16() { try { const ad = await navigator.gpu?.requestAdapter(); return !!ad?.features?.has?.("shader-f16"); } catch (_) { return false; } }
 async function modelFor(key) {
   const s = SEATS[key];
-  if (!s.custom) return { id: (await hasF16()) ? s.f16 : s.f32, appConfig: undefined };
+  if (!s.custom) { const f16 = await hasF16(); if (!f16 && !s.f32) throw new Error("この端末では、この席は動かせません（f16 が使えない）。軽い席を選んでね"); return { id: f16 ? s.f16 : s.f32, appConfig: undefined }; }
   const base = webllm.prebuiltAppConfig, lib = base.model_list.find(m => m.model_id === s.libFrom)?.model_lib;
   if (!lib) throw new Error("この版の WebLLM に、TinySwallow を動かす部品が見つかりませんでした");
   return { id: s.id, appConfig: { ...base, model_list: [...base.model_list, { model: s.repo, model_id: s.id, model_lib: lib }] } };
@@ -231,15 +235,18 @@ function showAIState() {
   document.querySelectorAll("[data-ai-state]").forEach(el => { el.className = "aiState " + cls; el.textContent = txt; });
 }
 function setBusy(b) {
-  for (const id of ["aiLight", "aiJp", "pRule", "tRule"]) { const el = $(id); if (el) el.disabled = b; }
-  for (const id of ["aiDel", "pAi", "tAi"]) { const el = $(id); if (el) el.disabled = b || !engine; }
+  for (const id of ["aiLight", "aiG1", "aiJp", "pRule", "tRule"]) { const el = $(id); if (el) el.disabled = b; }
+  for (const id of ["pAi", "tAi"]) { const el = $(id); if (el) el.disabled = b || !engine; }
+  /* 消すボタンは、読み込みに失敗した時も押せるように（端末の中に残った分を消せる） */
+  { const el = $("aiDel"); if (el) el.disabled = b || !("gpu" in navigator); }
   showAIState();
   dispatchEvent(new Event("yadokari:ai"));
 }
 async function loadAI(key, auto = false) {
   if (!("gpu" in navigator)) { log("この端末のブラウザには WebGPU（ウェブジーピーユー）がないので、AIは動かせません。AIなしの読み取りはそのまま使えます。"); return; }
   const s = SEATS[key];
-  if (!auto && key === "jp" && isPhone() && !confirm(`${s.label}は${s.size}あります。iPhone だとページが落ちることがあります（予定は消えません）。読み込みますか？`)) return;
+  if (!auto && s.fit === "big" && isPhone() && !confirm(`⚠️ ${s.label} は 💻 iPad・パソコン向けです。\n動かすのに${s.mem}のメモリが要るので、iPhone ではほとんどの場合ページが止まります（予定は消えません）。\n止まったら、ページを開き直して「端末の中のモデルを消す」を押してね。\n\nそれでも読み込みますか？`)) return;
+  if (!auto && key === "g1" && !confirm(`${s.label}（${s.size}）を Hugging Face から読み込みます（端末の中にあれば通信しません）。試しの席です。読み込みますか？`)) return;
   if (!auto && key === "light" && !confirm(`${s.label}（${s.size}）を Hugging Face から読み込みます（端末の中にあれば通信しません）。読み込みますか？`)) return;
   loadingAI = true; setBusy(true); const t0 = performance.now();
   try {
@@ -254,10 +261,24 @@ async function loadAI(key, auto = false) {
   finally { loadingAI = false; setBusy(false); }
 }
 async function delAI() {
-  if (!curId || !webllm) return;
-  if (!confirm("読み込んだモデルを、この端末から消しますか？（地球儀の実験室と共有している場合は、そちらでも読み込み直しになります）")) return;
-  try { if (engine) await engine.unload(); engine = null; await webllm.deleteModelAllInfoInCache(curId, lastModel?.appConfig); log("消しました。端末の容量が戻ります。"); curId = null; setBar("0"); }
-  catch (e) { log("消せませんでした：" + (e?.message || e)); }
+  if (!("gpu" in navigator)) return;
+  if (!confirm("この端末の中にあるローカルくんのモデルを、全部消しますか？（読み込みに失敗して残った分も消えます。地球儀の実験室と共有している場合は、そちらでも読み込み直しになります）")) return;
+  setBusy(true); const gone = [];
+  try {
+    if (engine) { try { await engine.unload(); } catch (_) {} engine = null; }
+    for (const key of Object.keys(SEATS)) {
+      try {
+        const lib = libs[key] ||= await import(LIBS[key]); webllm = lib;
+        const s = SEATS[key], ids = s.custom ? [s.id] : [s.f16, s.f32].filter(Boolean);
+        for (const id of ids) {
+          const cfg = s.custom ? (await modelFor(key)).appConfig : undefined;
+          if (await lib.hasModelInCache(id, cfg)) { await lib.deleteModelAllInfoInCache(id, cfg); gone.push(id); }
+        }
+      } catch (_) {}
+    }
+    curId = null; setBar("0"); try { localStorage.removeItem(K.seat); } catch (_) {}
+    log(gone.length ? `消しました：${gone.join("、")}。端末の容量が戻ります。` : "端末の中に、消すモデルはありませんでした。");
+  } catch (e) { log("消せませんでした：" + (e?.message || e)); }
   finally { setBusy(false); }
 }
 async function autoLoad() {
@@ -303,7 +324,7 @@ function whatIsFromSource(what, src) {
 async function aiRead(text) {
   if (!engine) throw new Error("AIが読み込まれていません（01で読み込んでください）");
   const ex = fixExamples(text);
-  const msgs = [{ role: "system", content: SYS.replace("{ACTS}", acts().join("・")) + (ex.length ? "\n" + ex.join("\n") : "") }, { role: "user", content: text }];
+  const msgs = msgsFor(SYS.replace("{ACTS}", acts().join("・")) + (ex.length ? "\n" + ex.join("\n") : ""), text);
   let r; try { r = await engine.chat.completions.create({ messages: msgs, temperature: 0, max_tokens: 120, response_format: { type: "json_object", schema: JSON.stringify({ ...SCHEMA, properties: { ...SCHEMA.properties, activity: { type: "string", enum: acts() } } }) } }); }
   catch (_) { r = await engine.chat.completions.create({ messages: msgs, temperature: 0, max_tokens: 120 }); }
   const raw = (r.choices?.[0]?.message?.content || "").trim(), m = raw.match(/\{[\s\S]*\}/); let o = null; try { o = JSON.parse(m ? m[0] : raw); } catch (_) {}
@@ -369,7 +390,7 @@ async function aiSame(a, b) {
   if (!engine) throw new Error("AIが読み込まれていません");
   const sys = "あなたは手帳の係です。同じ日の予定が2つあります。同じ用事を二重に書いたものなら same を true、別の用事なら false にしたJSONだけを返します。説明は書きません。";
   const user = `日付：${a.date}\nA：${a.what}${a.time ? "（" + a.time + "）" : ""}　元の文「${a.src || ""}」\nB：${b.what}${b.time ? "（" + b.time + "）" : ""}　元の文「${b.src || ""}」`;
-  const msgs = [{ role: "system", content: sys }, { role: "user", content: user }];
+  const msgs = msgsFor(sys, user);
   let r; try { r = await engine.chat.completions.create({ messages: msgs, temperature: 0, max_tokens: 20, response_format: { type: "json_object", schema: JSON.stringify({ type: "object", properties: { same: { type: "boolean" } }, required: ["same"] }) } }); }
   catch (_) { r = await engine.chat.completions.create({ messages: msgs, temperature: 0, max_tokens: 20 }); }
   const raw = (r.choices?.[0]?.message?.content || ""); const m = raw.match(/"same"\s*:\s*(true|false)/);
@@ -508,7 +529,7 @@ function memoClue(m) {
 async function aiIsPlan(text) {
   if (!engine) throw new Error("AIが読み込まれていません");
   const sys = "あなたは手帳の係です。ひとりメモに書かれた一文を読んで、これから行う予定・やること・休みの日が書いてあれば plan を true、ただの気持ちや出来事の記録なら false にしたJSONだけを返します。説明は書きません。";
-  const msgs = [{ role: "system", content: sys }, { role: "user", content: text }];
+  const msgs = msgsFor(sys, text);
   let r; try { r = await engine.chat.completions.create({ messages: msgs, temperature: 0, max_tokens: 20, response_format: { type: "json_object", schema: JSON.stringify({ type: "object", properties: { plan: { type: "boolean" } }, required: ["plan"] }) } }); }
   catch (_) { r = await engine.chat.completions.create({ messages: msgs, temperature: 0, max_tokens: 20 }); }
   const m = (r.choices?.[0]?.message?.content || "").match(/"plan"\s*:\s*(true|false)/); return m ? m[1] === "true" : null;

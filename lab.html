@@ -73,13 +73,15 @@
     <h2><span class="no">01</span>ローカルくん（AI・使わなくてもよい）</h2>
     <p class="what">押した人だけ、AIのモデルを Hugging Face（ハギング・フェイス）＝AIモデルの置き場 から読み込みます。予定やメモは送りません。読み込んだモデルは端末の中に残り、下のボタンで消せます。地球儀の実験室で読み込んだことがあれば、同じ端末なら読み込み直さずに使えることがあります。</p>
     <div class="ctrl">
-      <button type="button" id="aiLight">軽い：Qwen2.5 0.5B・約0.4GB</button>
-      <button type="button" id="aiJp">少し上：TinySwallow 1.5B・約1.2GB</button>
+      <button type="button" id="aiLight">📱💻 軽い：Qwen2.5 0.5B・約0.4GB</button>
+      <button type="button" id="aiG1">📱💻 試し：Gemma 3 1B・約0.7GB</button>
+      <button type="button" id="aiJp">💻 少し上：TinySwallow 1.5B・約1.2GB</button>
     </div>
+    <p class="note" style="margin:2px 0 0">📱 iPhone でも動く／💻 iPad・パソコン向け（iPhone では止まります）</p>
     <div class="bar"><div id="aiBar"></div></div>
     <label class="note" style="display:block"><input type="checkbox" id="aiAuto" checked> 開いた時、前に使った席を自動で読み込む（端末の中にある時だけ。通信なし）</label>
     <p class="note" id="aiLog" style="white-space:pre-wrap"></p>
-    <div class="ctrl"><button type="button" id="aiDel" disabled>読み込んだモデルを消す</button></div>
+    <div class="ctrl"><button type="button" id="aiDel">端末の中のモデルを消す</button></div>
   </section>
 
   <section class="card" id="planCard">
@@ -119,7 +121,7 @@
   </section>
 </div>
 
-<script src="./plan-core.js?v=20261016j"></script>
+<script src="./plan-core.js?v=20261016n"></script>
 <script>
 (() => {
 "use strict";
@@ -184,7 +186,7 @@ function showFixInfo() { $("fixInfo").textContent = fixSummary(); }
 
 /* ---------- つなぐ ---------- */
 addEventListener("yadokari:saved", () => { list(); showFixInfo(); });
-$("aiLight").onclick = () => loadAI("light"); $("aiJp").onclick = () => loadAI("jp"); $("aiDel").onclick = delAI;
+$("aiLight").onclick = () => loadAI("light"); $("aiG1").onclick = () => loadAI("g1"); $("aiJp").onclick = () => loadAI("jp"); $("aiDel").onclick = delAI;
 $("pRule").onclick = () => go(false); $("pAi").onclick = () => go(true);
 $("tRule").onclick = () => test(false); $("tAi").onclick = () => test(true);
 $("xExp").onclick = exportPlan; $("xImp").onclick = () => $("xFile").click();
@@ -200,7 +202,7 @@ window.__lab = { readDate, readTime, ruleRead, score, TESTS, whatIsFromSource, w
 <!-- 新しい版の知らせ（版を上げるときは version.json とこの APP_VER を同じにする） -->
 <script>
 (() => {
-  const APP_VER = "20261016m";
+  const APP_VER = "20261016n";
   let shown = false;
   const check = () => {
     if (shown || !navigator.onLine) return;
