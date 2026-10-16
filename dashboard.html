@@ -46,6 +46,18 @@
   .tag{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-radius:5px;padding:0 3px;margin-top:2px;font-size:10px;line-height:1.5}
   .t-work{background:#fde2df}.t-off{background:#ece6df;color:#6b5d52}.t-go{background:#e2f1f9}.t-todo{background:#e6f4e6}.t-other{background:#efe7fa}
   .more{font-size:10px;color:var(--muted)}
+  .viewSw{display:flex;justify-content:center;gap:0;margin:4px 0 0}
+  .viewSw button{border-radius:0;padding:3px 16px;font-size:13px}
+  .viewSw button:first-child{border-radius:999px 0 0 999px}.viewSw button:last-child{border-radius:0 999px 999px 0;border-left:0}
+  .viewSw button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .week{display:flex;flex-direction:column;gap:4px}
+  .wrow{display:flex;gap:8px;align-items:flex-start;width:100%;text-align:left;background:#fff;border:1px solid var(--line);border-radius:12px;padding:6px 8px;cursor:pointer;min-height:44px}
+  .wrow.today{border:2px solid var(--accent)}.wrow.sel{background:#ffe7c7;border-color:#e8c9a8}.wrow.hday{border-color:#d9534f;background:#fdf0ef}
+  .wrow .wd{flex:0 0 46px;font-weight:700;font-size:15px;line-height:1.2}.wrow .wd small{display:block;font-size:11px;font-weight:600}
+  .wrow .wd .hn{display:block;font-size:9.5px;font-weight:600;color:#c0504d;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .wrow .wl{flex:1;min-width:0;font-size:13px}.wrow .wl div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.55}
+  .wrow .wl .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:middle}
+  .wrow .wl .none{color:var(--muted);font-size:12px}
   .pastBox{margin-top:8px;padding:4px 8px 6px;border-left:3px solid var(--line);background:#fffdf9;border-radius:6px}
   .pastRow{font-size:13px;padding:1px 0}
   .hol{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:9px;line-height:1.3;color:#c0504d}
@@ -188,7 +200,8 @@
 
   <section class="card" data-block="month">
     <div class="month"><button type="button" id="prev" aria-label="前の月">‹</button><div style="text-align:center"><h2 id="mTitle"></h2><button type="button" id="thisMonth" style="font-size:11px;padding:2px 10px;margin-top:2px;visibility:hidden">今月へ</button></div><button type="button" id="next" aria-label="次の月">›</button></div>
-    <p class="note" style="text-align:center;margin:2px 0 4px">左右に指を滑らせても月が変わります</p>
+    <div class="viewSw"><button type="button" data-view="month">月</button><button type="button" data-view="week">週</button></div>
+    <p class="note" id="swipeNote" style="text-align:center;margin:2px 0 4px">左右に指を滑らせても月が変わります</p>
     <div class="cal" id="cal"></div>
     <div class="legend"><span><i style="background:var(--work)"></i>出勤</span><span><i style="background:var(--off)"></i>休み</span><span><i style="background:var(--go)"></i>出かける用事</span><span><i style="background:var(--todo)"></i>家のこと・習慣</span><span><i style="background:var(--other)"></i>その他</span></div>
   </section>
@@ -273,7 +286,7 @@
   <p class="note">予定は上の「ひとこと入れる」か、実験室の練習台から入れます（どちらも同じ所に入ります）。数えるのは毎回コードが計算し直しています。まちがいに気づいたら ✏️ で直してください。</p>
 </div>
 
-<script src="./plan-core.js?v=20261016j"></script>
+<script src="./plan-core.js?v=20261016k"></script>
 <script>
 (() => {
 "use strict";
@@ -295,6 +308,11 @@ const sortKey = it => `${it.date || "9999"} ${it.time || ({ 朝: "07:00", 昼: "
 
 const t0 = todayStr();
 let ym = { y: +t0.slice(0, 4), m: +t0.slice(5, 7) }, sel = t0, editing = null; let editWhere = "";
+/* 月と週の切り替え（どちらで見ていたかは端末で覚える） */
+const VIEW_KEY = "yadokari.dash.view";
+let view = (() => { try { return localStorage.getItem(VIEW_KEY) === "week" ? "week" : "month"; } catch (_) { return "month"; } })();
+const mondayOf = s => { const t = new Date(s + "T12:00:00Z"), w = (t.getUTCDay() + 6) % 7; return new Date(t.getTime() - w * 86400000).toISOString().slice(0, 10); };
+let wk = mondayOf(t0);
 
 /* ---------- 数えるのはコード（毎回計算し直す） ---------- */
 /* ---------- 祝日（計算で出す。外にはつながない） ----------
@@ -387,6 +405,11 @@ function emojisIn(s) {
   return out;
 }
 function calendar(items) {
+  document.querySelectorAll("[data-view]").forEach(b => b.classList.toggle("on", b.dataset.view === view));
+  $("swipeNote").textContent = view === "week" ? "左右に指を滑らせても週が変わります" : "左右に指を滑らせても月が変わります";
+  if (view === "week") return weekView(items);
+  $("cal").className = "cal";
+  $("thisMonth").textContent = "今月へ";
   $("mTitle").textContent = `${ym.y}年${ym.m}月`;
   { const here = ym.y === +t0.slice(0, 4) && ym.m === +t0.slice(5, 7); $("thisMonth").style.visibility = here ? "hidden" : "visible"; }
   const first = new Date(Date.UTC(ym.y, ym.m - 1, 1)), days = new Date(Date.UTC(ym.y, ym.m, 0)).getUTCDate();
@@ -401,6 +424,20 @@ function calendar(items) {
     cells += `<button type="button" class="day${holiday(ds) ? " hday" : ""}${ds === t0 ? " today" : ""}${ds === sel ? " sel" : ""}" data-d="${ds}"><span class="n ${wd === 0 || holiday(ds) ? "sun" : wd === 6 ? "sat" : ""}">${d}</span>${holiday(ds) ? `<span class="hol">${esc(holiday(ds))}</span>` : ""}${tags}${list.length > 2 ? `<span class="more">ほか${list.length - 2}件</span>` : ""}</button>`;
   }
   $("cal").innerHTML = heads + cells;
+}
+/* 週：7日を縦に並べる（月曜はじまり）。祝日は赤い枠、押すとその日の欄が開く */
+function weekView(items) {
+  const days = [...Array(7)].map((_, i) => addDaysStr(wk, i)), last = days[6];
+  $("cal").className = "week";
+  $("mTitle").textContent = `${+wk.slice(5, 7)}/${+wk.slice(8, 10)}〜${+last.slice(5, 7)}/${+last.slice(8, 10)}`;
+  $("thisMonth").textContent = "今週へ";
+  $("thisMonth").style.visibility = wk === mondayOf(t0) ? "hidden" : "visible";
+  $("cal").innerHTML = days.map(ds => {
+    const t = new Date(ds + "T12:00:00Z"), wd = t.getUTCDay(), h = holiday(ds);
+    const list = items.filter(it => it.date === ds).sort((a, b) => sortKey(a) < sortKey(b) ? -1 : 1);
+    const lines = list.slice(0, 5).map(it => `<div><span class="dot" style="background:var(--${color(it)})"></span>${esc(it.time || it.part || "")} ${esc(cleanWhat(it.what))}</div>`).join("") + (list.length > 5 ? `<div class="none">ほか${list.length - 5}件</div>` : "");
+    return `<button type="button" class="wrow${h ? " hday" : ""}${ds === t0 ? " today" : ""}${ds === sel ? " sel" : ""}" data-d="${ds}"><span class="wd ${wd === 0 || h ? "sun" : wd === 6 ? "sat" : ""}" style="color:${wd === 0 || h ? "#c0504d" : wd === 6 ? "#3d6fb0" : "inherit"}">${t.getUTCDate()}<small>${WD[wd]}${t.getUTCDate() === 1 || ds === wk ? `・${t.getUTCMonth() + 1}月` : ""}</small>${h ? `<span class="hn">${esc(h)}</span>` : ""}</span><span class="wl">${lines || '<div class="none">—</div>'}</span></button>`;
+  }).join("");
 }
 
 function rowHtml(it, where) {
@@ -766,14 +803,26 @@ function render() { const items = load(); for (const f of [today, tiles, calenda
 /* ---------- 操作 ---------- */
 /* 月を動かす：‹ › のボタン、カレンダーの枠の中で左右に指を滑らせる、「今月へ」 */
 function moveMonth(n) {
-  ym.m += n; while (ym.m < 1) { ym.m += 12; ym.y--; } while (ym.m > 12) { ym.m -= 12; ym.y++; }
+  if (view === "week") { wk = addDaysStr(wk, 7 * n); ym = { y: +wk.slice(0, 4), m: +wk.slice(5, 7) }; }
+  else ym.m += n; while (ym.m < 1) { ym.m += 12; ym.y--; } while (ym.m > 12) { ym.m -= 12; ym.y++; }
   const cal = $("cal"); cal.style.transition = "none"; cal.style.transform = `translateX(${n > 0 ? 24 : -24}px)`; cal.style.opacity = ".4";
   render();
   requestAnimationFrame(() => { cal.style.transition = "transform .18s ease, opacity .18s ease"; cal.style.transform = ""; cal.style.opacity = ""; });
 }
 $("prev").onclick = () => moveMonth(-1);
 $("next").onclick = () => moveMonth(1);
-$("thisMonth").onclick = () => { const n = (+t0.slice(0, 4) - ym.y) * 12 + (+t0.slice(5, 7) - ym.m); if (n) moveMonth(n); };
+$("thisMonth").onclick = () => {
+  if (view === "week") { const n = Math.round((Date.parse(mondayOf(t0)) - Date.parse(wk)) / (7 * 86400000)); if (n) moveMonth(n); return; }
+  const n = (+t0.slice(0, 4) - ym.y) * 12 + (+t0.slice(5, 7) - ym.m); if (n) moveMonth(n);
+};
+/* 月・週の切り替え。週にする時は、選んでいる日（なければ今日）の週を出す。月に戻る時はその週の月 */
+document.querySelectorAll("[data-view]").forEach(b => b.onclick = () => {
+  const v = b.dataset.view; if (v === view) return;
+  view = v; try { localStorage.setItem(VIEW_KEY, v); } catch (_) {}
+  if (v === "week") { const base = sel && sel.slice(0, 7) === `${ym.y}-${z(ym.m)}` ? sel : (`${ym.y}-${z(ym.m)}` === t0.slice(0, 7) ? t0 : `${ym.y}-${z(ym.m)}-01`); wk = mondayOf(base); }
+  else { const mid = addDaysStr(wk, 3); ym = { y: +mid.slice(0, 4), m: +mid.slice(5, 7) }; }
+  render();
+});
 (() => {
   const box = document.querySelector('[data-block="month"]'); let sx = 0, sy = 0, st = 0, on = false;
   box.addEventListener("touchstart", e => { if (e.touches.length !== 1) return; on = true; sx = e.touches[0].clientX; sy = e.touches[0].clientY; st = Date.now(); }, { passive: true });
@@ -884,7 +933,7 @@ render();
 <!-- 新しい版の知らせ（版を上げるときは version.json とこの APP_VER を同じにする） -->
 <script>
 (() => {
-  const APP_VER = "20261016j";
+  const APP_VER = "20261016k";
   let shown = false;
   const check = () => {
     if (shown || !navigator.onLine) return;
