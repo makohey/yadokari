@@ -288,7 +288,7 @@
   <p class="note">予定は上の「ひとこと入れる」か、実験室の練習台から入れます（どちらも同じ所に入ります）。数えるのは毎回コードが計算し直しています。まちがいに気づいたら ✏️ で直してください。</p>
 </div>
 
-<script src="./plan-core.js?v=20261016l"></script>
+<script src="./plan-core.js?v=20261016m"></script>
 <script>
 (() => {
 "use strict";
@@ -312,7 +312,9 @@ const t0 = todayStr();
 let ym = { y: +t0.slice(0, 4), m: +t0.slice(5, 7) }, sel = t0, editing = null; let editWhere = "";
 /* 月と週の切り替え（どちらで見ていたかは端末で覚える） */
 const VIEW_KEY = "yadokari.dash.view";
-let view = (() => { try { return localStorage.getItem(VIEW_KEY) === "week" ? "week" : "month"; } catch (_) { return "month"; } })();
+/* まだ選んでいない端末は、画面の幅で決める（iPhone くらいの幅は週、iPad くらいは月） */
+const narrow = () => Math.min(screen.width || innerWidth, innerWidth) < 600;
+let view = (() => { try { const v = localStorage.getItem(VIEW_KEY); return v === "week" || v === "month" ? v : (narrow() ? "week" : "month"); } catch (_) { return narrow() ? "week" : "month"; } })();
 const mondayOf = s => { const t = new Date(s + "T12:00:00Z"), w = (t.getUTCDay() + 6) % 7; return new Date(t.getTime() - w * 86400000).toISOString().slice(0, 10); };
 let wk = mondayOf(t0);
 
@@ -935,7 +937,7 @@ render();
 <!-- 新しい版の知らせ（版を上げるときは version.json とこの APP_VER を同じにする） -->
 <script>
 (() => {
-  const APP_VER = "20261016l";
+  const APP_VER = "20261016m";
   let shown = false;
   const check = () => {
     if (shown || !navigator.onLine) return;
