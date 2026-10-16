@@ -38,6 +38,7 @@
   .cal .h.sun{color:#c0504d}.cal .h.sat{color:#3d6fb0}
   .day{min-height:58px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:3px 3px 4px;font-size:11px;cursor:pointer;overflow:hidden;text-align:left}
   .day.out{background:transparent;border-color:transparent;cursor:default}
+  .day.hday{border:1.5px solid #d9534f;background:#fdf0ef}
   .day.today{border:2px solid var(--accent)}
   .day.sel{background:#ffe7c7;border-color:#e8c9a8}
   .day .n{font-weight:700;font-size:12px}
@@ -377,7 +378,7 @@ function calendar(items) {
     const ds = `${ym.y}-${z(ym.m)}-${z(d)}`, wd = new Date(Date.UTC(ym.y, ym.m - 1, d)).getUTCDay();
     const list = items.filter(it => it.date === ds).sort((a, b) => sortKey(a) < sortKey(b) ? -1 : 1);
     const tags = list.slice(0, 2).map(it => `<span class="tag t-${color(it)}">${esc(cleanWhat(it.what))}</span>`).join("");
-    cells += `<button type="button" class="day${ds === t0 ? " today" : ""}${ds === sel ? " sel" : ""}" data-d="${ds}"><span class="n ${wd === 0 || holiday(ds) ? "sun" : wd === 6 ? "sat" : ""}">${d}</span>${holiday(ds) ? `<span class="hol">${esc(holiday(ds))}</span>` : ""}${tags}${list.length > 2 ? `<span class="more">ほか${list.length - 2}件</span>` : ""}</button>`;
+    cells += `<button type="button" class="day${holiday(ds) ? " hday" : ""}${ds === t0 ? " today" : ""}${ds === sel ? " sel" : ""}" data-d="${ds}"><span class="n ${wd === 0 || holiday(ds) ? "sun" : wd === 6 ? "sat" : ""}">${d}</span>${holiday(ds) ? `<span class="hol">${esc(holiday(ds))}</span>` : ""}${tags}${list.length > 2 ? `<span class="more">ほか${list.length - 2}件</span>` : ""}</button>`;
   }
   $("cal").innerHTML = heads + cells;
 }
@@ -811,7 +812,7 @@ render();
 <!-- 新しい版の知らせ（版を上げるときは version.json とこの APP_VER を同じにする） -->
 <script>
 (() => {
-  const APP_VER = "20261016g";
+  const APP_VER = "20261016h";
   let shown = false;
   const check = () => {
     if (shown || !navigator.onLine) return;
