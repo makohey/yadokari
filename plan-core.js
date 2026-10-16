@@ -208,7 +208,9 @@ const libs = {};
 const SEATS = {
   /* fit：どの端末向けか（📱 iPhone でも動く／💻 iPad・パソコン向け）。mem：動かす時に使うメモリの目安 */
   light: { label: "軽い：Qwen2.5 0.5B", size: "約0.4GB", mem: "約0.95GB", fit: "all", f16: "Qwen2.5-0.5B-Instruct-q4f16_1-MLC", f32: "Qwen2.5-0.5B-Instruct-q4f32_1-MLC" },
-  g1: { label: "試し：Gemma 3 1B", size: "約0.7GB", mem: "約0.7GB", fit: "all", f16: "gemma3-1b-it-q4f16_1-MLC", f32: null, noSystem: true },
+  g1: { label: "試し：Gemma 3 1B", size: "約0.7GB", mem: "約0.7GB", fit: "all", f16: "gemma3-1b-it-q4f16_1-MLC", f32: null, noSystem: true,
+    /* WebLLM の表では文の長さ4096と「すべる窓」512が両方入っていて止まる。部品は1k用なので、長さ1024・窓なしで動かす */
+    chatOpts: { context_window_size: 1024, sliding_window_size: -1 } },
   jp: { label: "少し上：TinySwallow 1.5B", size: "約1.2GB", mem: "約1.6GB", fit: "big", custom: true,
     repo: "https://huggingface.co/asai95/TinySwallow-1.5B-Instruct-q4f32_1-MLC", id: "TinySwallow-1.5B-Instruct-q4f32_1-MLC", libFrom: "Qwen2.5-1.5B-Instruct-q4f32_1-MLC" },
 };
@@ -221,7 +223,7 @@ const isPhone = () => /iPhone|Android.+Mobile/.test(navigator.userAgent);
 async function hasF16() { try { const ad = await navigator.gpu?.requestAdapter(); return !!ad?.features?.has?.("shader-f16"); } catch (_) { return false; } }
 async function modelFor(key) {
   const s = SEATS[key];
-  if (!s.custom) { const f16 = await hasF16(); if (!f16 && !s.f32) throw new Error("この端末では、この席は動かせません（f16 が使えない）。軽い席を選んでね"); return { id: f16 ? s.f16 : s.f32, appConfig: undefined }; }
+  if (!s.custom) { const f16 = await hasF16(); if (!f16 && !s.f32) throw new Error("この端末では、この席は動かせません（f16 が使えない）。軽い席を選んでね"); return { id: f16 ? s.f16 : s.f32, appConfig: undefined, chatOpts: s.chatOpts }; }
   const base = webllm.prebuiltAppConfig, lib = base.model_list.find(m => m.model_id === s.libFrom)?.model_lib;
   if (!lib) throw new Error("この版の WebLLM に、TinySwallow を動かす部品が見つかりませんでした");
   return { id: s.id, appConfig: { ...base, model_list: [...base.model_list, { model: s.repo, model_id: s.id, model_lib: lib }] } };
@@ -254,7 +256,7 @@ async function loadAI(key, auto = false) {
     const m = await modelFor(key); lastModel = m;
     if (engine) { try { await engine.unload(); } catch (_) {} engine = null; }
     log("読み込みを始めます…");
-    engine = await webllm.CreateMLCEngine(m.id, { appConfig: m.appConfig, initProgressCallback: p => { log(`読み込み中：${Math.round((p.progress || 0) * 100)}%`); setBar(`${Math.round((p.progress || 0) * 100)}%`); } });
+    engine = await webllm.CreateMLCEngine(m.id, { appConfig: m.appConfig, initProgressCallback: p => { log(`読み込み中：${Math.round((p.progress || 0) * 100)}%`); setBar(`${Math.round((p.progress || 0) * 100)}%`); } }, m.chatOpts);
     curId = m.id; try { localStorage.setItem(K.seat, key); } catch (_) {}
     log(`読み込み完了：${m.id}（${((performance.now() - t0) / 1000).toFixed(0)} 秒）。「AIに読み取ってもらう」が押せます。`);
   } catch (e) { engine = null; log(`読み込めませんでした（${s.label}）：` + (e?.message || e)); }
