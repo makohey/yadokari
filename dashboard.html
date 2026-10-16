@@ -179,7 +179,6 @@
       <p class="note" style="margin-top:2px">日付や数字は見張りがついているので安心してね。<span data-ainame>ローカルくん</span>が選んだ仕分けや返事は外れることがあります。直すと<span data-ainame>ローカルくん</span>が覚えます（手本帳）。</p>
       <div class="ctrl">
         <button type="button" id="aiLight">📱💻 軽い：Qwen2.5 0.5B・約0.4GB</button>
-        <button type="button" id="aiG1">💻 試し：Gemma 3 1B・約0.7GB</button>
         <button type="button" id="aiJp">💻 少し上：TinySwallow 1.5B・約1.2GB</button>
       </div>
       <p class="note" style="margin:2px 0 0">📱 iPhone でも動く／💻 iPad・パソコン向け（iPhone では止まります）</p>
@@ -290,7 +289,7 @@
   <p class="note">予定は上の「ひとこと入れる」か、実験室の練習台から入れます（どちらも同じ所に入ります）。数えるのは毎回コードが計算し直しています。まちがいに気づいたら ✏️ で直してください。</p>
 </div>
 
-<script src="./plan-core.js?v=20261016p"></script>
+<script src="./plan-core.js?v=20261016q"></script>
 <script>
 (() => {
 "use strict";
@@ -895,7 +894,7 @@ addEventListener("storage", e => { if (e.key === KEY) render(); });
 /* 入れたら、カレンダーをその日に合わせて並べ直す（入れた場所でも、月まとめでも、2回見られる） */
 addEventListener("yadokari:saved", () => { const it = load().slice(-1)[0]; if (it?.date) { sel = it.date; ym = { y: +it.date.slice(0, 4), m: +it.date.slice(5, 7) }; } editing = null; render(); });
 $("pRule").onclick = () => go(false); $("pAi").onclick = () => go(true);
-$("aiLight").onclick = () => loadAI("light"); $("aiG1").onclick = () => loadAI("g1"); $("aiJp").onclick = () => loadAI("jp"); $("aiDel").onclick = delAI;
+$("aiLight").onclick = () => loadAI("light"); $("aiJp").onclick = () => loadAI("jp"); $("aiDel").onclick = delAI;
 log("gpu" in navigator ? "席を選ぶと読み込みが始まります。使わなくても、AIなしの読み取りはそのまま使えます。" : "この端末のブラウザには WebGPU がないので、AIは動かせません。AIなしの読み取りはそのまま使えます。");
 $("xExp").onclick = exportPlan; $("xImp").onclick = () => $("xFile").click();
 $("xFile").onchange = async () => { const f = $("xFile").files?.[0]; $("xFile").value = ""; if (f) await importPlan(f); };
@@ -939,7 +938,7 @@ render();
 <!-- 新しい版の知らせ（版を上げるときは version.json とこの APP_VER を同じにする） -->
 <script>
 (() => {
-  const APP_VER = "20261016p";
+  const APP_VER = "20261016q";
   let shown = false;
   const check = () => {
     if (shown || !navigator.onLine) return;

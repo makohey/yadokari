@@ -203,15 +203,11 @@ async function importPlan(file) {
 function fixSummary() { const f = getFixes(); return f.length ? `手本帳（えさ）：${f.length}件（${f.slice(0, 4).map(x => `${x.key}→${x.fixKind ? x.kind : x.activity}`).join("、")}${f.length > 4 ? "…" : ""}）` : "手本帳（えさ）：まだ空です"; }
 
 /* ---------- ローカルくん（AI）の読み込み：地球儀の実験室と同じ席・同じ版 ---------- */
-const LIBS = { light: "https://esm.run/@mlc-ai/web-llm@0.2.86", g1: "https://esm.run/@mlc-ai/web-llm@0.2.86", jp: "https://esm.run/@mlc-ai/web-llm@0.2.79" };
+const LIBS = { light: "https://esm.run/@mlc-ai/web-llm@0.2.86", jp: "https://esm.run/@mlc-ai/web-llm@0.2.79" };
 const libs = {};
 const SEATS = {
   /* fit：どの端末向けか（📱 iPhone でも動く／💻 iPad・パソコン向け）。mem：動かす時に使うメモリの目安 */
   light: { label: "軽い：Qwen2.5 0.5B", size: "約0.4GB", mem: "約0.95GB", fit: "all", f16: "Qwen2.5-0.5B-Instruct-q4f16_1-MLC", f32: "Qwen2.5-0.5B-Instruct-q4f32_1-MLC" },
-  /* iPhone 14 Pro Max では読み込み中にページが落ちた（2026-10-16 まこと確認）。語彙が大きく、表の数字より重いらしい */
-  g1: { label: "試し：Gemma 3 1B", size: "約0.7GB", mem: "表では約0.7GB（実際はもっと重い）", fit: "big", f16: "gemma3-1b-it-q4f16_1-MLC", f32: null, noSystem: true,
-    /* WebLLM の表では文の長さ4096と「すべる窓」512が両方入っていて止まる。部品は1k用なので、長さ1024・窓なしで動かす */
-    chatOpts: { context_window_size: 1024, sliding_window_size: -1 } },
   jp: { label: "少し上：TinySwallow 1.5B", size: "約1.2GB", mem: "約1.6GB", fit: "big", custom: true,
     repo: "https://huggingface.co/asai95/TinySwallow-1.5B-Instruct-q4f32_1-MLC", id: "TinySwallow-1.5B-Instruct-q4f32_1-MLC", libFrom: "Qwen2.5-1.5B-Instruct-q4f32_1-MLC" },
 };
@@ -238,7 +234,7 @@ function showAIState() {
   document.querySelectorAll("[data-ai-state]").forEach(el => { el.className = "aiState " + cls; el.textContent = txt; });
 }
 function setBusy(b) {
-  for (const id of ["aiLight", "aiG1", "aiJp", "pRule", "tRule"]) { const el = $(id); if (el) el.disabled = b; }
+  for (const id of ["aiLight", "aiJp", "pRule", "tRule"]) { const el = $(id); if (el) el.disabled = b; }
   for (const id of ["pAi", "tAi"]) { const el = $(id); if (el) el.disabled = b || !engine; }
   /* 消すボタンは、読み込みに失敗した時も押せるように（端末の中に残った分を消せる） */
   { const el = $("aiDel"); if (el) el.disabled = b || !("gpu" in navigator); }
@@ -249,7 +245,6 @@ async function loadAI(key, auto = false) {
   if (!("gpu" in navigator)) { log("この端末のブラウザには WebGPU（ウェブジーピーユー）がないので、AIは動かせません。AIなしの読み取りはそのまま使えます。"); return; }
   const s = SEATS[key];
   if (!auto && s.fit === "big" && isPhone() && !confirm(`⚠️ ${s.label} は 💻 iPad・パソコン向けです。\n動かすのに${s.mem}のメモリが要るので、iPhone ではほとんどの場合ページが止まります（予定は消えません）。\n止まったら、ページを開き直して「端末の中のモデルを消す」を押してね。\n\nそれでも読み込みますか？`)) return;
-  if (!auto && key === "g1" && !isPhone() && !confirm(`${s.label}（${s.size}）を Hugging Face から読み込みます（端末の中にあれば通信しません）。試しの席です。読み込みますか？`)) return;
   if (!auto && key === "light" && !confirm(`${s.label}（${s.size}）を Hugging Face から読み込みます（端末の中にあれば通信しません）。読み込みますか？`)) return;
   loadingAI = true; setBusy(true); const t0 = performance.now();
   try {
@@ -279,6 +274,8 @@ async function delAI() {
         }
       } catch (_) {}
     }
+    /* 前に置いていた席（Gemma 3 1B・iPhoneで落ちたので外した）の残りも消す */
+    try { const lib = libs.light ||= await import(LIBS.light); for (const id of ["gemma3-1b-it-q4f16_1-MLC"]) if (await lib.hasModelInCache(id)) { await lib.deleteModelAllInfoInCache(id); gone.push(id); } } catch (_) {}
     curId = null; setBar("0"); try { localStorage.removeItem(K.seat); } catch (_) {}
     log(gone.length ? `消しました：${gone.join("、")}。端末の容量が戻ります。` : "端末の中に、消すモデルはありませんでした。");
   } catch (e) { log("消せませんでした：" + (e?.message || e)); }
