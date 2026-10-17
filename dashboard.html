@@ -84,6 +84,10 @@
   button.main{background:#ffe7c7;border-color:#e8c9a8;font-weight:700}
   button:disabled{opacity:.45;cursor:default}
   .aiState{font-size:12.5px;margin:8px 0 0;padding:5px 10px;border-radius:10px;border:1px solid var(--line);background:#fff}
+  .shareBtn{background:#e3f1fa;border:1.5px solid #9fcfe8;color:#24577a;font-weight:700;font-size:14px;padding:7px 16px}
+  .shareBtn .en{color:#4f7f9e}
+  .shareNote{font-size:12px;line-height:1.55;margin:6px 0 0;padding:6px 10px;border-radius:10px;border:1px solid #f0d9ae;background:#fff3dc;color:#8a5a14}
+  .shareNote b{color:#a3461f}
   .aiState.on{background:#eaf6ea;border-color:#bfe0c1;color:#3d8b4f}
   .aiState.wait{background:#fff3dc;border-color:#f0d9ae;color:#8a5a14}
   .reply{display:flex;gap:8px;align-items:flex-end;margin:10px 0}
@@ -293,7 +297,7 @@
   <p class="note">予定は上の「ひとこと入れる」か、実験室の練習台から入れます（どちらも同じ所に入ります）。数えるのは毎回コードが計算し直しています。まちがいに気づいたら ✏️ で直してください。</p>
 </div>
 
-<script src="./plan-core.js?v=20261017a"></script>
+<script src="./plan-core.js?v=20261017b"></script>
 <script>
 (() => {
 "use strict";
@@ -496,7 +500,7 @@ function dayCard(items) {
   if (focused) $("dayIn").focus();
 }
 /* 送る・日記を書く：いつも出しておく（予定がない日も、日付だけ送って日記を書ける） */
-const shareBox = ds => `<div style="margin-top:8px"><button type="button" data-share="${esc(ds)}" style="font-size:13px;padding:5px 14px">⤴︎ 送る・日記を書く<span class="en">Share / Journal</span></button><p class="note" style="margin:4px 0 0">ジャーナルを選ぶと、そのまま日記を書き足せます。送り先はあなたが選びます（メモ・LINEなども）。送った先はヤドカリのおうちの外です。</p></div>`;
+const shareBox = ds => `<div style="margin-top:8px"><button type="button" class="shareBtn" data-share="${esc(ds)}">⤴︎ 送る・日記を書く<span class="en">Share / Journal</span></button><p class="shareNote">⚠️ <b>送った先はヤドカリのおうちの外です。</b>送り先はあなたが選びます（ジャーナル・メモ・LINEなど）。ジャーナルを選ぶと、そのまま日記を書き足せます。</p></div>`;
 /* この日の予定を文字にまとめる（送る用） */
 function dayText(ds) {
   const l = load().filter(it => it.date === ds).sort((a, b) => sortKey(a) < sortKey(b) ? -1 : 1);
@@ -967,7 +971,7 @@ render();
 <!-- 新しい版の知らせ（版を上げるときは version.json とこの APP_VER を同じにする） -->
 <script>
 (() => {
-  const APP_VER = "20261017a";
+  const APP_VER = "20261017b";
   let shown = false;
   const check = () => {
     if (shown || !navigator.onLine) return;
