@@ -297,7 +297,7 @@
   <p class="note">予定は上の「ひとこと入れる」か、実験室の練習台から入れます（どちらも同じ所に入ります）。数えるのは毎回コードが計算し直しています。まちがいに気づいたら ✏️ で直してください。</p>
 </div>
 
-<script src="./plan-core.js?v=20261017c"></script>
+<script src="./plan-core.js?v=20261017d"></script>
 <script>
 (() => {
 "use strict";
@@ -583,7 +583,8 @@ function today(items) {
     + `<div class="sub" style="font-size:12px;color:var(--muted);margin-top:6px">やること${todos.length ? `（${todos.length}）` : ""}</div>`
     + (todos.length ? todos.map(todo).join("") : '<div class="empty">ありません</div>')
     + (doneToday.length ? `<details style="margin-top:4px"><summary>今日済んだ（${doneToday.length}）</summary>${doneToday.map(todo).join("")}</details>` : "")
-    + shareBox(t0);
+    /* 送るボタンはいつも1つだけ：ほかの日を選んでいる時は、その日の欄の方に出す */
+    + (sel === t0 ? shareBox(t0) : "");
 }
 /* 並び順の表：ここを入れ替えれば画面の並びが変わる（あとで使う人が選べるようにする時の土台） */
 const BLOCK_ORDER = ["inbox", "today", "month", "day", "tiles", "memo", "dup", "undated", "acts", "calendarLink", "backup"];
@@ -971,7 +972,7 @@ render();
 <!-- 新しい版の知らせ（版を上げるときは version.json とこの APP_VER を同じにする） -->
 <script>
 (() => {
-  const APP_VER = "20261017c";
+  const APP_VER = "20261017d";
   let shown = false;
   const check = () => {
     if (shown || !navigator.onLine) return;
