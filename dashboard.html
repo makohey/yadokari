@@ -293,7 +293,7 @@
   <p class="note">予定は上の「ひとこと入れる」か、実験室の練習台から入れます（どちらも同じ所に入ります）。数えるのは毎回コードが計算し直しています。まちがいに気づいたら ✏️ で直してください。</p>
 </div>
 
-<script src="./plan-core.js?v=20261016u"></script>
+<script src="./plan-core.js?v=20261017a"></script>
 <script>
 (() => {
 "use strict";
@@ -491,10 +491,12 @@ function dayCard(items) {
     + (list.length ? list.map(it => rowHtml(it, "day")).join("") : '<div class="empty">この日の予定はありません</div>')
     + `<div style="display:flex;gap:6px;margin-top:8px"><input id="dayIn" data-d="${esc(sel)}" placeholder="この日に入れる / Add" style="flex:1;min-width:0;font-size:16px;padding:6px 8px;border:1px solid var(--line);border-radius:10px"><button type="button" id="dayAdd" style="flex:0 0 auto">読み取る<span class="en">Add</span></button></div>`
     + pastHtml
-    + (list.length ? `<div style="margin-top:8px"><button type="button" id="dayShare" style="font-size:13px;padding:4px 12px">⤴︎ この日の予定を送る<span class="en">Share</span></button><p class="note" style="margin:4px 0 0">送り先（ジャーナル・メモ・LINEなど）はあなたが選びます。送った先はヤドカリのおうちの外です。</p></div>` : "");
+    + shareBox(sel);
   if (keep) $("dayIn").value = keep;
   if (focused) $("dayIn").focus();
 }
+/* 送る・日記を書く：いつも出しておく（予定がない日も、日付だけ送って日記を書ける） */
+const shareBox = ds => `<div style="margin-top:8px"><button type="button" data-share="${esc(ds)}" style="font-size:13px;padding:5px 14px">⤴︎ 送る・日記を書く<span class="en">Share / Journal</span></button><p class="note" style="margin:4px 0 0">ジャーナルを選ぶと、そのまま日記を書き足せます。送り先はあなたが選びます（メモ・LINEなども）。送った先はヤドカリのおうちの外です。</p></div>`;
 /* この日の予定を文字にまとめる（送る用） */
 function dayText(ds) {
   const l = load().filter(it => it.date === ds).sort((a, b) => sortKey(a) < sortKey(b) ? -1 : 1);
@@ -576,7 +578,8 @@ function today(items) {
       })() : '<div class="empty">今日の予定はありません</div>')
     + `<div class="sub" style="font-size:12px;color:var(--muted);margin-top:6px">やること${todos.length ? `（${todos.length}）` : ""}</div>`
     + (todos.length ? todos.map(todo).join("") : '<div class="empty">ありません</div>')
-    + (doneToday.length ? `<details style="margin-top:4px"><summary>今日済んだ（${doneToday.length}）</summary>${doneToday.map(todo).join("")}</details>` : "");
+    + (doneToday.length ? `<details style="margin-top:4px"><summary>今日済んだ（${doneToday.length}）</summary>${doneToday.map(todo).join("")}</details>` : "")
+    + shareBox(t0);
 }
 /* 並び順の表：ここを入れ替えれば画面の並びが変わる（あとで使う人が選べるようにする時の土台） */
 const BLOCK_ORDER = ["inbox", "today", "month", "day", "tiles", "memo", "dup", "undated", "acts", "calendarLink", "backup"];
@@ -878,10 +881,11 @@ document.addEventListener("click", e => {
     if (a.add.length >= 12) { alert("足せるのは12までです"); return; }
     if (!a.add.includes(v)) a.add.push(v); setActs(a); actsUI(); render(); setTimeout(() => { const x = $("actIn"); if (x) x.focus(); }, 50); return;
   }
-  if (e.target.closest("#dayShare")) {
-    const text = dayText(sel);
+  const sh = e.target.closest("[data-share]");
+  if (sh) {
+    const text = dayText(sh.dataset.share);
     if (navigator.share) { navigator.share({ text }).catch(() => {}); }
-    else if (navigator.clipboard) { navigator.clipboard.writeText(text).then(() => { const b = $("dayShare"); if (b) b.textContent = "写しました（貼りつけて使えます）"; }).catch(() => alert(text)); }
+    else if (navigator.clipboard) { navigator.clipboard.writeText(text).then(() => { sh.textContent = "写しました（貼りつけて使えます）"; }).catch(() => alert(text)); }
     else alert(text);
     return;
   }
@@ -963,7 +967,7 @@ render();
 <!-- 新しい版の知らせ（版を上げるときは version.json とこの APP_VER を同じにする） -->
 <script>
 (() => {
-  const APP_VER = "20261016u";
+  const APP_VER = "20261017a";
   let shown = false;
   const check = () => {
     if (shown || !navigator.onLine) return;
