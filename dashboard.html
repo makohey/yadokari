@@ -297,7 +297,7 @@
   <p class="note">予定は上の「ひとこと入れる」か、実験室の練習台から入れます（どちらも同じ所に入ります）。数えるのは毎回コードが計算し直しています。まちがいに気づいたら ✏️ で直してください。</p>
 </div>
 
-<script src="./plan-core.js?v=20261017b"></script>
+<script src="./plan-core.js?v=20261017c"></script>
 <script>
 (() => {
 "use strict";
@@ -500,7 +500,7 @@ function dayCard(items) {
   if (focused) $("dayIn").focus();
 }
 /* 送る・日記を書く：いつも出しておく（予定がない日も、日付だけ送って日記を書ける） */
-const shareBox = ds => `<div style="margin-top:8px"><button type="button" class="shareBtn" data-share="${esc(ds)}">⤴︎ 送る・日記を書く<span class="en">Share / Journal</span></button><p class="shareNote">⚠️ <b>送った先はヤドカリのおうちの外です。</b>送り先はあなたが選びます（ジャーナル・メモ・LINEなど）。ジャーナルを選ぶと、そのまま日記を書き足せます。</p></div>`;
+const shareBox = ds => `<div style="margin-top:8px"><button type="button" class="shareBtn" data-share="${esc(ds)}">⤴︎ ${esc(+ds.slice(5, 7) + "/" + +ds.slice(8, 10))} を送る・日記を書く<span class="en">Share / Journal</span></button><p class="shareNote">⚠️ <b>送った先はヤドカリのおうちの外です。</b>送り先はあなたが選びます（ジャーナル・メモ・LINEなど）。ジャーナルを選ぶと、そのまま日記を書き足せます。</p></div>`;
 /* この日の予定を文字にまとめる（送る用） */
 function dayText(ds) {
   const l = load().filter(it => it.date === ds).sort((a, b) => sortKey(a) < sortKey(b) ? -1 : 1);
@@ -971,7 +971,7 @@ render();
 <!-- 新しい版の知らせ（版を上げるときは version.json とこの APP_VER を同じにする） -->
 <script>
 (() => {
-  const APP_VER = "20261017b";
+  const APP_VER = "20261017c";
   let shown = false;
   const check = () => {
     if (shown || !navigator.onLine) return;
