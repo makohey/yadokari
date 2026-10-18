@@ -175,8 +175,12 @@ function mergeFixes(a, b) {
 }
 
 /* ---------- 控え（押した時だけ）：書き出す／足し合わせて読み込む ---------- */
+/* 控えに入れる「好み」：どの端末でも同じでいいものだけ（週のはじまり・曜日の書き方・数える項目・ローカルくんの名前）。
+   月／週の見え方は端末ごと（iPhoneは週、iPadは月）なので入れない。カレンダーの許可も端末ごとに本人が選ぶので入れない */
+const PREF_KEYS = ["yadokari.weekstart", "yadokari.wd", "yadokari.dash.tiles", "yadokari.ai.name"];
+function getPrefs() { const o = {}; for (const k of PREF_KEYS) { try { const v = localStorage.getItem(k); if (v !== null) o[k] = v.slice(0, 2000); } catch (_) {} } return o; }
 function exportPlan() {
-  const blob = new Blob([JSON.stringify({ app: "yadokari-lab-plan", format: 2, exportedAt: new Date().toISOString(), items: load(), fixes: getFixes(), acts: getActs() })], { type: "application/json" });
+  const blob = new Blob([JSON.stringify({ app: "yadokari-lab-plan", format: 2, exportedAt: new Date().toISOString(), items: load(), fixes: getFixes(), acts: getActs(), prefs: getPrefs() })], { type: "application/json" });
   const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `yadokari-techo-${addDays(0)}.json`;
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 10000);
 }
@@ -205,6 +209,9 @@ async function importPlan(file) {
   const add = inItems.filter(x => !seen.has(x.id) && !seenSig.has(sig(x)));
   const fx = mergeFixes(getFixes(), inFixes), newFix = fx.length - getFixes().length;
   if (!confirm(`控えを足し合わせます。${inActs.length ? `\n自分の すること：${inActs.join("・")}` : ""}\n予定など：新しく ${add.length} 件（同じものは入れません）\n手本帳（えさ）：${inFixes.length} 件を合わせて、全部で ${fx.length} 件に\n\n今ある中身は消えません。読み込んでもいい？`)) { setActs(actsBefore); return; }
+  /* 好みは、控えにあって この端末でまだ決めていないものだけ入れる（今の好みは上書きしない） */
+  const inPrefs = data.prefs && typeof data.prefs === "object" ? data.prefs : {};
+  for (const k of PREF_KEYS) { try { if (typeof inPrefs[k] === "string" && localStorage.getItem(k) === null) localStorage.setItem(k, inPrefs[k].slice(0, 2000)); } catch (_) {} }
   if (save(cur.concat(add))) { setJ(K.fixes, fx); dispatchEvent(new Event("yadokari:saved")); alert(`足し合わせました（予定など +${add.length}・手本帳 ${newFix >= 0 ? "+" + newFix : fx.length + "件"}）`); }
 }
 function fixSummary() { const f = getFixes(); return f.length ? `手本帳（えさ）：${f.length}件（${f.slice(0, 4).map(x => `${x.key}→${x.fixKind ? x.kind : x.activity}`).join("、")}${f.length > 4 ? "…" : ""}）` : "手本帳（えさ）：まだ空です"; }
