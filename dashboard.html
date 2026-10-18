@@ -57,7 +57,9 @@
   .datePop .dd{border:1px solid var(--line);background:#fff;border-radius:9px;padding:8px 0;font-size:15px;text-align:center;cursor:pointer;min-height:38px}
   .datePop .dd.sun{color:#c0504d}.datePop .dd.sat{color:#3d6fb0}.datePop .dd.hol{color:#c0504d;background:#fdf0ef;border-color:#e8b9b6}
   .datePop .dd.today{border:2px solid var(--accent)}.datePop .dd.pre{background:#ffe7c7;border-color:#e8c9a8;font-weight:700}
-  .wdSw{display:flex;align-items:center;justify-content:flex-end;gap:4px;margin:6px 0 0;font-size:12px;color:var(--muted)}
+  .wdSw{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:4px 4px;margin:6px 0 0;font-size:12px;color:var(--muted)}
+  .wdSw span,.wdSw button{white-space:nowrap}
+  .wdSw .g{display:inline-flex;align-items:center;gap:4px;margin-left:8px}
   .wdSw button{padding:2px 10px;font-size:12px}.wdSw button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
   .viewSw{display:flex;justify-content:center;gap:0;margin:4px 0 0}
   .viewSw button{border-radius:0;padding:3px 16px;font-size:13px}
@@ -222,7 +224,7 @@
     <div class="viewSw"><button type="button" data-view="month">月<span class="en">Month</span></button><button type="button" data-view="week">週<span class="en">Week</span></button></div>
     <p class="note" id="swipeNote" style="text-align:center;margin:2px 0 4px">左右に指を滑らせても月が変わります</p>
     <div class="cal" id="cal"></div>
-    <div class="wdSw"><span>曜日 <span class="en">Days</span></span><button type="button" data-wd="ja">月火水</button><button type="button" data-wd="en">Mon Tue</button></div>
+    <div class="wdSw"><span class="g"><span>はじまり <span class="en">Start</span></span><button type="button" data-ws="mon">月</button><button type="button" data-ws="sun">日</button></span><span class="g"><span>曜日 <span class="en">Days</span></span><button type="button" data-wd="ja">月火水</button><button type="button" data-wd="en">Mon Tue</button></span></div>
     <div class="legend"><span><i style="background:var(--work)"></i>出勤<span class="en">Work</span></span><span><i style="background:var(--off)"></i>休み<span class="en">Off</span></span><span><i style="background:var(--go)"></i>出かける用事<span class="en">Out</span></span><span><i style="background:var(--todo)"></i>家のこと・習慣<span class="en">Home</span></span><span><i style="background:var(--other)"></i>その他<span class="en">Other</span></span></div>
   </section>
 
@@ -307,7 +309,7 @@
   <p class="note">予定は上の「ひとこと入れる」か、実験室の練習台から入れます（どちらも同じ所に入ります）。数えるのは毎回コードが計算し直しています。まちがいに気づいたら ✏️ で直してください。</p>
 </div>
 
-<script src="./plan-core.js?v=20261018a"></script>
+<script src="./plan-core.js?v=20261018b"></script>
 <script>
 (() => {
 "use strict";
@@ -334,7 +336,13 @@ const VIEW_KEY = "yadokari.dash.view";
 /* まだ選んでいない端末は、画面の幅で決める（iPhone くらいの幅は週、iPad くらいは月） */
 const narrow = () => Math.min(screen.width || innerWidth, innerWidth) < 600;
 let view = (() => { try { const v = localStorage.getItem(VIEW_KEY); return v === "week" || v === "month" ? v : (narrow() ? "week" : "month"); } catch (_) { return narrow() ? "week" : "month"; } })();
-const mondayOf = s => { const t = new Date(s + "T12:00:00Z"), w = (t.getUTCDay() + 6) % 7; return new Date(t.getTime() - w * 86400000).toISOString().slice(0, 10); };
+/* 週のはじまり：月曜（初め）か日曜を選べる。月間・週・🗓️ の全部がそろって変わる */
+const WS_KEY = "yadokari.weekstart";
+const wsSun = () => { try { return localStorage.getItem(WS_KEY) === "sun"; } catch (_) { return false; } };
+const wsDow = () => wsSun() ? 0 : 1;
+const weekOrder = () => wsSun() ? [0, 1, 2, 3, 4, 5, 6] : [1, 2, 3, 4, 5, 6, 0];
+const leadOf = dow => (dow - wsDow() + 7) % 7;
+const mondayOf = s => { const t = new Date(s + "T12:00:00Z"), w = leadOf(t.getUTCDay()); return new Date(t.getTime() - w * 86400000).toISOString().slice(0, 10); };
 let wk = mondayOf(t0);
 
 /* ---------- 数えるのはコード（毎回計算し直す） ---------- */
@@ -430,6 +438,7 @@ function emojisIn(s) {
 function calendar(items) {
   document.querySelectorAll("[data-view]").forEach(b => b.classList.toggle("on", b.dataset.view === view));
   document.querySelectorAll("[data-wd]").forEach(b => b.classList.toggle("on", (b.dataset.wd === "en") === wdEn()));
+  document.querySelectorAll("[data-ws]").forEach(b => { b.classList.toggle("on", (b.dataset.ws === "sun") === wsSun()); b.textContent = WD[b.dataset.ws === "sun" ? 0 : 1]; });
   $("swipeNote").innerHTML = view === "week" ? `左右に指を滑らせても週が変わります<span class="en">Swipe</span>` : `左右に指を滑らせても月が変わります<span class="en">Swipe</span>`;
   if (view === "week") return weekView(items);
   $("cal").className = "cal";
@@ -437,8 +446,8 @@ function calendar(items) {
   $("mTitle").textContent = `${ym.y}年${ym.m}月`;
   { const here = ym.y === +t0.slice(0, 4) && ym.m === +t0.slice(5, 7); $("thisMonth").style.visibility = here ? "hidden" : "visible"; }
   const first = new Date(Date.UTC(ym.y, ym.m - 1, 1)), days = new Date(Date.UTC(ym.y, ym.m, 0)).getUTCDate();
-  const lead = (first.getUTCDay() + 6) % 7; /* 月曜はじまり */
-  const heads = [1, 2, 3, 4, 5, 6, 0].map(i => `<div class="h ${i === 0 ? "sun" : i === 6 ? "sat" : ""}">${WD[i]}</div>`).join("");
+  const lead = leadOf(first.getUTCDay());
+  const heads = weekOrder().map(i => `<div class="h ${i === 0 ? "sun" : i === 6 ? "sat" : ""}">${WD[i]}</div>`).join("");
   let cells = "";
   for (let i = 0; i < lead; i++) cells += `<div class="day out"></div>`;
   for (let d = 1; d <= days; d++) {
@@ -449,7 +458,7 @@ function calendar(items) {
   }
   $("cal").innerHTML = heads + cells;
 }
-/* 週：7日を縦に並べる（月曜はじまり）。祝日は赤い枠、押すとその日の欄が開く */
+/* 週：7日を縦に並べる（はじまりは選べる）。祝日は赤い枠、押すとその日の欄が開く */
 function weekView(items) {
   const days = [...Array(7)].map((_, i) => addDaysStr(wk, i)), last = days[6];
   $("cal").className = "week";
@@ -748,8 +757,8 @@ function insertDate(v) {
   pickLine = null;
 }
 function datePopRender() {
-  const { y, m } = popYM, first = new Date(Date.UTC(y, m - 1, 1)), days = new Date(Date.UTC(y, m, 0)).getUTCDate(), lead = (first.getUTCDay() + 6) % 7;
-  let cells = [1, 2, 3, 4, 5, 6, 0].map(i => `<div class="dw">${WD[i]}</div>`).join("");
+  const { y, m } = popYM, first = new Date(Date.UTC(y, m - 1, 1)), days = new Date(Date.UTC(y, m, 0)).getUTCDate(), lead = leadOf(first.getUTCDay());
+  let cells = weekOrder().map(i => `<div class="dw">${WD[i]}</div>`).join("");
   for (let i = 0; i < lead; i++) cells += "<div></div>";
   for (let dd = 1; dd <= days; dd++) {
     const ds = `${y}-${z(m)}-${z(dd)}`, wd = new Date(Date.UTC(y, m - 1, dd)).getUTCDay(), h = holiday(ds);
@@ -869,6 +878,7 @@ $("thisMonth").onclick = () => {
   if (view === "week") { const n = Math.round((Date.parse(mondayOf(t0)) - Date.parse(wk)) / (7 * 86400000)); if (n) moveMonth(n); return; }
   const n = (+t0.slice(0, 4) - ym.y) * 12 + (+t0.slice(5, 7) - ym.m); if (n) moveMonth(n);
 };
+document.querySelectorAll("[data-ws]").forEach(b => b.onclick = () => { try { localStorage.setItem(WS_KEY, b.dataset.ws); } catch (_) {} wk = mondayOf(view === "week" ? addDaysStr(wk, 3) : (sel || t0)); render(); });
 document.querySelectorAll("[data-wd]").forEach(b => b.onclick = () => { try { localStorage.setItem(WD_KEY, b.dataset.wd); } catch (_) {} render(); });
 /* 月・週の切り替え。週にする時は、選んでいる日（なければ今日）の週を出す。月に戻る時はその週の月 */
 document.querySelectorAll("[data-view]").forEach(b => b.onclick = () => {
@@ -997,7 +1007,7 @@ render();
 <!-- 新しい版の知らせ（版を上げるときは version.json とこの APP_VER を同じにする） -->
 <script>
 (() => {
-  const APP_VER = "20261018a";
+  const APP_VER = "20261018b";
   let shown = false;
   const check = () => {
     if (shown || !navigator.onLine) return;
