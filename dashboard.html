@@ -48,6 +48,15 @@
   .more{font-size:10px;color:var(--muted)}
   .en{font-size:.72em;font-weight:500;color:var(--muted);margin-left:4px;letter-spacing:.02em}
   .viewSw button.on .en{color:#e8ddd3}
+  .datePop{margin-top:6px;border:1px solid var(--line);border-radius:14px;background:#fff;padding:8px;box-shadow:0 4px 14px rgba(0,0,0,.08)}
+  .datePop .dh{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:6px}
+  .datePop .dh b{font-size:15px}
+  .datePop .dh button{padding:3px 12px;font-size:14px}
+  .datePop .dg{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+  .datePop .dw{text-align:center;font-size:11px;color:var(--muted)}
+  .datePop .dd{border:1px solid var(--line);background:#fff;border-radius:9px;padding:8px 0;font-size:15px;text-align:center;cursor:pointer;min-height:38px}
+  .datePop .dd.sun{color:#c0504d}.datePop .dd.sat{color:#3d6fb0}.datePop .dd.hol{color:#c0504d;background:#fdf0ef;border-color:#e8b9b6}
+  .datePop .dd.today{border:2px solid var(--accent)}.datePop .dd.pre{background:#ffe7c7;border-color:#e8c9a8;font-weight:700}
   .wdSw{display:flex;align-items:center;justify-content:flex-end;gap:4px;margin:6px 0 0;font-size:12px;color:var(--muted)}
   .wdSw button{padding:2px 10px;font-size:12px}.wdSw button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
   .viewSw{display:flex;justify-content:center;gap:0;margin:4px 0 0}
@@ -170,10 +179,11 @@
     <div style="display:flex;gap:6px;align-items:flex-start">
       <textarea id="pIn" rows="1" placeholder="ひとこと入れる（例：今日牛乳買う）" style="flex:1"></textarea>
       <span class="pickCol">
-        <span class="pickWrap"><input type="date" id="pickDate" aria-label="日付を選ぶ"><span class="pickBtn" aria-hidden="true">🗓️</span></span>
+        <span class="pickWrap"><button type="button" class="pickBtn" id="dateBtn" aria-label="日付を選ぶ" style="pointer-events:auto;cursor:pointer;padding:0;font-size:19px">🗓️</button></span>
         <span class="pickWrap"><input type="time" id="pickTime" aria-label="時刻を選ぶ"><span class="pickBtn" aria-hidden="true">🕘</span></span>
       </span>
     </div>
+    <div class="datePop" id="datePop" hidden></div>
     <div class="ctrl">
       <button type="button" id="pRule" class="main">読み取る（AIなし）</button>
       <button type="button" id="pAi" disabled>AIに読み取ってもらう</button>
@@ -297,7 +307,7 @@
   <p class="note">予定は上の「ひとこと入れる」か、実験室の練習台から入れます（どちらも同じ所に入ります）。数えるのは毎回コードが計算し直しています。まちがいに気づいたら ✏️ で直してください。</p>
 </div>
 
-<script src="./plan-core.js?v=20261017d"></script>
+<script src="./plan-core.js?v=20261018a"></script>
 <script>
 (() => {
 "use strict";
@@ -712,37 +722,52 @@ $("resetAll").onclick = async () => {
 /* 透明な日付の欄を🗓️の上に重ねて、指が直接触れる形にする（iPhone で一番確実に選ぶ画面が出る）。
    触れた瞬間に、書いている行の日付（なければ今日）を選んだ状態にしておく */
 let pickLine = null;
+/* 🗓️：自分たちの小さなカレンダー（表示と同じ月曜はじまり）。iPhone の日付の画面は日曜はじまりで、こちらからは変えられないため */
+const pickDone = { date: "", time: "" };
+let lastPick = null, popYM = null, popPre = "";
 function pickPreset() {
   const ta = $("pIn"), s = ta.value, pos = ta.selectionStart ?? s.length, ls = s.lastIndexOf("\n", pos - 1) + 1, le = s.indexOf("\n", pos) < 0 ? s.length : s.indexOf("\n", pos);
   pickLine = pos; let r = null; try { r = readDate(s.slice(ls, le)); } catch (_) {}
-  /* 行に日付がなければ、上の行の日付 → この入力で前に選んだ日 → 今日 の順で開く（先の月を続けて入れる時に戻らなくていい）。
-     空にすると iPhone は開いた瞬間に今日を入れてしまうので、必ず何かの日を置いておく */
+  /* 行に日付がなければ、上の行の日付 → この入力で前に選んだ日 → 今日 の順で開く（先の月を続けて入れる時に戻らなくていい） */
   if (!s.trim()) lastPick = null;
   let above = null;
   if (!r) { const prev = s.slice(0, ls).split("\n").reverse(); for (const l of prev) { try { const x = readDate(l); if (x && x.date) { above = x.date; break; } } catch (_) {} } }
-  lineHadDate = !!r; pickApplied = false;
-  $("pickDate").value = r ? r.date : (above || lastPick || t0); pickDone.date = $("pickDate").value;
+  return r ? r.date : (above || lastPick || t0);
 }
-$("pickDate").addEventListener("touchstart", pickPreset, { passive: true });
-$("pickDate").addEventListener("mousedown", pickPreset);
-const pickDone = { date: "", time: "" };
-let lastPick = null, lineHadDate = false, pickApplied = false;
-const onPickDate = ev => {
-  const v = $("pickDate").value; if (!v) return;
-  /* 開いた時と同じ日を選んだ時は、知らせが来ないことがある。日付のない行なら、閉じた時にその日を入れる */
-  const sameOk = ev && ev.type === "blur" && !lineHadDate && !pickApplied;
-  if (v === pickDone.date && !sameOk) return; pickDone.date = v; pickApplied = true; lastPick = v;
+function insertDate(v) {
+  lastPick = v;
   /* 年が今年と違う時は年もつける（1月を「1/5」と書くと今年の1月と読まれるため） */
   const md = v.slice(0, 4) === t0.slice(0, 4) ? `${+v.slice(5, 7)}/${+v.slice(8, 10)} ` : `${v.slice(0, 4)}/${+v.slice(5, 7)}/${+v.slice(8, 10)} `;
   const ta = $("pIn"), pos = pickLine ?? ta.selectionStart ?? ta.value.length;
   const s = ta.value, ls = s.lastIndexOf("\n", pos - 1) + 1, le = s.indexOf("\n", pos) < 0 ? s.length : s.indexOf("\n", pos);
   let line = s.slice(ls, le).replace(/^\s*(\d{4}\s*[\/年.-]\s*)?\d{1,2}\s*[\/月.・-]\s*\d{1,2}\s*日?\s*/, "");
   ta.value = s.slice(0, ls) + md + line + s.slice(le);
-  ta.classList.add("has"); const c = ls + md.length + line.length; try { ta.setSelectionRange(c, c); } catch (_) {}
-  /* 選んだ日付は空に戻さない（iPhone は押した瞬間に知らせてくるため、戻すと選び直せなくなる） */
-};
-/* iPhone は知らせ方がまちまちなので、変わった・入力・閉じた、のどれでも拾う（同じ値は二度入れない） */
-for (const ev of ["change", "input", "blur"]) $("pickDate").addEventListener(ev, onPickDate);
+  ta.classList.add("has"); const c = ls + md.length + line.length;
+  /* 続けて書けるように、入れた日付の後ろにカーソルを置く */
+  try { ta.focus({ preventScroll: true }); ta.setSelectionRange(c, c); } catch (_) {}
+  pickLine = null;
+}
+function datePopRender() {
+  const { y, m } = popYM, first = new Date(Date.UTC(y, m - 1, 1)), days = new Date(Date.UTC(y, m, 0)).getUTCDate(), lead = (first.getUTCDay() + 6) % 7;
+  let cells = [1, 2, 3, 4, 5, 6, 0].map(i => `<div class="dw">${WD[i]}</div>`).join("");
+  for (let i = 0; i < lead; i++) cells += "<div></div>";
+  for (let dd = 1; dd <= days; dd++) {
+    const ds = `${y}-${z(m)}-${z(dd)}`, wd = new Date(Date.UTC(y, m - 1, dd)).getUTCDay(), h = holiday(ds);
+    cells += `<button type="button" class="dd${h ? " hol" : wd === 0 ? " sun" : wd === 6 ? " sat" : ""}${ds === t0 ? " today" : ""}${ds === popPre ? " pre" : ""}" data-pick="${ds}"${h ? ` title="${esc(h)}"` : ""}>${dd}</button>`;
+  }
+  $("datePop").innerHTML = `<div class="dh"><button type="button" data-pm="-1" aria-label="前の月">‹</button><b>${y}年${m}月</b><button type="button" data-pm="1" aria-label="次の月">›</button></div><div class="dg">${cells}</div>`
+    + `<div class="dh" style="margin:6px 0 0"><button type="button" data-pick="${t0}">今日<span class="en">Today</span></button><button type="button" data-pclose>✕ 閉じる<span class="en">Close</span></button></div>`;
+}
+$("dateBtn").addEventListener("click", () => {
+  const p = $("datePop"); if (!p.hidden) { p.hidden = true; return; }
+  popPre = pickPreset(); popYM = { y: +popPre.slice(0, 4), m: +popPre.slice(5, 7) };
+  datePopRender(); p.hidden = false;
+});
+$("datePop").addEventListener("click", e => {
+  const pk = e.target.closest("[data-pick]"); if (pk) { insertDate(pk.dataset.pick); $("datePop").hidden = true; return; }
+  const pm = e.target.closest("[data-pm]"); if (pm) { popYM.m += +pm.dataset.pm; if (popYM.m < 1) { popYM.m = 12; popYM.y--; } if (popYM.m > 12) { popYM.m = 1; popYM.y++; } datePopRender(); return; }
+  if (e.target.closest("[data-pclose]")) $("datePop").hidden = true;
+});
 /* 🕘：選んだ時刻を、書いている行の日付の後ろ（なければ行の頭）に「9:30 」と入れる。もう時刻があれば置きかえる */
 const TIME_RE = /\s*(\d{1,2}:\d{2}|\d{1,2}\s*時\s*(半|\d{1,2}\s*分)?)\s*/;
 const HEAD_DATE_RE = /^\s*(\d{4}\s*[\/年.-]\s*)?\d{1,2}\s*[\/月.・-]\s*\d{1,2}\s*日?\s*/;
@@ -972,7 +997,7 @@ render();
 <!-- 新しい版の知らせ（版を上げるときは version.json とこの APP_VER を同じにする） -->
 <script>
 (() => {
-  const APP_VER = "20261017d";
+  const APP_VER = "20261018a";
   let shown = false;
   const check = () => {
     if (shown || !navigator.onLine) return;
