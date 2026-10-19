@@ -384,7 +384,7 @@
   <p class="note">予定は上の「ひとこと入れる」か、実験室の練習台から入れます（どちらも同じ所に入ります）。数えるのは毎回コードが計算し直しています。まちがいに気づいたら ✏️ で直してください。</p>
 </div>
 
-<script src="./plan-core.js?v=20261019f"></script>
+<script src="./plan-core.js?v=20261019g"></script>
 <script>
 (() => {
 "use strict";
@@ -548,7 +548,12 @@ function weekView(items) {
   }).join("");
 }
 
+/* 繰り返しから出た予定：直す・📅 は出さず、🔁 と「この日だけ外す」 */
+function repRow(it, small) {
+  return `<div class="todo" style="padding:${small ? "5px" : "7px"} 0;font-size:14px"><span style="flex:0 0 20px;text-align:center">🔁</span><div class="t">${esc(it.time || "")} ${esc(it.what)}<div class="sub" style="font-size:11px">${esc(it.repText || "")}</div></div><button type="button" data-repskip="${esc(it.rep)}|${esc(it.date)}" style="flex:0 0 auto;font-size:11px;padding:2px 8px">この日だけ外す</button></div>`;
+}
 function rowHtml(it, where) {
+  if (it.rep) return repRow(it, false);
   if (editing === it.id && editWhere === (where || "")) {
     const opts = (list, v) => list.map(x => `<option${x === v ? " selected" : ""}>${esc(x)}</option>`).join("");
     return `<div class="row"><div class="pf"><span>種類</span><select data-f="kind">${opts(KINDS, it.kind)}</select></div>
@@ -599,7 +604,7 @@ function dayCard(items) {
 const shareBox = ds => `<div style="margin-top:8px"><button type="button" class="shareBtn" data-share="${esc(ds)}">⤴︎ ${esc(+ds.slice(5, 7) + "/" + +ds.slice(8, 10))} を送る・日記を書く<span class="en">Share / Journal</span></button><p class="shareNote">⚠️ <b>送った先はヤドカリのおうちの外です。</b>送り先はあなたが選びます（ジャーナル・メモ・LINEなど）。ジャーナルを選ぶと、そのまま日記を書き足せます。</p></div>`;
 /* この日の予定を文字にまとめる（送る用） */
 function dayText(ds) {
-  const l = load().filter(it => it.date === ds).sort((a, b) => sortKey(a) < sortKey(b) ? -1 : 1);
+  const l = withRepeats(load()).filter(it => it.date === ds).sort((a, b) => sortKey(a) < sortKey(b) ? -1 : 1);
   return [HDF(ds), ...l.map(it => `・${[it.time || it.part, cleanWhat(it.what), it.place ? `＠${it.place}` : ""].filter(Boolean).join(" ")}${it.memo ? `（${it.memo}）` : ""}`)].join("\n");
 }
 /* この日に入れる：日付が書いてなければ、この日の日付を頭につけて、いつもの読み取りへ */
@@ -614,6 +619,7 @@ function dayAddGo() {
 }
 /* 小さい行（これからの予定用）。✏️ を押すと、いつもの直す形になる */
 function miniRow(it, where = "upcoming") {
+  if (it.rep) return repRow(it, true);
   if (editing === it.id && editWhere === where) return rowHtml(it, where);
   const sent = it.calAt && it.calSig === calSig(it), cal = calAllowed() && it.date ? `<button type="button" class="calBtn" data-cal="${esc(it.id)}" aria-label="カレンダーへ" style="float:none;flex:0 0 auto;padding:0 4px">📅</button>` : "";
   const ic = it.activity === "出勤" ? "💼" : it.activity === "休み" ? "🌙" : it.kind === "やること" ? "☐" : "•";
@@ -906,7 +912,7 @@ $("bulkSend").onclick = async () => {
   addEventListener("focus", later, { once: true }); document.addEventListener("visibilitychange", () => { if (!document.hidden) later(); }, { once: true }); setTimeout(later, 4000);
 };
 /* 1分ごとに「今日」を見直す。日付が変わっていたら読み直し、時刻が過ぎた予定を薄くする */
-function tick() { if (todayStr() !== t0) { location.reload(); return; } try { today(load()); } catch (_) {} }
+function tick() { if (todayStr() !== t0) { location.reload(); return; } try { today(withRepeats(load())); } catch (_) {} }
 setInterval(tick, 60000);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) tick(); });
 /* ローカルくんの名前をつける（この端末の中だけ） */
@@ -962,7 +968,7 @@ const MOD_LIST = [
   { id: "books", name: "📚 読書カード", en: "Books", desc: "1冊1枚。★・感想・残った一文。何日で読んだか、1日何ページかも数えます" },
   { id: "habit", name: "✅ ハビットトラッカー", en: "Habits", desc: "習慣ごとに日付の丸を押してチェック。続いた日数・今月の回数を数えます" },
   { id: "week", name: "📝 週のメモ", en: "Week notes", desc: "週ごとに1枚、自由に書ける欄。予定の詳しいことやふりかえりに" },
-  { id: "repeat", name: "🔁 繰り返しの予定", en: "Repeat", desc: "準備中", soon: true },
+  { id: "repeat", name: "🔁 繰り返しの予定", en: "Repeat", desc: "毎週のゴミ出し・毎月の給料日・毎年の記念日など。1回決めれば毎回出ます。ある日だけ外すこともできます" },
   { id: "diary", name: "✏️ 1行日記・気分・天気", en: "Diary", desc: "その日の天気マークと気分マークを選んで、1行だけ書く。月でマークを数えます（天気は予報ではなく自分の記録）" }
 ];
 const getMods = () => { const v = getJ(MOD_KEY, []); return Array.isArray(v) ? v.filter(x => MOD_LIST.some(m => m.id === x && !m.soon)) : []; };
@@ -973,7 +979,7 @@ function loadMod(id) {
   modLoading[id] = true;
   const s = document.createElement("script"); s.src = `./mod-${id}.js?v=${APP_VER_MODS}`; s.onload = () => renderMods(); s.onerror = () => { modLoading[id] = false; }; document.head.appendChild(s);
 }
-const APP_VER_MODS = "20261019f";
+const APP_VER_MODS = "20261019g";
 function renderMods() {
   const on = getMods(), area = $("modsArea"); $("modsCard").hidden = !on.length;
   for (const id of on) {
@@ -1000,9 +1006,18 @@ window.YK = {
     else alert(text);
   }
 };
-addEventListener("yadokari:modready", () => { renderMods(); try { dayCard(load()); } catch (_) {} });
+addEventListener("yadokari:modready", () => { render(); });
 /* 1つの欄で止まっても、ほかの欄は出す */
-function render() { const items = load(); for (const f of [today, tiles, calendar, memos, dups, dayCard, lists]) { try { f(items); } catch (e) { console.error(e); } } try { renderMods(); } catch (e) { console.error(e); } }
+/* 繰り返しの予定（部品）：見ている範囲の分だけ、その場で計算して並べる（予定そのものは増やさない） */
+function withRepeats(items) {
+  const R = window.YadoMods?.repeat; if (!R) return items;
+  try {
+    const mStart = `${ym.y}-${z(ym.m)}-01`, mEnd = `${ym.y}-${z(ym.m)}-${z(new Date(Date.UTC(ym.y, ym.m, 0)).getUTCDate())}`;
+    const from = [mStart, wk, t0, sel].filter(Boolean).sort()[0], to = [mEnd, addDaysStr(wk, 6), addDaysStr(t0, 7), sel].filter(Boolean).sort().slice(-1)[0];
+    return items.concat(R.expand(from, to));
+  } catch (e) { console.error(e); return items; }
+}
+function render() { const real = load(), items = withRepeats(real); for (const f of [today, tiles, calendar, dayCard, lists]) { try { f(items); } catch (e) { console.error(e); } } for (const f of [memos, dups]) { try { f(real); } catch (e) { console.error(e); } } try { renderMods(); } catch (e) { console.error(e); } }
 
 /* ---------- 操作 ---------- */
 /* 月を動かす：‹ › のボタン、カレンダーの枠の中で左右に指を滑らせる、「今月へ」 */
@@ -1153,7 +1168,7 @@ render();
 <!-- 新しい版の知らせ（版を上げるときは version.json とこの APP_VER を同じにする） -->
 <script>
 (() => {
-  const APP_VER = "20261019f";
+  const APP_VER = "20261019g";
   let shown = false;
   const check = () => {
     if (shown || !navigator.onLine) return;
