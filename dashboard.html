@@ -57,6 +57,9 @@
   .datePop .dd{border:1px solid var(--line);background:#fff;border-radius:9px;padding:8px 0;font-size:15px;text-align:center;cursor:pointer;min-height:38px}
   .datePop .dd.sun{color:#c0504d}.datePop .dd.sat{color:#3d6fb0}.datePop .dd.hol{color:#c0504d;background:#fdf0ef;border-color:#e8b9b6}
   .datePop .dd.today{border:2px solid var(--accent)}.datePop .dd.pre{background:#ffe7c7;border-color:#e8c9a8;font-weight:700}
+  .datePop .tg{display:grid;grid-template-columns:repeat(6,1fr);gap:3px}
+  .datePop .tg.min{grid-template-columns:repeat(4,1fr);margin-top:6px}
+  .datePop .dd.past{opacity:.4}.datePop .dd.on{background:var(--ink);color:#fff;border-color:var(--ink)}
   .wdSw{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:4px 4px;margin:6px 0 0;font-size:12px;color:var(--muted)}
   .wdSw span,.wdSw button{white-space:nowrap}
   .wdSw .g{display:inline-flex;align-items:center;gap:4px;margin-left:8px}
@@ -182,10 +185,11 @@
       <textarea id="pIn" rows="1" placeholder="ひとこと入れる（例：今日牛乳買う）" style="flex:1"></textarea>
       <span class="pickCol">
         <span class="pickWrap"><button type="button" class="pickBtn" id="dateBtn" aria-label="日付を選ぶ" style="pointer-events:auto;cursor:pointer;padding:0;font-size:19px">🗓️</button></span>
-        <span class="pickWrap"><input type="time" id="pickTime" aria-label="時刻を選ぶ"><span class="pickBtn" aria-hidden="true">🕘</span></span>
+        <span class="pickWrap"><button type="button" class="pickBtn" id="timeBtn" aria-label="時刻を選ぶ" style="pointer-events:auto;cursor:pointer;padding:0;font-size:19px">🕘</button></span>
       </span>
     </div>
     <div class="datePop" id="datePop" hidden></div>
+    <div class="datePop" id="timePop" hidden></div>
     <div class="ctrl">
       <button type="button" id="pRule" class="main">読み取る（AIなし）</button>
       <button type="button" id="pAi" disabled>AIに読み取ってもらう</button>
@@ -309,7 +313,7 @@
   <p class="note">予定は上の「ひとこと入れる」か、実験室の練習台から入れます（どちらも同じ所に入ります）。数えるのは毎回コードが計算し直しています。まちがいに気づいたら ✏️ で直してください。</p>
 </div>
 
-<script src="./plan-core.js?v=20261018c"></script>
+<script src="./plan-core.js?v=20261019a"></script>
 <script>
 (() => {
 "use strict";
@@ -780,15 +784,23 @@ $("datePop").addEventListener("click", e => {
 /* 🕘：選んだ時刻を、書いている行の日付の後ろ（なければ行の頭）に「9:30 」と入れる。もう時刻があれば置きかえる */
 const TIME_RE = /\s*(\d{1,2}:\d{2}|\d{1,2}\s*時\s*(半|\d{1,2}\s*分)?)\s*/;
 const HEAD_DATE_RE = /^\s*(\d{4}\s*[\/年.-]\s*)?\d{1,2}\s*[\/月.・-]\s*\d{1,2}\s*日?\s*/;
+/* 🕘：自分たちの時刻の板。時を押すと分（00・15・30・45）が出て、押すと入る。iPhone の回す画面は使わない */
+let lastTime = null, tpHour = null, tpPre = "", tpToday = true;
 function timePreset() {
   const ta = $("pIn"), s = ta.value, pos = ta.selectionStart ?? s.length, ls = s.lastIndexOf("\n", pos - 1) + 1, le = s.indexOf("\n", pos) < 0 ? s.length : s.indexOf("\n", pos);
-  pickLine = pos; let r = null; try { r = readTime(s.slice(ls, le)); } catch (_) {}
-  $("pickTime").value = r && r.time ? r.time : "09:00"; pickDone.time = $("pickTime").value;
+  pickLine = pos; let r = null, dt = null; const line = s.slice(ls, le);
+  try { r = readTime(line); } catch (_) {}
+  if (!s.trim()) lastTime = null;
+  /* この行の日付（なければ上の行の日付）。今日の行なら「今の次の区切り」、先の日なら前に選んだ時刻か9時 */
+  try { const x = readDate(line); if (x && x.date) dt = x.date; } catch (_) {}
+  if (!dt) { for (const l of s.slice(0, ls).split("\n").reverse()) { try { const x = readDate(l); if (x && x.date) { dt = x.date; break; } } catch (_) {} } }
+  tpToday = !dt || dt === t0;
+  if (r && r.time) return r.time;
+  if (tpToday) { const j = new Date(Date.now() + 9 * 3600000); let mins = j.getUTCHours() * 60 + j.getUTCMinutes(); mins = Math.ceil((mins + 1) / 15) * 15; if (mins >= 24 * 60) mins = 23 * 60 + 45; return `${z(Math.floor(mins / 60))}:${z(mins % 60)}`; }
+  return lastTime || "09:00";
 }
-$("pickTime").addEventListener("touchstart", timePreset, { passive: true });
-$("pickTime").addEventListener("mousedown", timePreset);
-const onPickTime = () => {
-  const v = $("pickTime").value; if (!v || v === pickDone.time) return; pickDone.time = v;
+function insertTime(v) {
+  lastTime = v;
   const tm = `${+v.slice(0, 2)}:${v.slice(3, 5)} `;
   const ta = $("pIn"), pos = pickLine ?? ta.selectionStart ?? ta.value.length;
   const s = ta.value, ls = s.lastIndexOf("\n", pos - 1) + 1, le = s.indexOf("\n", pos) < 0 ? s.length : s.indexOf("\n", pos);
@@ -796,9 +808,29 @@ const onPickTime = () => {
   const m = line.match(HEAD_DATE_RE), head = m ? m[0].replace(/\s*$/, " ") : "", rest = m ? line.slice(m[0].length) : line;
   const out = head + tm + rest.replace(/^\s+/, "");
   ta.value = s.slice(0, ls) + out + s.slice(le);
-  ta.classList.add("has"); const c = ls + out.length; try { ta.setSelectionRange(c, c); } catch (_) {}
-};
-for (const ev of ["change", "input", "blur"]) $("pickTime").addEventListener(ev, onPickTime);
+  ta.classList.add("has"); const c = ls + out.length;
+  try { ta.focus({ preventScroll: true }); ta.setSelectionRange(c, c); } catch (_) {}
+  pickLine = null;
+}
+function timePopRender() {
+  const nowH = new Date(Date.now() + 9 * 3600000).getUTCHours(), preH = +tpPre.slice(0, 2);
+  let hours = "";
+  for (let h = 0; h < 24; h++) hours += `<button type="button" class="dd${tpToday && h < nowH ? " past" : ""}${h === tpHour ? " on" : h === preH && tpHour === null ? " pre" : ""}" data-th="${h}">${h}時</button>`;
+  const mins = tpHour === null ? "" : `<div class="tg min">${[0, 15, 30, 45].map(mm => { const v = `${z(tpHour)}:${z(mm)}`; return `<button type="button" class="dd${v === tpPre ? " pre" : ""}" data-tv="${v}">${tpHour}:${z(mm)}</button>`; }).join("")}</div>`;
+  $("timePop").innerHTML = `<div class="dh"><b>${tpHour === null ? "何時？" : `${tpHour}時の何分？`}<span class="en">${tpHour === null ? "Hour" : "Minute"}</span></b><button type="button" data-tv="${tpPre}">${+tpPre.slice(0, 2)}:${tpPre.slice(3, 5)} にする</button></div><div class="tg">${hours}</div>${mins}`
+    + `<div class="dh" style="margin:6px 0 0"><span></span><button type="button" data-tclose>✕ 閉じる<span class="en">Close</span></button></div>`;
+}
+$("timeBtn").addEventListener("click", () => {
+  const p = $("timePop"); if (!p.hidden) { p.hidden = true; return; }
+  $("datePop").hidden = true;
+  tpPre = timePreset(); tpHour = null; timePopRender(); p.hidden = false;
+});
+$("dateBtn").addEventListener("click", () => { $("timePop").hidden = true; });
+$("timePop").addEventListener("click", e => {
+  const tv = e.target.closest("[data-tv]"); if (tv) { insertTime(tv.dataset.tv); $("timePop").hidden = true; return; }
+  const th = e.target.closest("[data-th]"); if (th) { tpHour = +th.dataset.th; timePopRender(); return; }
+  if (e.target.closest("[data-tclose]")) $("timePop").hidden = true;
+});
 /* ---------- まとめてカレンダーへ ---------- */
 function addDaysStr(d, n) { return new Date(Date.parse(d + "T12:00:00Z") + n * 86400000).toISOString().slice(0, 10); }
 let bulkSel = {};
@@ -1007,7 +1039,7 @@ render();
 <!-- 新しい版の知らせ（版を上げるときは version.json とこの APP_VER を同じにする） -->
 <script>
 (() => {
-  const APP_VER = "20261018c";
+  const APP_VER = "20261019a";
   let shown = false;
   const check = () => {
     if (shown || !navigator.onLine) return;
