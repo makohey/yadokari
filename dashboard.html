@@ -79,7 +79,9 @@
   .dyL{font-size:11.5px;color:var(--muted);flex:0 0 100%}
   .dyB{border:1px solid var(--line);background:#fff;border-radius:10px;font-size:19px;line-height:1;padding:5px 5px;min-width:36px;cursor:pointer}
   .dyB.on{background:#ffe7c7;border-color:#e8a96c;box-shadow:0 0 0 2px #f5d2a8 inset}
+  .dyIn{display:flex;gap:6px;margin-top:4px}.dyIn .dyT{flex:1;min-width:0;width:auto;margin:0}.dyIn button{flex:0 0 auto}
   .dyT{width:100%;margin-top:4px;font-size:16px;padding:6px 8px;border:1px solid var(--line);border-radius:10px}
+  .dyShow{display:flex;align-items:flex-start;gap:6px;margin-top:6px;font-size:14.5px;line-height:1.6}.dyShow .dyTxt{flex:1;min-width:0;white-space:pre-wrap}.dyShow button{flex:0 0 auto;border:0;background:none;padding:0 4px}
   .dyC{border:1px solid var(--line);background:#fff;border-radius:8px;padding:2px 0 3px;min-height:40px;display:flex;flex-direction:column;align-items:center;cursor:pointer}
   .dyC small{font-size:10px;color:var(--muted)}.dyC span{font-size:13px;line-height:1.2;letter-spacing:-1px}
   .dyC.sel{background:#ffe7c7;border-color:#e8c9a8}.dyC.today{border:2px solid var(--accent)}
@@ -384,7 +386,7 @@
   <p class="note">予定は上の「ひとこと入れる」か、実験室の練習台から入れます（どちらも同じ所に入ります）。数えるのは毎回コードが計算し直しています。まちがいに気づいたら ✏️ で直してください。</p>
 </div>
 
-<script src="./plan-core.js?v=20261019g"></script>
+<script src="./plan-core.js?v=20261019h"></script>
 <script>
 (() => {
 "use strict";
@@ -979,7 +981,7 @@ function loadMod(id) {
   modLoading[id] = true;
   const s = document.createElement("script"); s.src = `./mod-${id}.js?v=${APP_VER_MODS}`; s.onload = () => renderMods(); s.onerror = () => { modLoading[id] = false; }; document.head.appendChild(s);
 }
-const APP_VER_MODS = "20261019g";
+const APP_VER_MODS = "20261019h";
 function renderMods() {
   const on = getMods(), area = $("modsArea"); $("modsCard").hidden = !on.length;
   for (const id of on) {
@@ -1168,7 +1170,7 @@ render();
 <!-- 新しい版の知らせ（版を上げるときは version.json とこの APP_VER を同じにする） -->
 <script>
 (() => {
-  const APP_VER = "20261019g";
+  const APP_VER = "20261019h";
   let shown = false;
   const check = () => {
     if (shown || !navigator.onLine) return;

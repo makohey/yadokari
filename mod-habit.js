@@ -67,7 +67,7 @@ window.YadoMods.habit = {
       el.addEventListener("keydown", e => { if (e.target.matches("[data-hbnew]") && e.key === "Enter" && !e.isComposing) { e.preventDefault(); el.querySelector("[data-hbsave]")?.click(); } });
       el.dataset.bound = "1";
     }
-    if (!el.contains(document.activeElement)) render(el);
+    if (!(el.contains(document.activeElement) && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName))) render(el);
   },
   dayInfo(ds) { return load().filter(h => !h.archived && (h.days || []).includes(ds)).map(h => `✅ ${h.name}`); }
 };

@@ -121,7 +121,7 @@ function bindOnce() {
 }
 window.YadoMods = window.YadoMods || {};
 window.YadoMods.repeat = {
-  mount(el) { bindOnce(); if (!el.dataset.bound) { el.addEventListener("click", e => onClick(e, el)); el.dataset.bound = "1"; } if (!el.contains(document.activeElement) || !(adding || editing)) render(el); },
+  mount(el) { bindOnce(); if (!el.dataset.bound) { el.addEventListener("click", e => onClick(e, el)); el.dataset.bound = "1"; } /* 書きかけの形がある時は、外からの描き直しで消さない */ if (!(adding || editing)) render(el); },
   expand, dayInfo() { return []; }
 };
 dispatchEvent(new Event("yadokari:modready"));

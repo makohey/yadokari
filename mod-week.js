@@ -37,7 +37,7 @@ window.YadoMods.week = {
       });
       el.dataset.bound = "1";
     }
-    if (!el.contains(document.activeElement)) render(el);
+    if (!(el.contains(document.activeElement) && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName))) render(el);
   },
   dayInfo() { return []; }
 };

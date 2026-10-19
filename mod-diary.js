@@ -15,14 +15,17 @@ function put(ds, patch) {
   Object.assign(x, patch, { at: Date.now() });
   save(l.filter(e => e.w || e.m || (e.t && e.t.trim())));
 }
-let boardDay = null, timer = null;
+let boardDay = null;
+const editT = new Set(); /* 1行日記を直している日 */
 /* その日の欄・部品の板の両方で使う、1日分の書く形 */
 function editor(ds, where) {
   const e = get(ds);
   return `<div class="dyBox" data-dyday="${esc(ds)}" data-dywhere="${where}">
     <div class="dyRow"><span class="dyL">天気<span class="en">Weather</span></span>${WEATHER.map(([k, n]) => `<button type="button" class="dyB${e.w === k ? " on" : ""}" data-dyw="${k}" title="${n}" aria-label="${n}">${k}</button>`).join("")}</div>
     <div class="dyRow"><span class="dyL">気分<span class="en">Mood</span></span>${MOOD.map(([k, n]) => `<button type="button" class="dyB${e.m === k ? " on" : ""}" data-dym="${k}" title="${n}" aria-label="${n}">${k}</button>`).join("")}</div>
-    <input class="dyT" data-dyt maxlength="140" value="${esc(e.t || "")}" placeholder="1行日記（${+ds.slice(5, 7)}/${+ds.slice(8, 10)}）">
+    ${e.t && !editT.has(ds)
+      ? `<div class="dyShow"><span class="dyTxt">📝 ${esc(e.t)}</span><button type="button" data-dyedit aria-label="直す">✏️</button></div>`
+      : `<div class="dyIn"><input class="dyT" data-dyt maxlength="140" value="${esc(e.t || "")}" placeholder="1行日記（${+ds.slice(5, 7)}/${+ds.slice(8, 10)}）" enterkeyhint="done"><button type="button" class="main" data-dysave>書く</button></div>`}
   </div>`;
 }
 function counts(ym) {
@@ -58,20 +61,20 @@ function bindOnce() {
       if (m) put(ds, { m: cur.m === m.dataset.dym ? "" : m.dataset.dym });
       YK.render(); return;
     }
+    const sv = e.target.closest("[data-dysave]"); if (sv) { const inp = sv.closest("[data-dyday]").querySelector("[data-dyt]"); if (inp) commit(inp); return; }
+    const ed = e.target.closest("[data-dyedit]"); if (ed) { const ds = ed.closest("[data-dyday]").dataset.dyday; editT.add(ds); YK.render(); setTimeout(() => { const i = document.querySelector(`[data-dyday="${ds}"] [data-dyt]`); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }, 30); return; }
     const pk = e.target.closest("[data-dypick]"); if (pk) { boardDay = pk.dataset.dypick; const el = document.querySelector('[data-mod="diary"]'); if (el) render(el); return; }
     const nv = e.target.closest("[data-dym-nav]");
     if (nv) { const n = +nv.dataset.dymNav, T = YK.t0(); if (n === 0) boardDay = T; else { let y = +boardDay.slice(0, 4), mo = +boardDay.slice(5, 7) + n; if (mo < 1) { mo = 12; y--; } if (mo > 12) { mo = 1; y++; } boardDay = `${y}-${z(mo)}-01`; } const el = document.querySelector('[data-mod="diary"]'); if (el) render(el); }
   });
-  document.addEventListener("input", e => {
-    if (!e.target.matches("[data-dyt]")) return;
-    const ds = e.target.closest("[data-dyday]").dataset.dyday, v = e.target.value.slice(0, 140);
-    clearTimeout(timer); timer = setTimeout(() => put(ds, { t: v }), 400);
-  });
-  document.addEventListener("change", e => { if (e.target.matches("[data-dyt]")) { clearTimeout(timer); put(e.target.closest("[data-dyday]").dataset.dyday, { t: e.target.value.slice(0, 140) }); YK.render(); } });
+  /* 書く：「書く」・改行（完了）・欄から離れた時。しまったら入力欄はたたんで、書いた1行を見せる */
+  const commit = inp => { const ds = inp.closest("[data-dyday]").dataset.dyday; put(ds, { t: inp.value.trim().slice(0, 140) }); editT.delete(ds); inp.blur(); YK.render(); };
+  document.addEventListener("keydown", e => { if (e.target.matches("[data-dyt]") && e.key === "Enter" && !e.isComposing) { e.preventDefault(); commit(e.target); } });
+  document.addEventListener("change", e => { if (e.target.matches("[data-dyt]")) commit(e.target); });
 }
 window.YadoMods = window.YadoMods || {};
 window.YadoMods.diary = {
-  mount(el) { bindOnce(); if (!el.contains(document.activeElement)) render(el); },
+  mount(el) { bindOnce(); if (!(el.contains(document.activeElement) && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName))) render(el); },
   /* その日の欄の中に、書く形を出す */
   dayHtml(ds) { bindOnce(); return editor(ds, "day"); },
   /* 月間・週のマスの隅に出す小さな印 */
