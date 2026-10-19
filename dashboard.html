@@ -149,6 +149,17 @@
   .inbox textarea{min-height:84px!important;transition:min-height .15s}
   .inbox textarea.has{min-height:84px!important}
   .card{padding:10px 12px;margin:8px 0}
+  /* ブロックごとに、うすく色を変える（どこを見ているか分かるように。文字の読みやすさは変えない） */
+  .card[data-block="inbox"]{background:#fffaf3}
+  .card[data-block="today"]{background:#f5fbf4;border-color:#d9ead6}
+  .card[data-block="month"]{background:#f4f8fc;border-color:#d6e3ef}
+  .card[data-block="day"]{background:#fff6ec;border-color:#efd9bf}
+  .card[data-block="tiles"]{background:#f9f6fd;border-color:#e4dbef}
+  .card[data-block="mods"]{background:#fdf9ef;border-color:#ece0c4}
+  .card[data-block="memo"],.card[data-block="dup"],.card[data-block="undated"]{background:#faf8f5}
+  .card[data-block="modShelf"],.card[data-block="acts"]{background:#f7f7f4;border-color:#e3e1da}
+  .card[data-block="calendarLink"]{background:#f3f8fb;border-color:#d6e4ec}
+  .card[data-block="backup"]{background:#fcf5f2;border-color:#eddcd4}
   .todo{display:flex;gap:10px;align-items:flex-start;border-bottom:1px solid var(--line);padding:7px 0;font-size:15px}
   .todo:last-child{border-bottom:0}
   .todo input{width:22px;height:22px;flex:0 0 22px;margin-top:1px;accent-color:#c98f6a}
@@ -334,7 +345,7 @@
   <p class="note">予定は上の「ひとこと入れる」か、実験室の練習台から入れます（どちらも同じ所に入ります）。数えるのは毎回コードが計算し直しています。まちがいに気づいたら ✏️ で直してください。</p>
 </div>
 
-<script src="./plan-core.js?v=20261019c"></script>
+<script src="./plan-core.js?v=20261019d"></script>
 <script>
 (() => {
 "use strict";
@@ -902,7 +913,7 @@ function loadMod(id) {
   modLoading[id] = true;
   const s = document.createElement("script"); s.src = `./mod-${id}.js?v=${APP_VER_MODS}`; s.onload = () => renderMods(); s.onerror = () => { modLoading[id] = false; }; document.head.appendChild(s);
 }
-const APP_VER_MODS = "20261019c";
+const APP_VER_MODS = "20261019d";
 function renderMods() {
   const on = getMods(), area = $("modsArea"); $("modsCard").hidden = !on.length;
   for (const id of on) {
@@ -1078,7 +1089,7 @@ render();
 <!-- 新しい版の知らせ（版を上げるときは version.json とこの APP_VER を同じにする） -->
 <script>
 (() => {
-  const APP_VER = "20261019c";
+  const APP_VER = "20261019d";
   let shown = false;
   const check = () => {
     if (shown || !navigator.onLine) return;
