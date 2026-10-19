@@ -178,9 +178,12 @@ function mergeFixes(a, b) {
 /* 控えに入れる「好み」：どの端末でも同じでいいものだけ（週のはじまり・曜日の書き方・数える項目・ローカルくんの名前）。
    月／週の見え方は端末ごと（iPhoneは週、iPadは月）なので入れない。カレンダーの許可も端末ごとに本人が選ぶので入れない */
 const PREF_KEYS = ["yadokari.weekstart", "yadokari.wd", "yadokari.dash.tiles", "yadokari.ai.name"];
+/* 部品の中身（読書カードなど）。読み込む時は足し合わせる（同じ id は入れない） */
+const MOD_DATA_KEYS = ["yadokari.books"];
+function getModData() { const o = { list: getJ("yadokari.mods", []) }; for (const k of MOD_DATA_KEYS) { const v = getJ(k, null); if (Array.isArray(v)) o[k] = v; } return o; }
 function getPrefs() { const o = {}; for (const k of PREF_KEYS) { try { const v = localStorage.getItem(k); if (v !== null) o[k] = v.slice(0, 2000); } catch (_) {} } return o; }
 function exportPlan() {
-  const blob = new Blob([JSON.stringify({ app: "yadokari-lab-plan", format: 2, exportedAt: new Date().toISOString(), items: load(), fixes: getFixes(), acts: getActs(), prefs: getPrefs() })], { type: "application/json" });
+  const blob = new Blob([JSON.stringify({ app: "yadokari-lab-plan", format: 2, exportedAt: new Date().toISOString(), items: load(), fixes: getFixes(), acts: getActs(), prefs: getPrefs(), mods: getModData() })], { type: "application/json" });
   const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `yadokari-techo-${addDays(0)}.json`;
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 10000);
 }
@@ -212,6 +215,14 @@ async function importPlan(file) {
   /* 好みは、控えにあって この端末でまだ決めていないものだけ入れる（今の好みは上書きしない） */
   const inPrefs = data.prefs && typeof data.prefs === "object" ? data.prefs : {};
   for (const k of PREF_KEYS) { try { if (typeof inPrefs[k] === "string" && localStorage.getItem(k) === null) localStorage.setItem(k, inPrefs[k].slice(0, 2000)); } catch (_) {} }
+  const inMods = data.mods && typeof data.mods === "object" ? data.mods : {};
+  if (Array.isArray(inMods.list)) { const cur = getJ("yadokari.mods", []); setJ("yadokari.mods", [...new Set([...(Array.isArray(cur) ? cur : []), ...inMods.list.filter(x => typeof x === "string").slice(0, 20)])]); }
+  for (const k of MOD_DATA_KEYS) {
+    if (!Array.isArray(inMods[k])) continue;
+    const cur = getJ(k, []), have = new Set((Array.isArray(cur) ? cur : []).map(x => x && x.id));
+    const add = inMods[k].filter(x => x && typeof x === "object" && typeof x.id === "string" && !have.has(x.id)).slice(0, 2000);
+    if (add.length) setJ(k, [...(Array.isArray(cur) ? cur : []), ...add]);
+  }
   if (save(cur.concat(add))) { setJ(K.fixes, fx); dispatchEvent(new Event("yadokari:saved")); alert(`足し合わせました（予定など +${add.length}・手本帳 ${newFix >= 0 ? "+" + newFix : fx.length + "件"}）`); }
 }
 function fixSummary() { const f = getFixes(); return f.length ? `手本帳（えさ）：${f.length}件（${f.slice(0, 4).map(x => `${x.key}→${x.fixKind ? x.kind : x.activity}`).join("、")}${f.length > 4 ? "…" : ""}）` : "手本帳（えさ）：まだ空です"; }
