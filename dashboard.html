@@ -71,6 +71,22 @@
   .bkBars{display:grid;grid-template-columns:repeat(12,1fr);gap:3px;align-items:end;height:70px;margin-top:4px}
   .bkBar{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}.bkBar i{display:block;width:70%;background:#9fcfe8;border-radius:3px 3px 0 0;min-height:2px}.bkBar span{font-size:9px;color:var(--muted)}
   .bkRow{display:flex;align-items:center;gap:6px;font-size:12px;margin-top:3px}.bkRt{flex:0 0 38%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.bkRb{flex:1;background:#f3ece4;border-radius:4px;height:10px;overflow:hidden}.bkRb i{display:block;height:100%;background:#f3a7a2}.bkRn{flex:0 0 auto;color:var(--muted)}
+  #modsArea>[data-mod]+[data-mod]{border-top:1px dashed var(--l-mods);margin-top:14px;padding-top:10px}
+  .hbNav{display:flex;align-items:center;gap:8px;margin:6px 0}.hbNav b{font-size:14px}.hbNav button{padding:2px 12px}
+  .hbRow{border:1px solid var(--line);border-radius:12px;background:#fff;padding:8px 10px;margin-top:6px}
+  .hbHead{display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap}
+  .hbName{border:0;background:none;padding:0;font-weight:700;font-size:15px;cursor:pointer;text-align:left}
+  .hbStat{font-size:11.5px;color:var(--muted)}
+  .hbWeek{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:6px}
+  .hbDot{border:1.5px solid var(--line);background:#fff;border-radius:999px;aspect-ratio:1;padding:0;font-size:13px;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.1;cursor:pointer}
+  .hbDot small{font-size:9px;color:var(--muted)}
+  .hbDot.on{background:#bfe0c1;border-color:#8fc596;color:#2f6f3a;font-weight:800}
+  .hbDot.today{border-color:var(--accent);border-width:2px}.hbDot.fut,.hbM.fut{opacity:.45}
+  .hbMore{margin-top:8px;border-top:1px dashed var(--line);padding-top:6px}
+  .hbGrid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-top:4px}
+  .hbW{font-size:10px;text-align:center;color:var(--muted)}
+  .hbM{border:1px solid var(--line);background:#fff;border-radius:8px;padding:5px 0;font-size:12px;cursor:pointer}
+  .hbM.on{background:#bfe0c1;border-color:#8fc596;color:#2f6f3a;font-weight:700}.hbM.today{border:2px solid var(--accent)}
   .bkSub{font-size:12px;color:var(--muted);line-height:1.6}
   .bkForm{border:1px solid #e8c9a8;border-radius:12px;background:#fffaf3;padding:8px;margin-top:8px}
   .bkForm textarea{width:100%;font-size:16px;border:1px solid var(--line);border-radius:10px;padding:6px 8px}
@@ -150,16 +166,20 @@
   .inbox textarea.has{min-height:84px!important}
   .card{padding:10px 12px;margin:8px 0}
   /* ブロックごとに、うすく色を変える（どこを見ているか分かるように。文字の読みやすさは変えない） */
-  .card[data-block="inbox"]{background:#fffaf3}
-  .card[data-block="today"]{background:#f5fbf4;border-color:#d9ead6}
-  .card[data-block="month"]{background:#f4f8fc;border-color:#d6e3ef}
-  .card[data-block="day"]{background:#fff6ec;border-color:#efd9bf}
-  .card[data-block="tiles"]{background:#f9f6fd;border-color:#e4dbef}
-  .card[data-block="mods"]{background:#fdf9ef;border-color:#ece0c4}
-  .card[data-block="memo"],.card[data-block="dup"],.card[data-block="undated"]{background:#faf8f5}
-  .card[data-block="modShelf"],.card[data-block="acts"]{background:#f7f7f4;border-color:#e3e1da}
-  .card[data-block="calendarLink"]{background:#f3f8fb;border-color:#d6e4ec}
-  .card[data-block="backup"]{background:#fcf5f2;border-color:#eddcd4}
+  .card[data-block="inbox"]{background:var(--b-inbox);border-color:var(--l-inbox)}
+  .card[data-block="today"]{background:var(--b-today);border-color:var(--l-today)}
+  .card[data-block="month"]{background:var(--b-month);border-color:var(--l-month)}
+  .card[data-block="day"]{background:var(--b-day);border-color:var(--l-day)}
+  .card[data-block="tiles"]{background:var(--b-tiles);border-color:var(--l-tiles)}
+  .card[data-block="mods"]{background:var(--b-mods);border-color:var(--l-mods)}
+  .card[data-block="memo"],.card[data-block="dup"],.card[data-block="undated"]{background:var(--b-misc);border-color:var(--l-misc)}
+  .card[data-block="modShelf"],.card[data-block="acts"],.card[data-block="theme"]{background:var(--b-set);border-color:var(--l-set)}
+  .card[data-block="calendarLink"]{background:var(--b-cal);border-color:var(--l-cal)}
+  .card[data-block="backup"]{background:var(--b-backup);border-color:var(--l-backup)}
+  .thSw{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+  .thSw button{display:flex;align-items:center;gap:6px;padding:5px 10px;font-size:13px}
+  .thSw button.on{border:2px solid var(--ink)}
+  .thSw .chips{display:inline-flex;gap:2px}.thSw .chips i{width:10px;height:14px;border-radius:3px;border:1px solid rgba(0,0,0,.08)}
   .todo{display:flex;gap:10px;align-items:flex-start;border-bottom:1px solid var(--line);padding:7px 0;font-size:15px}
   .todo:last-child{border-bottom:0}
   .todo input{width:22px;height:22px;flex:0 0 22px;margin-top:1px;accent-color:#c98f6a}
@@ -175,7 +195,7 @@
 <div class="wrap">
   <header>
     <div><h1><span id="mascot" data-mascot style="-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;cursor:default">🦀</span> 月まとめ <span style="font-size:11px;font-weight:700;border:1px solid var(--line);border-radius:999px;padding:1px 8px;vertical-align:3px">ベータ</span></h1><small>この端末の中だけ・数えるのはコード</small></div>
-    <div class="nav"><a href="#" id="openWelcome">はじめに<span class="en">Guide</span></a><a href="./lab.html" data-labonly style="display:none">実験室</a><a href="./" data-labonly style="display:none">ヤドカリ</a></div>
+    <div class="nav"><a href="#" id="openWelcome">はじめに<span class="en">Guide</span></a><a href="./manual.html">説明書<span class="en">Manual</span></a><a href="./lab.html" data-labonly style="display:none">実験室</a><a href="./" data-labonly style="display:none">ヤドカリ</a></div>
   </header>
   <div id="homeTip" class="card" style="display:none;background:#fff3dc;border-color:#f0d9ae;font-size:13px">
     📲 <b>ホーム画面に追加</b>すると、データが消えにくくなります。Safari の共有ボタン（□に↑）→「ホーム画面に追加」。<br><small>追加したら、そのアイコンから使ってね。今の中身は「控えを書き出す」→ アイコンの方で「読み込む」で引っ越せます。</small>
@@ -289,6 +309,13 @@
     </details>
   </section>
 
+  <section class="card" data-block="theme">
+    <details id="themeBox"><summary class="sect" style="display:list-item;cursor:pointer">🎨 ブロックの色<span class="en">Colors</span></summary>
+      <p class="note" style="margin:6px 0 0">どれもうすいパステルで、文字のじゃまをしない色にしてあります。この端末で覚えます（控えにも入ります）。</p>
+      <div class="thSw" id="thSw"></div>
+    </details>
+  </section>
+
   <section class="card" data-block="acts">
     <details id="actsBox"><summary class="sect" style="display:list-item;cursor:pointer">🏷️ すること（種類）を足す・隠す<span class="en">Tags</span></summary>
       <div id="actsBody"></div>
@@ -345,7 +372,7 @@
   <p class="note">予定は上の「ひとこと入れる」か、実験室の練習台から入れます（どちらも同じ所に入ります）。数えるのは毎回コードが計算し直しています。まちがいに気づいたら ✏️ で直してください。</p>
 </div>
 
-<script src="./plan-core.js?v=20261019d"></script>
+<script src="./plan-core.js?v=20261019e"></script>
 <script>
 (() => {
 "use strict";
@@ -549,7 +576,7 @@ function dayCard(items) {
   card.innerHTML = `<div class="sect" style="display:flex;justify-content:space-between;align-items:center">${esc(HDF(sel))}<button type="button" id="dayClose" aria-label="閉じる" style="padding:2px 10px;font-size:13px">✕ 閉じる<span class="en">Close</span></button></div>`
     + (list.length ? list.map(it => rowHtml(it, "day")).join("") : '<div class="empty">この日の予定はありません</div>')
     + `<div style="display:flex;gap:6px;margin-top:8px"><input id="dayIn" data-d="${esc(sel)}" placeholder="この日に入れる / Add" style="flex:1;min-width:0;font-size:16px;padding:6px 8px;border:1px solid var(--line);border-radius:10px"><button type="button" id="dayAdd" style="flex:0 0 auto">読み取る<span class="en">Add</span></button></div>`
-    + (() => { try { const l = window.YadoMods?.books?.dayInfo?.(sel) || []; return l.length ? `<div class="pastBox">${l.map(x => `<div class="pastRow">${esc(x)}</div>`).join("")}</div>` : ""; } catch (_) { return ""; } })()
+    + (() => { try { const l = Object.values(window.YadoMods || {}).flatMap(m => { try { return m.dayInfo?.(sel) || []; } catch (_) { return []; } }); return l.length ? `<div class="pastBox">${l.map(x => `<div class="pastRow">${esc(x)}</div>`).join("")}</div>` : ""; } catch (_) { return ""; } })()
     + pastHtml
     + shareBox(sel);
   if (keep) $("dayIn").value = keep;
@@ -643,7 +670,7 @@ function today(items) {
     + (sel === t0 ? shareBox(t0) : "");
 }
 /* 並び順の表：ここを入れ替えれば画面の並びが変わる（あとで使う人が選べるようにする時の土台） */
-const BLOCK_ORDER = ["inbox", "today", "month", "day", "tiles", "mods", "memo", "dup", "undated", "modShelf", "acts", "calendarLink", "backup"];
+const BLOCK_ORDER = ["inbox", "today", "month", "day", "tiles", "mods", "memo", "dup", "undated", "modShelf", "theme", "acts", "calendarLink", "backup"];
 (function arrange() {
   const wrap = document.querySelector(".wrap"), tail = wrap.querySelector(":scope > p.note:last-of-type");
   for (const k of BLOCK_ORDER) { const el = wrap.querySelector(`:scope > [data-block="${k}"]`); if (el) wrap.insertBefore(el, tail); }
@@ -897,11 +924,31 @@ function showMascot() { const a = avatar(); document.querySelectorAll("[data-mas
   m.addEventListener("contextmenu", e => e.preventDefault());
 })();
 showMascot();
+/* ---------- ブロックの色：基本＋パステルの組み合わせから選ぶ ---------- */
+const THEME_KEY = "yadokari.theme";
+/* 並び：入力・今日・月間・選んだ日・タイル・部品・その他・設定・カレンダー・控え（地の色, 線の色） */
+const TH_PARTS = ["inbox", "today", "month", "day", "tiles", "mods", "misc", "set", "cal", "backup"];
+const THEMES = {
+  base: { name: "基本", en: "Basic", c: [["#fffaf3", "#eadccc"], ["#f5fbf4", "#d9ead6"], ["#f4f8fc", "#d6e3ef"], ["#fff6ec", "#efd9bf"], ["#f9f6fd", "#e4dbef"], ["#fdf9ef", "#ece0c4"], ["#faf8f5", "#eadccc"], ["#f7f7f4", "#e3e1da"], ["#f3f8fb", "#d6e4ec"], ["#fcf5f2", "#eddcd4"]] },
+  sakura: { name: "さくら", en: "Sakura", c: [["#fff7f8", "#f1d9de"], ["#fff1f3", "#efd3d9"], ["#fdf3f7", "#ecd5e0"], ["#fff5ee", "#f0dccb"], ["#f9f1f7", "#e8d4e3"], ["#fff8f1", "#efe0cf"], ["#fcf7f7", "#ecdede"], ["#f9f6f6", "#e6dede"], ["#fbf4f8", "#ead8e2"], ["#fdf3f3", "#eed8d8"]] },
+  sora: { name: "そら", en: "Sky", c: [["#f7fbfe", "#d8e6f0"], ["#f0f8fd", "#d2e5f1"], ["#eef5fc", "#d0e0ef"], ["#f2fafb", "#d3e8ea"], ["#f3f4fd", "#d8daf0"], ["#f5f9fb", "#dae5ea"], ["#f7f9fb", "#dde5ec"], ["#f5f7f9", "#dde2e8"], ["#eef7fb", "#d1e4ee"], ["#f4f6fb", "#d9dfec"]] },
+  wakaba: { name: "わかば", en: "Leaf", c: [["#fafcf5", "#e0e8d2"], ["#f1f9ef", "#d3e8cf"], ["#f3f9f4", "#d5e7d8"], ["#fbfaee", "#e9e5c8"], ["#f4f8f1", "#dae5d2"], ["#fafbf1", "#e5e8cf"], ["#f8faf6", "#e2e8dc"], ["#f6f8f4", "#dfe4da"], ["#f1f8f6", "#d3e6e0"], ["#f9f9f0", "#e6e5cf"]] },
+  lavender: { name: "ラベンダー", en: "Lavender", c: [["#fbf9fe", "#e5def0"], ["#f6f3fc", "#ddd5ef"], ["#f3f4fc", "#d9dbef"], ["#fcf5fa", "#ecd8e6"], ["#f7f2fb", "#e2d6ee"], ["#faf7fc", "#e6dfee"], ["#f9f8fb", "#e3e0ea"], ["#f7f6f9", "#e1dfe6"], ["#f2f5fb", "#d8deec"], ["#faf4f8", "#e9dbe5"]] },
+  shiro: { name: "しろ", en: "Plain", c: [["#ffffff", "#ece6de"], ["#fdfdfc", "#ebe7e1"], ["#fcfcfd", "#e6e6ec"], ["#fffdfa", "#eee6dc"], ["#fdfcfe", "#e9e5ee"], ["#fffefb", "#ede8dc"], ["#fdfdfd", "#e8e8e8"], ["#fbfbfb", "#e6e6e6"], ["#fcfdfe", "#e4e8ec"], ["#fefcfb", "#ece6e2"]] }
+};
+const getTheme = () => { try { const v = localStorage.getItem(THEME_KEY); return THEMES[v] ? v : "base"; } catch (_) { return "base"; } };
+function applyTheme() { const t = THEMES[getTheme()], r = document.documentElement.style; TH_PARTS.forEach((p, i) => { r.setProperty(`--b-${p}`, t.c[i][0]); r.setProperty(`--l-${p}`, t.c[i][1]); }); }
+function themeUI() {
+  const cur = getTheme();
+  $("thSw").innerHTML = Object.entries(THEMES).map(([k, t]) => `<button type="button" data-theme="${k}" class="${k === cur ? "on" : ""}"><span class="chips">${[1, 2, 4, 3].map(i => `<i style="background:${t.c[i][0]};border-color:${t.c[i][1]}"></i>`).join("")}</span>${esc(t.name)}<span class="en">${esc(t.en)}</span></button>`).join("");
+}
+applyTheme();
 /* ---------- 部品（モジュール）：足した人の端末でだけ、その部品のファイルを読み込む ---------- */
 const MOD_KEY = "yadokari.mods";
 const MOD_LIST = [
   { id: "books", name: "📚 読書カード", en: "Books", desc: "1冊1枚。★・感想・残った一文。何日で読んだか、1日何ページかも数えます" },
-  { id: "habit", name: "✅ ハビットトラッカー", en: "Habits", desc: "準備中", soon: true },
+  { id: "habit", name: "✅ ハビットトラッカー", en: "Habits", desc: "習慣ごとに日付の丸を押してチェック。続いた日数・今月の回数を数えます" },
+  { id: "week", name: "📝 週のメモ", en: "Week notes", desc: "週ごとに1枚、自由に書ける欄。予定の詳しいことやふりかえりに" },
   { id: "repeat", name: "🔁 繰り返しの予定", en: "Repeat", desc: "準備中", soon: true },
   { id: "oneline", name: "✏️ 1行日記・気分", en: "Diary", desc: "準備中", soon: true }
 ];
@@ -913,7 +960,7 @@ function loadMod(id) {
   modLoading[id] = true;
   const s = document.createElement("script"); s.src = `./mod-${id}.js?v=${APP_VER_MODS}`; s.onload = () => renderMods(); s.onerror = () => { modLoading[id] = false; }; document.head.appendChild(s);
 }
-const APP_VER_MODS = "20261019d";
+const APP_VER_MODS = "20261019e";
 function renderMods() {
   const on = getMods(), area = $("modsArea"); $("modsCard").hidden = !on.length;
   for (const id of on) {
@@ -931,7 +978,7 @@ function modShelfUI() {
 }
 /* 部品から使う道具（今日・祝日つきの日付・描き直し・送る） */
 window.YK = {
-  t0: () => t0, HDF, render: () => render(),
+  t0: () => t0, HDF, render: () => render(), addDays: addDaysStr, weekOf: s => mondayOf(s), leadOf, weekOrder,
   share(text, btn) {
     if (navigator.share) { navigator.share({ text }).catch(() => {}); }
     else if (navigator.clipboard) { navigator.clipboard.writeText(text).then(() => { if (btn) btn.textContent = "写しました（貼りつけて使えます）"; }).catch(() => alert(text)); }
@@ -987,6 +1034,7 @@ document.addEventListener("click", e => {
   const td = e.target.closest("[data-tdel]"); if (td) { const v = getCustomTiles(); v.splice(+td.dataset.tdel, 1); setCustomTiles(v); render(); return; }
   if (e.target.closest("#dayClose")) { sel = t0; editing = null; render(); return; }
   if (e.target.closest("#dayAdd")) { dayAddGo(); return; }
+  const th = e.target.closest("[data-theme]"); if (th) { try { localStorage.setItem(THEME_KEY, th.dataset.theme); } catch (_) {} applyTheme(); themeUI(); return; }
   const mt = e.target.closest("[data-modtog]");
   if (mt) { const v = getMods(), id = mt.dataset.modtog; setMods(v.includes(id) ? v.filter(x => x !== id) : [...v, id]); modShelfUI(); renderMods(); if (!v.includes(id)) setTimeout(() => $("modsCard").scrollIntoView({ behavior: "smooth", block: "start" }), 300); return; }
   const fd = e.target.closest("[data-fixdel]");
@@ -1050,7 +1098,8 @@ function fixListUI() {
   $("fixList").innerHTML = f.length ? f.map((x, i) => `<div class="todo" style="padding:4px 0;font-size:13px"><div class="t">「${esc(x.key)}」→ ${esc(x.fixKind ? x.kind : x.activity)}${x.src ? ` <small style="color:var(--muted)">（${esc(String(x.src).slice(0, 24))}）</small>` : ""}</div><button type="button" data-fixdel="${i}" aria-label="外す" style="flex:0 0 auto;padding:0 8px;color:#c0504d">✕</button></div>`).join("") + `<p class="note" style="margin:4px 0 0">外すと、その言葉は次から覚える前の読み方に戻ります。直し直せば、また覚えます。</p>` : `<p class="note">まだ何も覚えていません</p>`;
 }
 try { fixListUI(); } catch (e) { console.error(e); }
-try { modShelfUI(); renderMods(); } catch (e) { console.error(e); } addEventListener("yadokari:saved", () => { try { modShelfUI(); renderMods(); } catch (_) {} }); addEventListener("yadokari:saved", () => { try { fixListUI(); } catch (_) {} }); addEventListener("yadokari:saved", () => { try { actsUI(); } catch (_) {} });
+try { modShelfUI(); renderMods(); } catch (e) { console.error(e); }
+try { themeUI(); } catch (e) { console.error(e); } addEventListener("yadokari:saved", () => { try { applyTheme(); themeUI(); } catch (_) {} }); addEventListener("yadokari:saved", () => { try { modShelfUI(); renderMods(); } catch (_) {} }); addEventListener("yadokari:saved", () => { try { fixListUI(); } catch (_) {} }); addEventListener("yadokari:saved", () => { try { actsUI(); } catch (_) {} });
 addEventListener("yadokari:ai", () => { const b = $("dupAi"); if (b) b.disabled = !engine || !findDups(load()).some(x => !x.sure && aiVerdict[pairKey(x.a, x.b)] === undefined); });
 $("memoList").onclick = e => {
   const r = e.target.closest("[data-mread]"), s = e.target.closest("[data-mskip]");
@@ -1089,7 +1138,7 @@ render();
 <!-- 新しい版の知らせ（版を上げるときは version.json とこの APP_VER を同じにする） -->
 <script>
 (() => {
-  const APP_VER = "20261019d";
+  const APP_VER = "20261019e";
   let shown = false;
   const check = () => {
     if (shown || !navigator.onLine) return;

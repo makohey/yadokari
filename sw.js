@@ -5,7 +5,7 @@
    2. カレンダー用のファイルを「住所から届いたファイル」として Safari に渡す（./cal.ics）。外とは通信しない。
    ほかの住所（ローカルくんの部品など）には触らない */
 const PAGES = "yadokari-pages-v1";
-const FIRST = ["./", "./index.html", "./dashboard.html", "./lab.html", "./plan-core.js"];
+const FIRST = ["./", "./index.html", "./dashboard.html", "./lab.html", "./manual.html", "./plan-core.js"];
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(PAGES).then(c => Promise.all(FIRST.map(u => fetch(u, { cache: "no-cache" }).then(r => r.ok ? c.put(u, r) : null).catch(() => null)))).then(() => self.skipWaiting()));
 });

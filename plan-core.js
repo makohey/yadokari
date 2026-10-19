@@ -177,9 +177,9 @@ function mergeFixes(a, b) {
 /* ---------- 控え（押した時だけ）：書き出す／足し合わせて読み込む ---------- */
 /* 控えに入れる「好み」：どの端末でも同じでいいものだけ（週のはじまり・曜日の書き方・数える項目・ローカルくんの名前）。
    月／週の見え方は端末ごと（iPhoneは週、iPadは月）なので入れない。カレンダーの許可も端末ごとに本人が選ぶので入れない */
-const PREF_KEYS = ["yadokari.weekstart", "yadokari.wd", "yadokari.dash.tiles", "yadokari.ai.name"];
+const PREF_KEYS = ["yadokari.weekstart", "yadokari.wd", "yadokari.dash.tiles", "yadokari.ai.name", "yadokari.theme"];
 /* 部品の中身（読書カードなど）。読み込む時は足し合わせる（同じ id は入れない） */
-const MOD_DATA_KEYS = ["yadokari.books"];
+const MOD_DATA_KEYS = ["yadokari.books", "yadokari.habits", "yadokari.weeknotes"];
 function getModData() { const o = { list: getJ("yadokari.mods", []) }; for (const k of MOD_DATA_KEYS) { const v = getJ(k, null); if (Array.isArray(v)) o[k] = v; } return o; }
 function getPrefs() { const o = {}; for (const k of PREF_KEYS) { try { const v = localStorage.getItem(k); if (v !== null) o[k] = v.slice(0, 2000); } catch (_) {} } return o; }
 function exportPlan() {
@@ -219,9 +219,16 @@ async function importPlan(file) {
   if (Array.isArray(inMods.list)) { const cur = getJ("yadokari.mods", []); setJ("yadokari.mods", [...new Set([...(Array.isArray(cur) ? cur : []), ...inMods.list.filter(x => typeof x === "string").slice(0, 20)])]); }
   for (const k of MOD_DATA_KEYS) {
     if (!Array.isArray(inMods[k])) continue;
-    const cur = getJ(k, []), have = new Set((Array.isArray(cur) ? cur : []).map(x => x && x.id));
-    const add = inMods[k].filter(x => x && typeof x === "object" && typeof x.id === "string" && !have.has(x.id)).slice(0, 2000);
-    if (add.length) setJ(k, [...(Array.isArray(cur) ? cur : []), ...add]);
+    const cur = Array.isArray(getJ(k, [])) ? getJ(k, []) : [], byId = new Map(cur.map(x => [x && x.id, x]));
+    let changed = false;
+    for (const x of inMods[k].slice(0, 2000)) {
+      if (!x || typeof x !== "object" || typeof x.id !== "string") continue;
+      const mine = byId.get(x.id);
+      if (!mine) { cur.push(x); byId.set(x.id, x); changed = true; }
+      /* 同じ習慣は、チェックした日を足し合わせる（消さない） */
+      else if (Array.isArray(mine.days) && Array.isArray(x.days)) { const u = [...new Set([...mine.days, ...x.days.filter(d => typeof d === "string")])].sort(); if (u.length !== mine.days.length) { mine.days = u; changed = true; } }
+    }
+    if (changed) setJ(k, cur);
   }
   if (save(cur.concat(add))) { setJ(K.fixes, fx); dispatchEvent(new Event("yadokari:saved")); alert(`足し合わせました（予定など +${add.length}・手本帳 ${newFix >= 0 ? "+" + newFix : fx.length + "件"}）`); }
 }

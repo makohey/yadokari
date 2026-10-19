@@ -142,7 +142,7 @@ function dayInfo(ds) {
 }
 window.YadoMods = window.YadoMods || {};
 window.YadoMods.books = {
-  mount(el) { if (!el.dataset.bound) { el.addEventListener("click", e => onClick(e, el)); el.dataset.bound = "1"; } render(el); },
+  mount(el) { if (!el.dataset.bound) { el.addEventListener("click", e => onClick(e, el)); el.dataset.bound = "1"; } if (!el.contains(document.activeElement) || !(adding || editing)) render(el); },
   dayInfo
 };
 dispatchEvent(new Event("yadokari:modready"));

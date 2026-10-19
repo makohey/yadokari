@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ヤドカリの説明書</title>
+<style>
+  :root{ --bg:#f7f0e8; --panel:#fffaf3; --ink:#3a2c24; --muted:#8b786b; --line:#eadccc; --accent:#f3a7a2; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;line-height:1.75;-webkit-text-size-adjust:100%}
+  .wrap{max-width:760px;margin:0 auto;padding:14px 16px 60px}
+  header{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:6px 0 10px}
+  h1{font-size:21px;margin:0}
+  .en{font-size:.72em;font-weight:500;color:var(--muted);margin-left:5px}
+  a.back{font-size:14px;color:var(--ink);text-decoration:none;border:1px solid var(--line);background:#fffaf5;border-radius:999px;padding:6px 14px;white-space:nowrap}
+  .lead{font-size:14px;color:var(--muted);margin:0 0 10px}
+  nav.toc{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 14px}
+  nav.toc a{font-size:13px;color:var(--ink);text-decoration:none;border:1px solid var(--line);background:#fff;border-radius:999px;padding:3px 11px}
+  section{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:12px 14px;margin:10px 0;box-shadow:0 6px 18px rgba(72,45,28,.06)}
+  section:nth-of-type(6n+1){background:#f5fbf4;border-color:#d9ead6}
+  section:nth-of-type(6n+2){background:#f4f8fc;border-color:#d6e3ef}
+  section:nth-of-type(6n+3){background:#fff6ec;border-color:#efd9bf}
+  section:nth-of-type(6n+4){background:#f9f6fd;border-color:#e4dbef}
+  section:nth-of-type(6n+5){background:#fdf9ef;border-color:#ece0c4}
+  section:nth-of-type(6n){background:#f3f8fb;border-color:#d6e4ec}
+  h2{font-size:17px;margin:0 0 6px}
+  h3{font-size:14.5px;margin:10px 0 2px}
+  p,li{font-size:14.5px}
+  ul{padding-left:1.2em;margin:4px 0}
+  .ex{display:inline-block;background:#fff;border:1px solid var(--line);border-radius:8px;padding:0 7px;font-size:13.5px;margin:1px 2px}
+  .warn{background:#fff3dc;border:1px solid #f0d9ae;color:#8a5a14;border-radius:12px;padding:8px 12px;font-size:13.5px;margin:8px 0}
+  .warn b{color:#a3461f}
+  .note{font-size:12.5px;color:var(--muted)}
+  table{border-collapse:collapse;width:100%;font-size:13.5px;margin:6px 0}
+  td,th{border-bottom:1px solid var(--line);padding:5px 4px;text-align:left;vertical-align:top}
+  th{font-weight:700;color:var(--muted);font-size:12.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><h1>🐚 ヤドカリの説明書<span class="en">Manual</span></h1><a class="back" href="./dashboard.html">← 月まとめへ</a></header>
+  <p class="lead">知りたいところだけ読めば大丈夫です。わからなくても、何も壊れません。</p>
+  <nav class="toc">
+    <a href="#core">いちばん大事なこと</a><a href="#input">入れる</a><a href="#card">確認カード</a><a href="#today">今日とこれから</a><a href="#cal">月・週</a><a href="#day">選んだ日</a><a href="#share">送る・日記</a><a href="#count">数える</a><a href="#tags">すること</a><a href="#mods">部品</a><a href="#calendar">カレンダー</a><a href="#backup">控え・えさ</a><a href="#ai">ローカルくん</a><a href="#home">ホーム画面</a><a href="#faq">こまったとき</a>
+  </nav>
+
+  <section id="core">
+    <h2>いちばん大事なこと<span class="en">The core</span></h2>
+    <ul>
+      <li><b>中身は、この端末の中だけ</b>にあります。サーバーにもクラウドにも控えはありません。</li>
+      <li>外へ出るのは、<b>あなたが「送る」「📅」「控えを書き出す」を押した時だけ</b>です。自動では何も出ていきません。</li>
+      <li>日付・時刻・数を数えるのは、毎回コード（決まった計算）がやります。AIは使わなくても全部動きます。</li>
+      <li>電波がなくても（飛行機モードでも）、一度開いたことがあれば開けます。</li>
+    </ul>
+    <div class="warn"><b>消えたら戻せません。</b>ときどき「控えを書き出す」で控えを作っておいてね。大事な予定は、今まで通りの手帳にも残しておくと安心です（試作版です）。</div>
+  </section>
+
+  <section id="input">
+    <h2>入れる<span class="en">Add</span></h2>
+    <p>上の欄に、ふだんの言葉で1行書いて「読み取る」を押します。</p>
+    <p><span class="ex">明日9時 歯医者</span><span class="ex">10/25 出勤</span><span class="ex">今日 牛乳買う</span><span class="ex">10/24 希望</span></p>
+    <ul>
+      <li>何行か書くと、1行ずつ読み取ります。</li>
+      <li><b>🗓️</b>：カレンダーから日付を選ぶと、書いている行の頭に入ります。日付のない行では、上の行の日付から開きます（続けて入れる時に楽）。</li>
+      <li><b>🕘</b>：時刻を選ぶと、日付の後ろに入ります。</li>
+      <li>絵文字もそのまま使えます。🏥 ☕ のように自分だけの記号にしてもOK。月ごとに数えます。</li>
+    </ul>
+  </section>
+
+  <section id="card">
+    <h2>確認カード<span class="en">Check</span></h2>
+    <p>読み取った中身が、カードで出ます。<b>「これで入れる」を押すまでは、何も入りません。</b></p>
+    <ul>
+      <li>まちがっていたら、その場で直してから入れます。</li>
+      <li>「すること」を直すと、<b>手本帳</b>が覚えて、次から同じ言葉はそう読みます。</li>
+      <li>まちがって覚えたものは、控え・えさの欄の「手本帳の中を見る」から ✕ で外せます。</li>
+    </ul>
+  </section>
+
+  <section id="today">
+    <h2>今日とこれから<span class="en">Today</span></h2>
+    <ul>
+      <li>今日の予定と「やること」が並びます。やることは ☐ を押すと済みになります。</li>
+      <li>時刻が過ぎた予定は、うすくなって下へ（終わり）。</li>
+      <li>明日の予定と、あさって以降（たたんであります）も見られます。</li>
+      <li>✏️ を押すと、その場で直せます。</li>
+    </ul>
+  </section>
+
+  <section id="cal">
+    <h2>月・週<span class="en">Month / Week</span></h2>
+    <ul>
+      <li>「月｜週」で切り替え。iPhone は週、iPad は月が見やすいです（端末ごとに覚えます）。</li>
+      <li>左右に指を滑らせると、月（週）が動きます。</li>
+      <li>祝日は赤い枠。色の点は すること の色です。</li>
+      <li>「はじまり」で月曜・日曜、「曜日」で 月火水 ／ Mon Tue を選べます。</li>
+    </ul>
+  </section>
+
+  <section id="day">
+    <h2>選んだ日<span class="en">A day</span></h2>
+    <p>月間や週で日付を押すと、その日の欄が開きます。</p>
+    <ul>
+      <li><b>この日に入れる</b>：日付を書かなくても、その日の予定になります。</li>
+      <li><b>先月・去年の同じ日</b>：書いてあった日だけ出ます。ためるほど楽しくなります。</li>
+      <li>読書カードを使っていれば、読み始め・読了もここに出ます。</li>
+    </ul>
+  </section>
+
+  <section id="share">
+    <h2>送る・日記を書く<span class="en">Share / Journal</span></h2>
+    <p>「⤴︎ ○/○ を送る・日記を書く」を押すと、送り先を選ぶ画面が出ます。<b>送り先はあなたが選びます。</b></p>
+    <table>
+      <tr><th>送り先</th><th>できること</th></tr>
+      <tr><td>ジャーナル</td><td>その場で日記を書き足せます。写真もジャーナルで。日付を長押しすると、カレンダーやリマインダーにも入れられます</td></tr>
+      <tr><td>LINE・メモ・フリーボードなど</td><td>その日の予定を、そのまま渡せます</td></tr>
+    </table>
+    <div class="warn"><b>送った先は、ヤドカリのおうちの外です。</b>そこから先のことは、ヤドカリには見えません。</div>
+  </section>
+
+  <section id="count">
+    <h2>数える<span class="en">Count</span></h2>
+    <ul>
+      <li>今月の予定・出勤（うち急な出勤）・休みの数がタイルに出ます。</li>
+      <li>「＋ 数える項目」で、自分の言葉を数えるタイルを足せます（例：通院・ジム・釣り）。</li>
+      <li>今月使った絵文字も、数が出ます（🏥3 ☕6 のように）。</li>
+    </ul>
+  </section>
+
+  <section id="tags">
+    <h2>すること（種類）<span class="en">Tags</span></h2>
+    <ul>
+      <li>出勤・休み・外出・買い物・通院 などの種類で色分けします。</li>
+      <li>「🏷️ すること を足す・隠す」で、自分の種類を足せます（例：釣り）。その言葉が文にあれば、自動でその種類になります。</li>
+      <li>出勤・休み・その他 は動かせません（日数を数えるため）。</li>
+    </ul>
+  </section>
+
+  <section id="mods">
+    <h2>部品<span class="en">Modules</span></h2>
+    <p>「🧩 部品を足す・外す」から、使いたいものだけ足せます。足していない部品は読み込まないので、ヤドカリは軽いままです。外しても中身は消えません。</p>
+    <ul>
+      <li><b>📚 読書カード</b>：1冊1枚。★はその場で押せます。何日で読んだか、1日何ページかも数えます。</li>
+      <li><b>✅ ハビットトラッカー</b>：習慣ごとに、日付のマスを押してチェック。続いた日数を数えます。</li>
+      <li><b>📝 週のメモ</b>：週ごとに、自由に書ける欄です。</li>
+    </ul>
+    <p class="note">ほかの部品も、順番に足していきます。</p>
+  </section>
+
+  <section id="calendar">
+    <h2>カレンダーへの接続<span class="en">Calendar</span></h2>
+    <ul>
+      <li>初めは「許可しない」です。許可すると、日付のある予定に 📅 が出ます。</li>
+      <li>📅 を押した予定だけ、iPhone・iPad のカレンダーに「追加」できます。まとめて出すこともできます。</li>
+      <li><b>Safari で開いてください。</b>ほかのブラウザでは渡せないことがあります。</li>
+    </ul>
+  </section>
+
+  <section id="backup">
+    <h2>控え・えさ<span class="en">Backup</span></h2>
+    <ul>
+      <li>「控えを書き出す」で、中身を1つのファイルにします。押した時だけです。</li>
+      <li>別の端末で「控え・えさを読み込む」と、今ある中身に<b>足し合わせ</b>ます（消えません）。iPhone から iPad へ、AirDrop で運べます。</li>
+      <li>予定・手本帳・自分の種類・部品の中身・好み（週のはじまり・色など）が入ります。</li>
+    </ul>
+  </section>
+
+  <section id="ai">
+    <h2>ローカルくん（AI）<span class="en">Local AI</span></h2>
+    <ul>
+      <li>使わなくても全部動きます。使いたい人だけ、席を選んで読み込みます（最初の1回だけ通信します）。</li>
+      <li>📱💻 は iPhone でも動く席、💻 は iPad・パソコン向けです。iPhone で 💻 を選ぶと止まることがあります。</li>
+      <li>日付や数字は見張りがついているので、AIがまちがえても大丈夫です。名前もつけられます。</li>
+    </ul>
+  </section>
+
+  <section id="home">
+    <h2>ホーム画面に置く<span class="en">Home screen</span></h2>
+    <ul>
+      <li>Safari の共有ボタン →「ホーム画面に追加」。アイコンから開けば、アプリのように使えます。</li>
+      <li>新しい版が出ると、上に「新しい版があります」と出ます。押すと新しくなります（中身は消えません）。</li>
+      <li>Safari とホーム画面のアイコンでは、中身の棚が別になることがあります。引っ越しは控えで。</li>
+    </ul>
+  </section>
+
+  <section id="faq">
+    <h2>こまったとき<span class="en">Help</span></h2>
+    <h3>読み取りがまちがう</h3><p>確認カードで直してから入れてください。手本帳が覚えます。</p>
+    <h3>予定が見当たらない</h3><p>別のブラウザや、ホーム画面のアイコンで開いていませんか？ 棚が別です。</p>
+    <h3>カレンダーに入らない</h3><p>Safari で開いて、「カレンダーへの接続」を「許可する」にしてから 📅 を押してください。</p>
+    <h3>全部やり直したい</h3><p>控え・えさの欄の奥に「全部消す」があります。元には戻せないので、先に控えを。</p>
+  </section>
+
+  <p class="note" style="text-align:center;margin-top:18px">ヤドカリは、小さな殻の中で守る手帳です。</p>
+</div>
+</body>
+</html>
