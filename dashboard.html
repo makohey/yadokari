@@ -72,6 +72,18 @@
   .bkBar{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}.bkBar i{display:block;width:70%;background:#9fcfe8;border-radius:3px 3px 0 0;min-height:2px}.bkBar span{font-size:9px;color:var(--muted)}
   .bkRow{display:flex;align-items:center;gap:6px;font-size:12px;margin-top:3px}.bkRt{flex:0 0 38%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.bkRb{flex:1;background:#f3ece4;border-radius:4px;height:10px;overflow:hidden}.bkRb i{display:block;height:100%;background:#f3a7a2}.bkRn{flex:0 0 auto;color:var(--muted)}
   #modsArea>[data-mod]+[data-mod]{border-top:1px dashed var(--l-mods);margin-top:14px;padding-top:10px}
+  .day{position:relative}.day .mk{position:absolute;top:2px;right:3px;font-size:10px;line-height:1;letter-spacing:-1px}
+  .wrow .wd .mk{display:block;font-size:13px;margin-top:2px}
+  .dyBox{margin-top:8px;border:1px solid var(--line);border-radius:12px;background:#fff;padding:6px 8px}
+  .dyRow{display:flex;flex-wrap:wrap;align-items:center;gap:3px;margin:2px 0}
+  .dyL{font-size:11.5px;color:var(--muted);flex:0 0 100%}
+  .dyB{border:1px solid var(--line);background:#fff;border-radius:10px;font-size:19px;line-height:1;padding:5px 5px;min-width:36px;cursor:pointer}
+  .dyB.on{background:#ffe7c7;border-color:#e8a96c;box-shadow:0 0 0 2px #f5d2a8 inset}
+  .dyT{width:100%;margin-top:4px;font-size:16px;padding:6px 8px;border:1px solid var(--line);border-radius:10px}
+  .dyC{border:1px solid var(--line);background:#fff;border-radius:8px;padding:2px 0 3px;min-height:40px;display:flex;flex-direction:column;align-items:center;cursor:pointer}
+  .dyC small{font-size:10px;color:var(--muted)}.dyC span{font-size:13px;line-height:1.2;letter-spacing:-1px}
+  .dyC.sel{background:#ffe7c7;border-color:#e8c9a8}.dyC.today{border:2px solid var(--accent)}
+  .dyCount{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:18px;margin-top:8px}.dyCount b{font-size:13px;margin-left:2px}.dySep{width:1px;background:var(--line)}
   .hbNav{display:flex;align-items:center;gap:8px;margin:6px 0}.hbNav b{font-size:14px}.hbNav button{padding:2px 12px}
   .hbRow{border:1px solid var(--line);border-radius:12px;background:#fff;padding:8px 10px;margin-top:6px}
   .hbHead{display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap}
@@ -372,7 +384,7 @@
   <p class="note">予定は上の「ひとこと入れる」か、実験室の練習台から入れます（どちらも同じ所に入ります）。数えるのは毎回コードが計算し直しています。まちがいに気づいたら ✏️ で直してください。</p>
 </div>
 
-<script src="./plan-core.js?v=20261019e"></script>
+<script src="./plan-core.js?v=20261019f"></script>
 <script>
 (() => {
 "use strict";
@@ -517,7 +529,7 @@ function calendar(items) {
     const ds = `${ym.y}-${z(ym.m)}-${z(d)}`, wd = new Date(Date.UTC(ym.y, ym.m - 1, d)).getUTCDay();
     const list = items.filter(it => it.date === ds).sort((a, b) => sortKey(a) < sortKey(b) ? -1 : 1);
     const tags = list.slice(0, 2).map(it => `<span class="tag t-${color(it)}">${esc(cleanWhat(it.what))}</span>`).join("");
-    cells += `<button type="button" class="day${holiday(ds) ? " hday" : ""}${ds === t0 ? " today" : ""}${ds === sel ? " sel" : ""}" data-d="${ds}"><span class="n ${wd === 0 || holiday(ds) ? "sun" : wd === 6 ? "sat" : ""}">${d}</span>${holiday(ds) ? `<span class="hol">${esc(holiday(ds))}</span>` : ""}${tags}${list.length > 2 ? `<span class="more">ほか${list.length - 2}件</span>` : ""}</button>`;
+    cells += `<button type="button" class="day${holiday(ds) ? " hday" : ""}${ds === t0 ? " today" : ""}${ds === sel ? " sel" : ""}" data-d="${ds}"><span class="n ${wd === 0 || holiday(ds) ? "sun" : wd === 6 ? "sat" : ""}">${d}</span>${(() => { const mk = modMark(ds); return mk ? `<span class="mk">${esc(mk)}</span>` : ""; })()}${holiday(ds) ? `<span class="hol">${esc(holiday(ds))}</span>` : ""}${tags}${list.length > 2 ? `<span class="more">ほか${list.length - 2}件</span>` : ""}</button>`;
   }
   $("cal").innerHTML = heads + cells;
 }
@@ -532,7 +544,7 @@ function weekView(items) {
     const t = new Date(ds + "T12:00:00Z"), wd = t.getUTCDay(), h = holiday(ds);
     const list = items.filter(it => it.date === ds).sort((a, b) => sortKey(a) < sortKey(b) ? -1 : 1);
     const lines = list.slice(0, 5).map(it => `<div><span class="dot" style="background:var(--${color(it)})"></span>${esc(it.time || it.part || "")} ${esc(cleanWhat(it.what))}</div>`).join("") + (list.length > 5 ? `<div class="none">ほか${list.length - 5}件</div>` : "");
-    return `<button type="button" class="wrow${h ? " hday" : ""}${ds === t0 ? " today" : ""}${ds === sel ? " sel" : ""}" data-d="${ds}"><span class="wd ${wd === 0 || h ? "sun" : wd === 6 ? "sat" : ""}" style="color:${wd === 0 || h ? "#c0504d" : wd === 6 ? "#3d6fb0" : "inherit"}">${t.getUTCDate()}<small>${WD[wd]}${t.getUTCDate() === 1 || ds === wk ? `・${wdEn() ? ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][t.getUTCMonth()] : `${t.getUTCMonth() + 1}月`}` : ""}</small>${h ? `<span class="hn">${esc(h)}</span>` : ""}</span><span class="wl">${lines || '<div class="none">—</div>'}</span></button>`;
+    return `<button type="button" class="wrow${h ? " hday" : ""}${ds === t0 ? " today" : ""}${ds === sel ? " sel" : ""}" data-d="${ds}"><span class="wd ${wd === 0 || h ? "sun" : wd === 6 ? "sat" : ""}" style="color:${wd === 0 || h ? "#c0504d" : wd === 6 ? "#3d6fb0" : "inherit"}">${t.getUTCDate()}<small>${WD[wd]}${t.getUTCDate() === 1 || ds === wk ? `・${wdEn() ? ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][t.getUTCMonth()] : `${t.getUTCMonth() + 1}月`}` : ""}</small>${h ? `<span class="hn">${esc(h)}</span>` : ""}${(() => { const mk = modMark(ds); return mk ? `<span class="mk">${esc(mk)}</span>` : ""; })()}</span><span class="wl">${lines || '<div class="none">—</div>'}</span></button>`;
   }).join("");
 }
 
@@ -576,6 +588,7 @@ function dayCard(items) {
   card.innerHTML = `<div class="sect" style="display:flex;justify-content:space-between;align-items:center">${esc(HDF(sel))}<button type="button" id="dayClose" aria-label="閉じる" style="padding:2px 10px;font-size:13px">✕ 閉じる<span class="en">Close</span></button></div>`
     + (list.length ? list.map(it => rowHtml(it, "day")).join("") : '<div class="empty">この日の予定はありません</div>')
     + `<div style="display:flex;gap:6px;margin-top:8px"><input id="dayIn" data-d="${esc(sel)}" placeholder="この日に入れる / Add" style="flex:1;min-width:0;font-size:16px;padding:6px 8px;border:1px solid var(--line);border-radius:10px"><button type="button" id="dayAdd" style="flex:0 0 auto">読み取る<span class="en">Add</span></button></div>`
+    + (() => { try { return Object.values(window.YadoMods || {}).map(m => { try { return m.dayHtml?.(sel) || ""; } catch (_) { return ""; } }).join(""); } catch (_) { return ""; } })()
     + (() => { try { const l = Object.values(window.YadoMods || {}).flatMap(m => { try { return m.dayInfo?.(sel) || []; } catch (_) { return []; } }); return l.length ? `<div class="pastBox">${l.map(x => `<div class="pastRow">${esc(x)}</div>`).join("")}</div>` : ""; } catch (_) { return ""; } })()
     + pastHtml
     + shareBox(sel);
@@ -950,7 +963,7 @@ const MOD_LIST = [
   { id: "habit", name: "✅ ハビットトラッカー", en: "Habits", desc: "習慣ごとに日付の丸を押してチェック。続いた日数・今月の回数を数えます" },
   { id: "week", name: "📝 週のメモ", en: "Week notes", desc: "週ごとに1枚、自由に書ける欄。予定の詳しいことやふりかえりに" },
   { id: "repeat", name: "🔁 繰り返しの予定", en: "Repeat", desc: "準備中", soon: true },
-  { id: "oneline", name: "✏️ 1行日記・気分", en: "Diary", desc: "準備中", soon: true }
+  { id: "diary", name: "✏️ 1行日記・気分・天気", en: "Diary", desc: "その日の天気マークと気分マークを選んで、1行だけ書く。月でマークを数えます（天気は予報ではなく自分の記録）" }
 ];
 const getMods = () => { const v = getJ(MOD_KEY, []); return Array.isArray(v) ? v.filter(x => MOD_LIST.some(m => m.id === x && !m.soon)) : []; };
 const setMods = v => { try { localStorage.setItem(MOD_KEY, JSON.stringify(v)); } catch (_) {} };
@@ -960,7 +973,7 @@ function loadMod(id) {
   modLoading[id] = true;
   const s = document.createElement("script"); s.src = `./mod-${id}.js?v=${APP_VER_MODS}`; s.onload = () => renderMods(); s.onerror = () => { modLoading[id] = false; }; document.head.appendChild(s);
 }
-const APP_VER_MODS = "20261019e";
+const APP_VER_MODS = "20261019f";
 function renderMods() {
   const on = getMods(), area = $("modsArea"); $("modsCard").hidden = !on.length;
   for (const id of on) {
@@ -976,6 +989,8 @@ function modShelfUI() {
   $("modBody").innerHTML = `<p class="note" style="margin:6px 0">使いたい部品だけ足せます。足していない部品は読み込まないので、ヤドカリは軽いままです。外しても、書いた中身は消えません。</p>`
     + MOD_LIST.map(m => `<div class="todo" style="padding:6px 0"><div class="t"><b>${esc(m.name)}</b><span class="en">${esc(m.en)}</span><div class="sub">${esc(m.desc)}</div></div>${m.soon ? `<span class="note" style="flex:0 0 auto">準備中</span>` : `<button type="button" data-modtog="${m.id}" style="flex:0 0 auto;font-size:13px;padding:4px 12px">${on.includes(m.id) ? "外す" : "＋ 足す"}</button>`}</div>`).join("");
 }
+/* 部品が月間・週のマスに出す小さな印（天気・気分など） */
+const modMark = ds => { try { return Object.values(window.YadoMods || {}).map(m => { try { return m.mark?.(ds) || ""; } catch (_) { return ""; } }).join(""); } catch (_) { return ""; } };
 /* 部品から使う道具（今日・祝日つきの日付・描き直し・送る） */
 window.YK = {
   t0: () => t0, HDF, render: () => render(), addDays: addDaysStr, weekOf: s => mondayOf(s), leadOf, weekOrder,
@@ -1138,7 +1153,7 @@ render();
 <!-- 新しい版の知らせ（版を上げるときは version.json とこの APP_VER を同じにする） -->
 <script>
 (() => {
-  const APP_VER = "20261019e";
+  const APP_VER = "20261019f";
   let shown = false;
   const check = () => {
     if (shown || !navigator.onLine) return;

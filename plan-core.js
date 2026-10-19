@@ -179,7 +179,7 @@ function mergeFixes(a, b) {
    月／週の見え方は端末ごと（iPhoneは週、iPadは月）なので入れない。カレンダーの許可も端末ごとに本人が選ぶので入れない */
 const PREF_KEYS = ["yadokari.weekstart", "yadokari.wd", "yadokari.dash.tiles", "yadokari.ai.name", "yadokari.theme"];
 /* 部品の中身（読書カードなど）。読み込む時は足し合わせる（同じ id は入れない） */
-const MOD_DATA_KEYS = ["yadokari.books", "yadokari.habits", "yadokari.weeknotes"];
+const MOD_DATA_KEYS = ["yadokari.books", "yadokari.habits", "yadokari.weeknotes", "yadokari.diary"];
 function getModData() { const o = { list: getJ("yadokari.mods", []) }; for (const k of MOD_DATA_KEYS) { const v = getJ(k, null); if (Array.isArray(v)) o[k] = v; } return o; }
 function getPrefs() { const o = {}; for (const k of PREF_KEYS) { try { const v = localStorage.getItem(k); if (v !== null) o[k] = v.slice(0, 2000); } catch (_) {} } return o; }
 function exportPlan() {
