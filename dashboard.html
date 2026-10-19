@@ -21,6 +21,8 @@
   header{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0 8px}
   header h1{font-size:18px;margin:0} header small{display:block;font-size:11px;color:var(--muted);font-weight:600}
   .nav{display:flex;gap:4px;flex-shrink:0}
+  .nav a.navMan{background:#e3f1fa;border:1.5px solid #9fcfe8;color:#24577a;font-weight:700}.nav a.navMan .en{color:#4f7f9e}
+  @media (max-width:430px){.nav a .en{display:none}.nav a{padding:7px 10px}}
   .nav a{color:var(--ink);text-decoration:none;border:1px solid var(--line);background:#fffaf5;border-radius:999px;padding:7px 11px;font-size:12.5px;white-space:nowrap;}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:12px;margin:10px 0;box-shadow:0 8px 22px rgba(72,45,28,.08)}
   .month{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
@@ -209,7 +211,7 @@
 <div class="wrap">
   <header>
     <div><h1><span id="mascot" data-mascot style="-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;cursor:default">🦀</span> 月まとめ <span style="font-size:11px;font-weight:700;border:1px solid var(--line);border-radius:999px;padding:1px 8px;vertical-align:3px">ベータ</span></h1><small>この端末の中だけ・数えるのはコード</small></div>
-    <div class="nav"><a href="#" id="openWelcome">はじめに<span class="en">Guide</span></a><a href="./manual.html">説明書<span class="en">Manual</span></a><a href="./lab.html" data-labonly style="display:none">実験室</a><a href="./" data-labonly style="display:none">ヤドカリ</a></div>
+    <div class="nav"><a href="#" id="openWelcome">はじめに<span class="en">Guide</span></a><a href="./manual.html" class="navMan">📖 説明書<span class="en">Manual</span></a><a href="./lab.html" data-labonly style="display:none">実験室</a><a href="./" data-labonly style="display:none">ヤドカリ</a></div>
   </header>
   <div id="homeTip" class="card" style="display:none;background:#fff3dc;border-color:#f0d9ae;font-size:13px">
     📲 <b>ホーム画面に追加</b>すると、データが消えにくくなります。Safari の共有ボタン（□に↑）→「ホーム画面に追加」。<br><small>追加したら、そのアイコンから使ってね。今の中身は「控えを書き出す」→ アイコンの方で「読み込む」で引っ越せます。</small>
@@ -386,7 +388,7 @@
   <p class="note">予定は上の「ひとこと入れる」か、実験室の練習台から入れます（どちらも同じ所に入ります）。数えるのは毎回コードが計算し直しています。まちがいに気づいたら ✏️ で直してください。</p>
 </div>
 
-<script src="./plan-core.js?v=20261019h"></script>
+<script src="./plan-core.js?v=20261019i"></script>
 <script>
 (() => {
 "use strict";
@@ -981,7 +983,7 @@ function loadMod(id) {
   modLoading[id] = true;
   const s = document.createElement("script"); s.src = `./mod-${id}.js?v=${APP_VER_MODS}`; s.onload = () => renderMods(); s.onerror = () => { modLoading[id] = false; }; document.head.appendChild(s);
 }
-const APP_VER_MODS = "20261019h";
+const APP_VER_MODS = "20261019i";
 function renderMods() {
   const on = getMods(), area = $("modsArea"); $("modsCard").hidden = !on.length;
   for (const id of on) {
@@ -1170,7 +1172,7 @@ render();
 <!-- 新しい版の知らせ（版を上げるときは version.json とこの APP_VER を同じにする） -->
 <script>
 (() => {
-  const APP_VER = "20261019h";
+  const APP_VER = "20261019i";
   let shown = false;
   const check = () => {
     if (shown || !navigator.onLine) return;
