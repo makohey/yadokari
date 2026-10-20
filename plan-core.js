@@ -177,7 +177,7 @@ function mergeFixes(a, b) {
 /* ---------- 控え（押した時だけ）：書き出す／足し合わせて読み込む ---------- */
 /* 控えに入れる「好み」：どの端末でも同じでいいものだけ（週のはじまり・曜日の書き方・数える項目・ローカルくんの名前）。
    月／週の見え方は端末ごと（iPhoneは週、iPadは月）なので入れない。カレンダーの許可も端末ごとに本人が選ぶので入れない */
-const PREF_KEYS = ["yadokari.weekstart", "yadokari.wd", "yadokari.dash.tiles", "yadokari.ai.name", "yadokari.theme"];
+const PREF_KEYS = ["yadokari.weekstart", "yadokari.wd", "yadokari.dash.tiles", "yadokari.ai.name", "yadokari.theme", "yadokari.theme.custom"];
 /* 部品の中身（読書カードなど）。読み込む時は足し合わせる（同じ id は入れない） */
 const MOD_DATA_KEYS = ["yadokari.books", "yadokari.habits", "yadokari.weeknotes", "yadokari.diary", "yadokari.repeat"];
 function getModData() { const o = { list: getJ("yadokari.mods", []) }; for (const k of MOD_DATA_KEYS) { const v = getJ(k, null); if (Array.isArray(v)) o[k] = v; } return o; }
