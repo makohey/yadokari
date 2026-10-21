@@ -106,6 +106,16 @@
   .bkSub{font-size:12px;color:var(--muted);line-height:1.6}
   .bkForm{border:1px solid #e8c9a8;border-radius:12px;background:#fffaf3;padding:8px;margin-top:8px}
   .bkForm textarea{width:100%;font-size:16px;border:1px solid var(--line);border-radius:10px;padding:6px 8px}
+  .sPop{position:fixed;inset:0;z-index:9000;background:rgba(58,44,36,.35);display:flex;align-items:flex-start;justify-content:center;padding:calc(env(safe-area-inset-top,0px) + 10px) 10px 10px}
+  .sPop[hidden]{display:none}
+  .sBox{width:100%;max-width:640px;max-height:calc(100dvh - 30px);overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:10px 12px;box-shadow:0 12px 30px rgba(0,0,0,.18)}
+  .sHead{display:flex;gap:6px;position:sticky;top:-10px;background:var(--panel);padding-top:2px}
+  .sHead input{flex:1;min-width:0;font-size:16px;padding:9px 12px;border:1.5px solid #9fcfe8;border-radius:12px;background:#fff}
+  .sHead button{flex:0 0 auto;padding:6px 12px}
+  .sGrp{margin-top:10px}.sGrp>b{font-size:12.5px;color:var(--muted)}
+  .sHit{display:block;width:100%;text-align:left;border:1px solid var(--line);background:#fff;border-radius:12px;padding:7px 10px;margin-top:5px;font-size:14px;cursor:pointer}
+  .sHit small{color:var(--muted)}.sHit mark{background:#fff0a8;border-radius:3px;padding:0 1px}
+  .nav a#openSearch{padding:7px 10px;font-size:14px}
   .wdSw{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:4px 4px;margin:6px 0 0;font-size:12px;color:var(--muted)}
   .wdSw span,.wdSw button{white-space:nowrap}
   .wdSw .g{display:inline-flex;align-items:center;gap:4px;margin-left:8px}
@@ -215,7 +225,7 @@
 <div class="wrap">
   <header>
     <div><h1><span id="mascot" data-mascot style="-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;cursor:default">🦀</span> 月まとめ <span style="font-size:11px;font-weight:700;border:1px solid var(--line);border-radius:999px;padding:1px 8px;vertical-align:3px">ベータ</span></h1><small>この端末の中だけ・数えるのはコード</small></div>
-    <div class="nav"><a href="#" id="openWelcome">はじめに<span class="en">Guide</span></a><a href="./manual.html" class="navMan">📖 説明書<span class="en">Manual</span></a><a href="./lab.html" data-labonly style="display:none">実験室</a><a href="./" data-labonly style="display:none">ヤドカリ</a></div>
+    <div class="nav"><a href="#" id="openSearch" aria-label="さがす">🔍</a><a href="#" id="openWelcome">はじめに<span class="en">Guide</span></a><a href="./manual.html" class="navMan">📖 説明書<span class="en">Manual</span></a><a href="./lab.html" data-labonly style="display:none">実験室</a><a href="./" data-labonly style="display:none">ヤドカリ</a></div>
   </header>
   <div id="homeTip" class="card" style="display:none;background:#fff3dc;border-color:#f0d9ae;font-size:13px">
     📲 <b>ホーム画面に追加</b>すると、データが消えにくくなります。Safari の共有ボタン（□に↑）→「ホーム画面に追加」。<br><small>追加したら、そのアイコンから使ってね。今の中身は「控えを書き出す」→ アイコンの方で「読み込む」で引っ越せます。</small>
@@ -393,7 +403,14 @@
   <p class="note">予定は上の「ひとこと入れる」か、実験室の練習台から入れます（どちらも同じ所に入ります）。数えるのは毎回コードが計算し直しています。まちがいに気づいたら ✏️ で直してください。</p>
 </div>
 
-<script src="./plan-core.js?v=20261020a"></script>
+<div id="searchPop" class="sPop" hidden>
+  <div class="sBox" role="dialog" aria-label="さがす">
+    <div class="sHead"><input id="sIn" type="search" placeholder="言葉や日付（例：歯医者・10/25・去年の今日）" enterkeyhint="search" autocomplete="off"><button type="button" id="sClose" aria-label="閉じる">✕</button></div>
+    <div class="note" style="margin:4px 2px 0">日付を入れると、その日の全部が出ます。言葉を入れると、予定・日記・本・メモから探します。端末の中だけで探します。</div>
+    <div id="sOut"></div>
+  </div>
+</div>
+<script src="./plan-core.js?v=20261021a"></script>
 <script>
 (() => {
 "use strict";
@@ -612,6 +629,53 @@ function dayCard(items) {
 /* 送る・日記を書く：いつも出しておく（予定がない日も、日付だけ送って日記を書ける） */
 const shareBox = ds => `<div style="margin-top:8px"><button type="button" class="shareBtn" data-share="${esc(ds)}">⤴︎ ${esc(+ds.slice(5, 7) + "/" + +ds.slice(8, 10))} を送る・日記を書く<span class="en">Share / Journal</span></button><p class="shareNote">⚠️ <b>送った先はヤドカリのおうちの外です。</b>送り先はあなたが選びます（ジャーナル・メモ・LINEなど）。ジャーナルを選ぶと、そのまま日記を書き足せます。</p></div>`;
 /* この日の予定を文字にまとめる（送る用） */
+/* ---------- さがす：日付ならその日の全部、言葉なら予定・日記・本・メモから。端末の中だけ ---------- */
+function searchDate(q) {
+  const s = q.trim(); if (!s) return null;
+  if (/去年の今日/.test(s)) return `${+t0.slice(0, 4) - 1}${t0.slice(4)}`;
+  if (/^(今日|きょう)$/.test(s)) return t0;
+  let r = null; try { r = readDate(s); } catch (_) {}
+  /* 日付の言葉だけ（ほかに言葉がない）の時だけ日付として扱う */
+  if (r && r.date && s.replace(r.how || "", "").replace(/[\s（）()月火水木金土日曜]/g, "") === "") return r.date;
+  return null;
+}
+function hl(text, q) { const t = esc(text || ""); if (!q) return t; const e = esc(q).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); return t.replace(new RegExp(e, "gi"), m => `<mark>${m}</mark>`); }
+/* 今年でない日は年もつける */
+const sDF = ds => (ds.slice(0, 4) !== t0.slice(0, 4) ? `${ds.slice(0, 4)}年 ` : "") + HDF(ds);
+function searchRun() {
+  const q = $("sIn").value.trim(), out = $("sOut");
+  if (!q) { out.innerHTML = ""; return; }
+  const ds = searchDate(q);
+  if (ds) {
+    const R = window.YadoMods?.repeat;
+    const list = load().filter(it => it.date === ds).concat(R ? R.expand(ds, ds) : []).sort((a, b) => sortKey(a) < sortKey(b) ? -1 : 1);
+    const mods = Object.values(window.YadoMods || {}).flatMap(m => { try { return m.dayInfo?.(ds) || []; } catch (_) { return []; } });
+    const dy = (getJ("yadokari.diary", []) || []).find(e => e.id === ds);
+    out.innerHTML = `<div class="sGrp"><b>${esc(sDF(ds))}</b>`
+      + (dy && (dy.w || dy.m || dy.t) ? `<div class="sHit" style="cursor:default">${esc((dy.w || "") + (dy.m || ""))} ${esc(dy.t || "")}</div>` : "")
+      + (list.length ? list.map(it => `<button type="button" class="sHit" data-sgo="${ds}">${it.rep ? "🔁 " : ""}${esc(it.time || it.part || "")} ${esc(cleanWhat(it.what))}${it.place ? ` <small>＠${esc(it.place)}</small>` : ""}${it.memo ? `<br><small>📝 ${esc(it.memo)}</small>` : ""}</button>`).join("") : `<div class="empty">この日の予定はありません</div>`)
+      + mods.map(x => `<div class="sHit" style="cursor:default">${esc(x)}</div>`).join("")
+      + `<div class="ctrl" style="margin-top:8px"><button type="button" class="main" data-sgo="${ds}">この日を開く</button></div></div>`;
+    return;
+  }
+  const L = q.toLowerCase(), has = (...xs) => xs.some(x => String(x || "").toLowerCase().includes(L));
+  const items = load().filter(it => has(it.what, it.memo, it.place, it.src, it.activity)).sort((a, b) => (b.date || "") < (a.date || "") ? -1 : 1).slice(0, 60);
+  const diary = (getJ("yadokari.diary", []) || []).filter(e => has(e.t)).sort((a, b) => b.id.localeCompare(a.id)).slice(0, 30);
+  const books = (getJ("yadokari.books", []) || []).filter(b => has(b.title, b.author, b.note, b.quote)).slice(0, 30);
+  const weeks = (getJ("yadokari.weeknotes", []) || []).filter(n => has(n.text)).sort((a, b) => b.id.localeCompare(a.id)).slice(0, 20);
+  const reps = (getJ("yadokari.repeat", []) || []).filter(r => has(r.what)).slice(0, 20);
+  const snip = (t, n = 60) => { const s = String(t || ""), i = s.toLowerCase().indexOf(L); return i < 0 ? s.slice(0, n) : (i > 20 ? "…" : "") + s.slice(Math.max(0, i - 20), i + n); };
+  const g = (title, html) => html ? `<div class="sGrp"><b>${title}</b>${html}</div>` : "";
+  const total = items.length + diary.length + books.length + weeks.length + reps.length;
+  out.innerHTML = (total ? `<div class="note" style="margin-top:8px">${total}件 見つかりました</div>` : `<div class="empty" style="margin-top:10px">「${esc(q)}」は見つかりませんでした</div>`)
+    + g("予定・やること・メモ", items.map(it => `<button type="button" class="sHit"${it.date ? ` data-sgo="${it.date}"` : ""}><small>${esc(it.date ? sDF(it.date) : "日付なし")} ${esc(it.time || "")}</small><br>${hl(cleanWhat(it.what), q)}${it.place ? ` <small>＠${hl(it.place, q)}</small>` : ""}${it.memo && has(it.memo) ? `<br><small>📝 ${hl(snip(it.memo), q)}</small>` : ""}</button>`).join(""))
+    + g("1行日記", diary.map(e => `<button type="button" class="sHit" data-sgo="${e.id}"><small>${esc(sDF(e.id))} ${esc((e.w || "") + (e.m || ""))}</small><br>${hl(e.t, q)}</button>`).join(""))
+    + g("読書カード", books.map(b => `<div class="sHit" style="cursor:default">📖 ${hl(b.title, q)}${b.author ? ` <small>${hl(b.author, q)}</small>` : ""}${(b.note && has(b.note)) ? `<br><small>${hl(snip(b.note), q)}</small>` : ""}${(b.quote && has(b.quote)) ? `<br><small>「${hl(snip(b.quote), q)}」</small>` : ""}</div>`).join(""))
+    + g("週のメモ", weeks.map(n => `<button type="button" class="sHit" data-sgo="${n.id}"><small>${esc(sDF(n.id))}の週</small><br>${hl(snip(n.text, 80), q)}</button>`).join(""))
+    + g("繰り返しの予定", reps.map(r => `<div class="sHit" style="cursor:default">🔁 ${hl(r.what, q)}</div>`).join(""));
+}
+function openSearch() { $("searchPop").hidden = false; setTimeout(() => $("sIn").focus(), 30); searchRun(); }
+function closeSearch() { $("searchPop").hidden = true; }
 function dayText(ds) {
   const l = withRepeats(load()).filter(it => it.date === ds).sort((a, b) => sortKey(a) < sortKey(b) ? -1 : 1);
   return [HDF(ds), ...l.map(it => `・${[it.time || it.part, cleanWhat(it.what), it.place ? `＠${it.place}` : ""].filter(Boolean).join(" ")}${it.memo ? `（${it.memo}）` : ""}`)].join("\n");
@@ -1013,7 +1077,7 @@ function loadMod(id) {
   modLoading[id] = true;
   const s = document.createElement("script"); s.src = `./mod-${id}.js?v=${APP_VER_MODS}`; s.onload = () => renderMods(); s.onerror = () => { modLoading[id] = false; }; document.head.appendChild(s);
 }
-const APP_VER_MODS = "20261020a";
+const APP_VER_MODS = "20261021a";
 function renderMods() {
   const on = getMods(), area = $("modsArea"); $("modsCard").hidden = !on.length;
   for (const id of on) {
@@ -1090,7 +1154,8 @@ document.querySelectorAll("[data-view]").forEach(b => b.onclick = () => {
   box.addEventListener("click", e => { if (box.dataset.swiped) { e.stopPropagation(); e.preventDefault(); } }, true);
 })();
 $("cal").onclick = e => { const b = e.target.closest("[data-d]"); if (!b) return; sel = b.dataset.d; editing = null; render(); $("dayCard").scrollIntoView({ behavior: "smooth", block: "nearest" }); };
-document.addEventListener("keydown", e => { if (e.target.id === "actIn" && e.key === "Enter" && !e.isComposing) { e.preventDefault(); $("actAdd").click(); return; } if (e.target.id === "dayIn" && e.key === "Enter" && !e.isComposing) { e.preventDefault(); dayAddGo(); } });
+document.addEventListener("input", e => { if (e.target.id === "sIn") searchRun(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("searchPop").hidden) { closeSearch(); return; } if (e.target.id === "actIn" && e.key === "Enter" && !e.isComposing) { e.preventDefault(); $("actAdd").click(); return; } if (e.target.id === "dayIn" && e.key === "Enter" && !e.isComposing) { e.preventDefault(); dayAddGo(); } });
 document.addEventListener("click", e => {
   if (e.target.closest("#tileEditBtn")) { tileEdit = true; render(); setTimeout(() => { const w = $("tileWord"); if (w) w.focus(); }, 50); return; }
   if (e.target.closest("#tileDone")) { tileEdit = false; render(); return; }
@@ -1098,6 +1163,16 @@ document.addEventListener("click", e => {
   const td = e.target.closest("[data-tdel]"); if (td) { const v = getCustomTiles(); v.splice(+td.dataset.tdel, 1); setCustomTiles(v); render(); return; }
   if (e.target.closest("#dayClose")) { sel = t0; editing = null; render(); return; }
   if (e.target.closest("#dayAdd")) { dayAddGo(); return; }
+  if (e.target.closest("#openSearch")) { e.preventDefault(); openSearch(); return; }
+  if (e.target.closest("#sClose") || e.target.id === "searchPop") { closeSearch(); return; }
+  const sg = e.target.closest("[data-sgo]");
+  if (sg) {
+    /* その日へ飛ぶ：月（週）をその日に合わせて、その日の欄を開く */
+    const ds = sg.dataset.sgo; sel = ds; ym = { y: +ds.slice(0, 4), m: +ds.slice(5, 7) }; wk = mondayOf(ds); editing = null;
+    closeSearch(); render();
+    setTimeout(() => { const el = ds === t0 ? document.querySelector('[data-block="today"]') : $("dayCard"); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 60);
+    return;
+  }
   const th = e.target.closest("[data-theme]"); if (th) { try { localStorage.setItem(THEME_KEY, th.dataset.theme); } catch (_) {} applyTheme(); themeUI(); palUI(); return; }
   const pp = e.target.closest("[data-palpart]"); if (pp) { palPart = pp.dataset.palpart; palUI(); return; }
   const pc = e.target.closest("[data-palc]"); if (pc) { setPal(palPart, pc.dataset.palc); return; }
@@ -1205,7 +1280,7 @@ render();
 <!-- 新しい版の知らせ（版を上げるときは version.json とこの APP_VER を同じにする） -->
 <script>
 (() => {
-  const APP_VER = "20261020a";
+  const APP_VER = "20261021a";
   let shown = false;
   const check = () => {
     if (shown || !navigator.onLine) return;
