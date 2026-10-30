@@ -199,6 +199,12 @@
   .card[data-block="month"]{background:var(--b-month);border-color:var(--l-month)}
   .card[data-block="day"]{background:var(--b-day);border-color:var(--l-day)}
   .card[data-block="tiles"]{background:var(--b-tiles);border-color:var(--l-tiles)}
+  .card[data-block="review"]{background:var(--b-tiles);border-color:var(--l-tiles)}
+  .rvBar{display:flex;align-items:center;gap:6px;font-size:12.5px;margin-top:3px}.rvBar span:first-child{flex:0 0 30%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rvBar i{display:block;height:10px;border-radius:4px}.rvBar b{flex:0 0 auto;font-weight:600;color:var(--muted)}
+  .rvGrp{margin-top:10px}.rvGrp>.k{font-size:12.5px;color:var(--muted);font-weight:700}
+  .rvLine{display:flex;align-items:flex-start;gap:6px;font-size:13.5px;padding:3px 0;border-bottom:1px dashed var(--line)}.rvLine .t{flex:1;min-width:0}
+  .rvStar{border:0;background:none;font-size:18px;padding:0 2px;color:#ddd;cursor:pointer}.rvStar.on{color:#f0b429}
+  .rvMig{display:flex;gap:4px;flex:0 0 auto}.rvMig button{font-size:11px;padding:2px 7px}
   .card[data-block="mods"]{background:var(--b-mods);border-color:var(--l-mods)}
   .card[data-block="memo"],.card[data-block="dup"],.card[data-block="undated"]{background:var(--b-misc);border-color:var(--l-misc)}
   .card[data-block="modShelf"],.card[data-block="acts"],.card[data-block="theme"]{background:var(--b-set);border-color:var(--l-set)}
@@ -333,6 +339,8 @@
     <div id="undated"></div>
   </section>
 
+  <section class="card" data-block="review"><div id="reviewArea"></div></section>
+
   <section class="card" data-block="mods" id="modsCard" hidden><div id="modsArea"></div></section>
 
   <section class="card" data-block="modShelf">
@@ -412,7 +420,7 @@
     <div id="sOut"></div>
   </div>
 </div>
-<script src="./plan-core.js?v=20261026a"></script>
+<script src="./plan-core.js?v=20261030a"></script>
 <script>
 (() => {
 "use strict";
@@ -764,7 +772,7 @@ function today(items) {
     + (sel === t0 ? shareBox(t0) : "");
 }
 /* 並び順の表：ここを入れ替えれば画面の並びが変わる（あとで使う人が選べるようにする時の土台） */
-const BLOCK_ORDER = ["inbox", "today", "month", "day", "tiles", "mods", "memo", "dup", "undated", "modShelf", "theme", "acts", "calendarLink", "backup"];
+const BLOCK_ORDER = ["inbox", "today", "month", "day", "tiles", "review", "mods", "memo", "dup", "undated", "modShelf", "theme", "acts", "calendarLink", "backup"];
 (function arrange() {
   const wrap = document.querySelector(".wrap"), tail = wrap.querySelector(":scope > p.note:last-of-type");
   for (const k of BLOCK_ORDER) { const el = wrap.querySelector(`:scope > [data-block="${k}"]`); if (el) wrap.insertBefore(el, tail); }
@@ -1079,7 +1087,7 @@ function loadMod(id) {
   modLoading[id] = true;
   const s = document.createElement("script"); s.src = `./mod-${id}.js?v=${APP_VER_MODS}`; s.onload = () => renderMods(); s.onerror = () => { modLoading[id] = false; }; document.head.appendChild(s);
 }
-const APP_VER_MODS = "20261026a";
+const APP_VER_MODS = "20261030a";
 function renderMods() {
   const on = getMods(), area = $("modsArea"); $("modsCard").hidden = !on.length;
   for (const id of on) {
@@ -1108,6 +1116,59 @@ window.YK = {
 };
 addEventListener("yadokari:modready", () => { render(); });
 /* 1つの欄で止まっても、ほかの欄は出す */
+/* ---------- 月のふりかえり：その月の数字・天気と気分・習慣・読書・1行日記・移しかえ。全部コードが数える ---------- */
+const RV_KEY = "yadokari.review";
+let rvYM = null;
+const getRv = () => { const v = getJ(RV_KEY, []); return Array.isArray(v) ? v : []; };
+function setRv(ymKey, patch) { const l = getRv(); let r = l.find(x => x.id === ymKey); if (!r) { r = { id: ymKey, good: [], note: "" }; l.push(r); } Object.assign(r, patch); try { localStorage.setItem(RV_KEY, JSON.stringify(l)); } catch (_) {} }
+function review() {
+  const T = t0;
+  if (!rvYM) { const d = +T.slice(8, 10); rvYM = d <= 7 ? (() => { const y = +T.slice(0, 4), m = +T.slice(5, 7); return m === 1 ? `${y - 1}-12` : `${y}-${z(m - 1)}`; })() : T.slice(0, 7); }
+  const [Y, M] = rvYM.split("-").map(Number), last = new Date(Date.UTC(Y, M, 0)).getUTCDate(), mS = `${rvYM}-01`, mE = `${rvYM}-${z(last)}`;
+  const R = window.YadoMods?.repeat;
+  const real = load(), inM = real.filter(it => it.date && it.date.startsWith(rvYM)).concat(R ? R.expand(mS, mE) : []);
+  const plans = inM.filter(it => it.kind === "予定");
+  const work = new Set(inM.filter(it => it.activity === "出勤").map(it => it.date)), off = new Set(inM.filter(it => it.activity === "休み").map(it => it.date));
+  const sudden = inM.filter(it => it.activity === "出勤" && isSudden(it)).length;
+  const byAct = {}; for (const it of plans) byAct[it.activity] = (byAct[it.activity] || 0) + 1;
+  const acts_ = Object.entries(byAct).sort((a, b) => b[1] - a[1]).slice(0, 6), amax = Math.max(1, ...acts_.map(a => a[1]));
+  const actColor = a => color({ activity: a, kind: "予定" });
+  const diary = (getJ("yadokari.diary", []) || []).filter(e => e.id.startsWith(rvYM));
+  const cnt = f => { const m = {}; for (const e of diary) if (e[f]) m[e[f]] = (m[e[f]] || 0) + 1; return Object.entries(m).sort((a, b) => b[1] - a[1]); };
+  const ws = cnt("w"), ms = cnt("m");
+  const habits = (getJ("yadokari.habits", []) || []).filter(h => !h.archived).map(h => {
+    const ds = (h.days || []).filter(d => d.startsWith(rvYM)).sort(); let best = 0, c = 0, prev = null;
+    for (const d of ds) { c = prev && addDaysStr(prev, 1) === d ? c + 1 : 1; best = Math.max(best, c); prev = d; }
+    return { name: h.name, n: ds.length, best };
+  }).filter(h => h.n);
+  const dayN = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000) + 1;
+  const books = (getJ("yadokari.books", []) || []).filter(b => b.status === "done" && b.end && b.end.startsWith(rvYM));
+  const bDays = books.filter(b => b.start).map(b => dayN(b.start, b.end)), bAvg = bDays.length ? Math.round(bDays.reduce((a, c) => a + c, 0) / bDays.length) : null;
+  const rv = getRv().find(x => x.id === rvYM) || { good: [], note: "" };
+  const lines = diary.filter(e => e.t && e.t.trim()).sort((a, b) => a.id.localeCompare(b.id));
+  /* 移しかえ：その月までに日付があって、まだ済んでいない「やること」 */
+  const mig = real.filter(it => it.kind === "やること" && !it.done && it.date && it.date <= mE).sort((a, b) => a.date < b.date ? -1 : 1);
+  const ended = mE < T;
+  const tile = (k, v, u, s) => `<div class="tile"><div class="k">${k}</div><div class="v">${v}<span class="u">${u}</span></div><div class="s">${s}</div></div>`;
+  $("reviewArea").innerHTML = `<div class="sect" style="display:flex;justify-content:space-between;align-items:center"><span>🗓️ 月のふりかえり<span class="en">Review</span></span><span style="display:flex;gap:4px;align-items:center"><button type="button" data-rvm="-1" aria-label="前の月" style="padding:2px 10px">‹</button><b style="font-size:14px">${Y}年${M}月</b><button type="button" data-rvm="1" aria-label="次の月" style="padding:2px 10px">›</button></span></div>
+    ${!ended ? `<div class="bkSub">まだ途中の月です（${+T.slice(8, 10)}日まで）。月が終わったら、ここでふりかえれます</div>` : ""}
+    <div class="tiles" style="margin-top:6px">${tile("予定", plans.length, "件", `すること ${acts_.length}種類`)}${tile("出勤", work.size, "日", `うち急な出勤 ${sudden}回`)}${tile("休み", off.size, "日", "OFF・有給など")}</div>
+    ${acts_.length ? `<div class="rvGrp"><div class="k">すること</div>${acts_.map(([a, n]) => `<div class="rvBar"><span>${esc(a)}</span><span style="flex:1"><i style="width:${Math.max(4, Math.round(n / amax * 100))}%;background:var(--${actColor(a)})"></i></span><b>${n}</b></div>`).join("")}</div>` : ""}
+    ${ws.length || ms.length ? `<div class="rvGrp"><div class="k">天気と気分（${diary.filter(e => e.w || e.m).length}日）</div><div class="dyCount" style="margin-top:4px">${ws.map(([k, n]) => `<span>${esc(k)}<b>${n}</b></span>`).join("")}${ws.length && ms.length ? `<span class="dySep"></span>` : ""}${ms.map(([k, n]) => `<span>${esc(k)}<b>${n}</b></span>`).join("")}</div></div>` : ""}
+    ${habits.length ? `<div class="rvGrp"><div class="k">習慣</div>${habits.map(h => `<div class="rvBar"><span>${esc(h.name)}</span><span style="flex:1"><i style="width:${Math.max(4, Math.round(h.n / last * 100))}%;background:#bfe0c1"></i></span><b>${h.n}日・いちばん続いた${h.best}日</b></div>`).join("")}</div>` : ""}
+    ${books.length ? `<div class="rvGrp"><div class="k">読書</div><div style="font-size:13.5px">📖 ${books.length}冊 読み終えた${bAvg != null ? `（平均${bAvg}日）` : ""}：${books.map(b => esc(b.title)).join("・")}</div></div>` : ""}
+    ${lines.length ? `<div class="rvGrp"><div class="k">1行日記から「よかったこと」を選ぶ（★ 3つまで）</div>${lines.map(e => `<div class="rvLine"><button type="button" class="rvStar${rv.good.includes(e.id) ? " on" : ""}" data-rvgood="${e.id}" aria-label="よかったこと">★</button><span class="t"><small style="color:var(--muted)">${+e.id.slice(5, 7)}/${+e.id.slice(8, 10)} ${esc((e.w || "") + (e.m || ""))}</small> ${esc(e.t)}</span></div>`).join("")}</div>` : ""}
+    <div class="rvGrp"><div class="k">この月をひとことで</div><textarea id="rvNote" rows="2" maxlength="400" placeholder="（なくてもOK）" style="width:100%;font-size:16px;border:1px solid var(--line);border-radius:10px;padding:6px 8px">${esc(rv.note || "")}</textarea></div>
+    ${mig.length ? `<div class="rvGrp"><div class="k">移しかえ：終わっていない「やること」（${mig.length}）</div>${mig.map(it => `<div class="rvLine"><span class="t">${esc(cleanWhat(it.what))} <small style="color:var(--muted)">${+it.date.slice(5, 7)}/${+it.date.slice(8, 10)}から</small></span><span class="rvMig"><button type="button" data-rvmig="next|${esc(it.id)}">来月へ</button><button type="button" data-rvmig="done|${esc(it.id)}">済んだ</button><button type="button" data-rvmig="drop|${esc(it.id)}">やめる</button></span></div>`).join("")}</div>` : ""}
+    <div style="margin-top:10px"><button type="button" class="shareBtn" data-rvshare style="font-size:13px;padding:5px 12px">⤴︎ ふりかえりを送る<span class="en">Share</span></button></div>`;
+}
+function reviewText() {
+  const el = $("reviewArea"), [Y, M] = rvYM.split("-").map(Number), rv = getRv().find(x => x.id === rvYM) || { good: [], note: "" };
+  const tiles = [...el.querySelectorAll(".tile")].map(t => `${t.querySelector(".k").textContent} ${t.querySelector(".v").textContent}`).join("・");
+  const good = (getJ("yadokari.diary", []) || []).filter(e => rv.good.includes(e.id)).map(e => `★ ${+e.id.slice(5, 7)}/${+e.id.slice(8, 10)} ${e.t}`);
+  const wm = el.querySelector(".dyCount")?.textContent.replace(/\s+/g, " ").trim();
+  return [`🗓️ ${Y}年${M}月のふりかえり`, tiles, wm ? `天気と気分：${wm}` : "", ...good, rv.note ? `ひとこと：${rv.note}` : ""].filter(Boolean).join("\n");
+}
 /* 繰り返しの予定（部品）：見ている範囲の分だけ、その場で計算して並べる（予定そのものは増やさない） */
 function withRepeats(items) {
   const R = window.YadoMods?.repeat; if (!R) return items;
@@ -1117,7 +1178,7 @@ function withRepeats(items) {
     return items.concat(R.expand(from, to));
   } catch (e) { console.error(e); return items; }
 }
-function render() { const real = load(), items = withRepeats(real); for (const f of [today, tiles, calendar, dayCard, lists]) { try { f(items); } catch (e) { console.error(e); } } for (const f of [memos, dups]) { try { f(real); } catch (e) { console.error(e); } } try { renderMods(); } catch (e) { console.error(e); } }
+function render() { const real = load(), items = withRepeats(real); for (const f of [today, tiles, calendar, dayCard, lists, review]) { try { f(items); } catch (e) { console.error(e); } } for (const f of [memos, dups]) { try { f(real); } catch (e) { console.error(e); } } try { renderMods(); } catch (e) { console.error(e); } }
 
 /* ---------- 操作 ---------- */
 /* 月を動かす：‹ › のボタン、カレンダーの枠の中で左右に指を滑らせる、「今月へ」 */
@@ -1157,6 +1218,7 @@ document.querySelectorAll("[data-view]").forEach(b => b.onclick = () => {
 })();
 $("cal").onclick = e => { const b = e.target.closest("[data-d]"); if (!b) return; sel = b.dataset.d; editing = null; render(); $("dayCard").scrollIntoView({ behavior: "smooth", block: "nearest" }); };
 document.addEventListener("input", e => { if (e.target.id === "sIn") searchRun(); });
+document.addEventListener("change", e => { if (e.target.id === "rvNote") setRv(rvYM, { note: e.target.value.slice(0, 400) }); });
 document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("searchPop").hidden) { closeSearch(); return; } if (e.target.id === "actIn" && e.key === "Enter" && !e.isComposing) { e.preventDefault(); $("actAdd").click(); return; } if (e.target.id === "dayIn" && e.key === "Enter" && !e.isComposing) { e.preventDefault(); dayAddGo(); } });
 document.addEventListener("click", e => {
   if (e.target.closest("#tileEditBtn")) { tileEdit = true; render(); setTimeout(() => { const w = $("tileWord"); if (w) w.focus(); }, 50); return; }
@@ -1165,6 +1227,18 @@ document.addEventListener("click", e => {
   const td = e.target.closest("[data-tdel]"); if (td) { const v = getCustomTiles(); v.splice(+td.dataset.tdel, 1); setCustomTiles(v); render(); return; }
   if (e.target.closest("#dayClose")) { sel = t0; editing = null; render(); return; }
   if (e.target.closest("#dayAdd")) { dayAddGo(); return; }
+  const rvm = e.target.closest("[data-rvm]"); if (rvm) { let [y, m] = rvYM.split("-").map(Number); m += +rvm.dataset.rvm; if (m < 1) { m = 12; y--; } if (m > 12) { m = 1; y++; } rvYM = `${y}-${z(m)}`; review(); return; }
+  const rg = e.target.closest("[data-rvgood]");
+  if (rg) { const r = getRv().find(x => x.id === rvYM) || { good: [] }, id = rg.dataset.rvgood; let g = r.good.includes(id) ? r.good.filter(x => x !== id) : [...r.good, id]; if (g.length > 3) { alert("よかったことは3つまでです"); return; } setRv(rvYM, { good: g }); review(); return; }
+  const mg = e.target.closest("[data-rvmig]");
+  if (mg) {
+    const [how, id] = mg.dataset.rvmig.split("|"), items = load(), it = items.find(x => x.id === id); if (!it) return;
+    if (how === "next") { const [y, m] = rvYM.split("-").map(Number), ny = m === 12 ? y + 1 : y, nm = m === 12 ? 1 : m + 1, nd = `${ny}-${z(nm)}-01`; it.date = nd < t0 ? t0 : nd; }
+    else if (how === "done") it.done = Date.now();
+    else { if (!confirm(`「${cleanWhat(it.what)}」をやめます（消します）。いい？`)) return; items.splice(items.indexOf(it), 1); }
+    save(items); render(); return;
+  }
+  if (e.target.closest("[data-rvshare]")) { YK.share(reviewText(), e.target.closest("[data-rvshare]")); return; }
   if (e.target.closest("#openSearch")) { e.preventDefault(); openSearch(); return; }
   if (e.target.closest("#sClose") || e.target.id === "searchPop") { closeSearch(); return; }
   const sg = e.target.closest("[data-sgo]");
@@ -1282,7 +1356,7 @@ render();
 <!-- 新しい版の知らせ（版を上げるときは version.json とこの APP_VER を同じにする） -->
 <script>
 (() => {
-  const APP_VER = "20261026a";
+  const APP_VER = "20261030a";
   let shown = false;
   const check = () => {
     if (shown || !navigator.onLine) return;
