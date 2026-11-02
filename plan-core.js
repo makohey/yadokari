@@ -200,6 +200,8 @@ function cleanFix(f) {
   return { key: f.key.slice(0, 20), src: str(f.src), kind: KINDS.includes(f.kind) ? f.kind : "", activity: actOK(f.activity) ? f.activity : "その他",
     fixAct: f.fixAct === undefined ? actOK(f.activity) : !!f.fixAct, fixKind: !!f.fixKind && KINDS.includes(f.kind), at: Number(f.at) || 0 };
 }
+/* 「同じ予定の中身」として比べるところ（カレンダーに入れた印・済んだ印などは この端末のものを残す） */
+const SAME_F = ["kind", "date", "time", "what", "place", "activity", "memo"];
 async function importPlan(file) {
   let data; try { data = JSON.parse(await file.text()); } catch (_) { alert("このファイルは読めませんでした"); return; }
   if (!data || data.app !== "yadokari-lab-plan" || !Array.isArray(data.items)) { alert("手帳の控えファイルではないみたいです"); return; }
@@ -210,8 +212,18 @@ async function importPlan(file) {
   const inItems = data.items.map(cleanItem).filter(Boolean), inFixes = (Array.isArray(data.fixes) ? data.fixes : []).map(cleanFix).filter(Boolean);
   const cur = load(), seen = new Set(cur.map(x => x.id)), sig = x => `${x.date}|${x.time}|${x.what}|${x.src}`, seenSig = new Set(cur.map(sig));
   const add = inItems.filter(x => !seen.has(x.id) && !seenSig.has(sig(x)));
+  /* 同じ予定（同じ id）なのに中身がちがうもの：別の端末で直した予定。置きかえるかは本人が決める */
+  const byIdCur = new Map(cur.map(x => [x.id, x])), body = x => SAME_F.map(k => x[k] || "").join("|");
+  const diff = inItems.filter(x => byIdCur.has(x.id) && body(byIdCur.get(x.id)) !== body(x));
   const fx = mergeFixes(getFixes(), inFixes), newFix = fx.length - getFixes().length;
-  if (!confirm(`控えを足し合わせます。${inActs.length ? `\n自分の すること：${inActs.join("・")}` : ""}\n予定など：新しく ${add.length} 件（同じものは入れません）\n手本帳（えさ）：${inFixes.length} 件を合わせて、全部で ${fx.length} 件に\n\n今ある中身は消えません。読み込んでもいい？`)) { setActs(actsBefore); return; }
+  if (!confirm(`控えを足し合わせます。${inActs.length ? `\n自分の すること：${inActs.join("・")}` : ""}\n予定など：新しく ${add.length} 件（同じものは入れません）${diff.length ? `\n中身がちがう同じ予定：${diff.length} 件（このあと聞きます）` : ""}\n手本帳（えさ）：${inFixes.length} 件を合わせて、全部で ${fx.length} 件に\n\n今ある中身は消えません。読み込んでもいい？`)) { setActs(actsBefore); return; }
+  let rep = 0;
+  if (diff.length) {
+    const md = d => d ? `${+d.slice(5, 7)}/${+d.slice(8, 10)}` : "日付なし", lines = diff.slice(0, 8).map(x => { const m = byIdCur.get(x.id); return `${md(x.date || m.date)}　${m.what || "（空）"} → ${x.what || "（空）"}`; });
+    if (confirm(`別の端末で直したらしい予定が ${diff.length} 件あります。\n（この端末 → 読み込むファイル）\n${lines.join("\n")}${diff.length > 8 ? `\n…ほか ${diff.length - 8} 件` : ""}\n\nファイルのほうに置きかえる？\n「キャンセル」なら、この端末のまま残します。`)) {
+      for (const x of diff) { const m = byIdCur.get(x.id); for (const k of SAME_F) m[k] = x[k]; m.part = x.part; rep++; }
+    }
+  }
   /* 好みは、控えにあって この端末でまだ決めていないものだけ入れる（今の好みは上書きしない） */
   const inPrefs = data.prefs && typeof data.prefs === "object" ? data.prefs : {};
   for (const k of PREF_KEYS) { try { if (typeof inPrefs[k] === "string" && localStorage.getItem(k) === null) localStorage.setItem(k, inPrefs[k].slice(0, 2000)); } catch (_) {} }
@@ -230,7 +242,7 @@ async function importPlan(file) {
     }
     if (changed) setJ(k, cur);
   }
-  if (save(cur.concat(add))) { setJ(K.fixes, fx); dispatchEvent(new Event("yadokari:saved")); alert(`足し合わせました（予定など +${add.length}・手本帳 ${newFix >= 0 ? "+" + newFix : fx.length + "件"}）`); }
+  if (save(cur.concat(add))) { setJ(K.fixes, fx); dispatchEvent(new Event("yadokari:saved")); alert(`足し合わせました（予定など +${add.length}${rep ? `・置きかえ ${rep}` : ""}・手本帳 ${newFix >= 0 ? "+" + newFix : fx.length + "件"}）`); }
 }
 function fixSummary() { const f = getFixes(); return f.length ? `手本帳（えさ）：${f.length}件（${f.slice(0, 4).map(x => `${x.key}→${x.fixKind ? x.kind : x.activity}`).join("、")}${f.length > 4 ? "…" : ""}）` : "手本帳（えさ）：まだ空です"; }
 
