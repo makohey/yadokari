@@ -113,7 +113,10 @@
   .ttChips{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}.ttChips button{border:1px solid var(--line);border-radius:999px;font-size:13px;padding:3px 10px}
   .ttRow{display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin-top:6px;font-size:13px}.ttRow button{font-size:13px;padding:2px 10px}
   .ttDay.on{background:var(--accent);color:#fff;border-color:var(--accent)}
-  .ttTimes{display:grid;grid-template-columns:repeat(auto-fill,minmax(5.5em,1fr));gap:4px;margin-top:4px}.ttTimes label{display:flex;align-items:center;gap:3px;font-size:12px}.ttTimes input{width:100%;min-width:0;font-size:16px;padding:3px 5px;border:1px solid var(--line);border-radius:8px}
+  .ttTimes{display:grid;grid-template-columns:repeat(auto-fill,minmax(13em,1fr));gap:4px;margin-top:4px}.ttTimes label{display:flex;align-items:center;gap:3px;font-size:12px}.ttTimes b{min-width:1.2em;text-align:right}.ttTimes input{flex:1;min-width:0;font-size:16px;padding:2px 4px;border:1px solid var(--line);border-radius:8px}
+  .ttC small{display:block;font-size:9px;color:var(--muted)}
+  .ttL{font-size:10px;text-align:center;color:var(--muted);background:#f6f6f2;border-radius:6px;padding:1px 0;letter-spacing:.2em}
+  .ttPal{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}.ttPal button{width:26px;height:26px;border-radius:50%;border:1px solid var(--line);padding:0}.ttPal button.on{outline:2px solid var(--accent);outline-offset:1px}
   .hbM.on{background:#bfe0c1;border-color:#8fc596;color:#2f6f3a;font-weight:700}.hbM.today{border:2px solid var(--accent)}
   .bkSub{font-size:12px;color:var(--muted);line-height:1.6}
   .bkForm{border:1px solid #e8c9a8;border-radius:12px;background:#fffaf3;padding:8px;margin-top:8px}
@@ -1087,7 +1090,7 @@ const MOD_LIST = [
   { id: "habit", name: "✅ ハビットトラッカー", en: "Habits", desc: "習慣ごとに日付の丸を押してチェック。続いた日数・今月の回数を数えます" },
   { id: "week", name: "📝 週のメモ", en: "Week notes", desc: "週ごとに1枚、自由に書ける欄。予定の詳しいことやふりかえりに" },
   { id: "repeat", name: "🔁 繰り返しの予定", en: "Repeat", desc: "毎週のゴミ出し・毎月の給料日・毎年の記念日など。1回決めれば毎回出ます。ある日だけ外すこともできます" },
-  { id: "timetable", name: "🏫 時間割", en: "Timetable", desc: "曜日×何時間目の表。授業でも、習い事・ジム・週のルーティンでも。選んだ日のカードにも、その曜日の分が出ます" },
+  { id: "timetable", name: "🏫 時間割", en: "Timetable", desc: "小学生から大学生まで。曜日×何時間目の表に、科目・教室・先生を書く。科目ごとに色と持ち物。選んだ日のカードに、その日の時間割と持ち物が出ます" },
   { id: "diary", name: "✏️ 1行日記・気分・天気", en: "Diary", desc: "その日の天気マークと気分マークを選んで、1行だけ書く。月でマークを数えます（天気は予報ではなく自分の記録）" }
 ];
 const getMods = () => { const v = getJ(MOD_KEY, []); return Array.isArray(v) ? v.filter(x => MOD_LIST.some(m => m.id === x && !m.soon)) : []; };
