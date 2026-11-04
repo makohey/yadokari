@@ -73,7 +73,9 @@
   .bkBars{display:grid;grid-template-columns:repeat(12,1fr);gap:3px;align-items:end;height:70px;margin-top:4px}
   .bkBar{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}.bkBar i{display:block;width:70%;background:#9fcfe8;border-radius:3px 3px 0 0;min-height:2px}.bkBar span{font-size:9px;color:var(--muted)}
   .bkRow{display:flex;align-items:center;gap:6px;font-size:12px;margin-top:3px}.bkRt{flex:0 0 38%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.bkRb{flex:1;background:#f3ece4;border-radius:4px;height:10px;overflow:hidden}.bkRb i{display:block;height:100%;background:#f3a7a2}.bkRn{flex:0 0 auto;color:var(--muted)}
-  #modsArea>[data-mod]+[data-mod]{border-top:1px dashed var(--l-mods);margin-top:14px;padding-top:10px}
+  /* 部品は1つずつ別のブロック（それぞれの色）。外の枠は見えなくする */
+  #modsCard{background:none!important;border:0!important;padding:0!important;margin:0!important;box-shadow:none!important}
+  #modsArea>[data-mod]{background:var(--bm,var(--b-mods));border-color:var(--lm,var(--l-mods))}
   .day{position:relative}.day .mk{position:absolute;top:2px;right:3px;font-size:10px;line-height:1;letter-spacing:-1px}
   .wrow .wd .mk{display:block;font-size:13px;margin-top:2px}
   .dyBox{margin-top:8px;border:1px solid var(--line);border-radius:12px;background:#fff;padding:6px 8px}
@@ -433,7 +435,7 @@
     <div id="sOut"></div>
   </div>
 </div>
-<script src="./plan-core.js?v=20261104a"></script>
+<script src="./plan-core.js?v=20261104b"></script>
 <script>
 (() => {
 "use strict";
@@ -1068,15 +1070,20 @@ function applyTheme() {
   TH_PARTS.forEach((p, i) => { const bg = pal[p] || t.c[i][0], ln = pal[p] ? lineOf(pal[p]) : t.c[i][1]; r.setProperty(`--b-${p}`, bg); r.setProperty(`--l-${p}`, ln); });
 }
 let palPart = "today";
+const palName = k => k.startsWith("mod:") ? (((typeof MOD_LIST !== "undefined") && MOD_LIST.find(x => x.id === k.slice(4))) || {}).name || "部品" : TH_NAMES[k] || k;
 function palUI() {
   const pal = getPal(), t = THEMES[getTheme()];
   $("palBody").innerHTML = `<p class="note" style="margin:6px 0">ブロックを選んで、色を押します。下の「ほかの色」では好きな色を選べます（自動でうすくします）。</p>
-    <div class="thSw">${TH_PARTS.map((p, i) => `<button type="button" data-palpart="${p}" class="${p === palPart ? "on" : ""}" style="background:${pal[p] || t.c[i][0]}">${esc(TH_NAMES[p])}${pal[p] ? " ●" : ""}</button>`).join("")}</div>
+    <div class="thSw">${TH_PARTS.map((p, i) => p === "mods" ? "" : `<button type="button" data-palpart="${p}" class="${p === palPart ? "on" : ""}" style="background:${pal[p] || t.c[i][0]}">${esc(TH_NAMES[p])}${pal[p] ? " ●" : ""}</button>`).join("")}${(() => { try { return getMods().map(id => { const m = MOD_LIST.find(x => x.id === id), k = "mod:" + id; return `<button type="button" data-palpart="${k}" class="${k === palPart ? "on" : ""}" style="background:${modBg(id)}">${esc(m ? m.name : id)}${pal[k] ? " ●" : ""}</button>`; }).join(""); } catch (_) { return ""; } })()}</div>
     <div class="palRow">${PASTELS.map(c => `<button type="button" class="palC${(pal[palPart] || "") === c ? " on" : ""}" data-palc="${c}" style="background:${c}" aria-label="${c}"></button>`).join("")}
       <label class="palMore">ほかの色<input type="color" id="palPick" value="${esc(pal[palPart] || "#f3a7a2")}"></label></div>
-    <div class="ctrl"><button type="button" data-palreset="${palPart}" style="font-size:12px;padding:3px 10px">「${esc(TH_NAMES[palPart])}」を組み合わせの色に戻す</button><button type="button" data-palreset="*" style="font-size:12px;padding:3px 10px">ぜんぶ戻す</button></div>`;
+    <div class="ctrl"><button type="button" data-palreset="${palPart}" style="font-size:12px;padding:3px 10px">「${esc(palName(palPart))}」を${palPart.startsWith("mod:") ? "はじめの" : "組み合わせの"}色に戻す</button><button type="button" data-palreset="*" style="font-size:12px;padding:3px 10px">ぜんぶ戻す</button></div>`;
 }
-function setPal(part, c) { const p = getPal(); if (c) p[part] = c; else delete p[part]; try { localStorage.setItem(PAL_KEY, JSON.stringify(p)); } catch (_) {} applyTheme(); palUI(); }
+function setPal(part, c) { const p = getPal(); if (c) p[part] = c; else delete p[part]; try { localStorage.setItem(PAL_KEY, JSON.stringify(p)); } catch (_) {} applyTheme(); palUI(); paintMods(); }
+/* 部品ごとの色：はじめから少しずつ違うパステル。自分で選んだ色（mod:id）があればそれ。前に「部品」全体に選んだ色があればそれ */
+const MOD_TINT = { books: "#fff2e6", habit: "#eef8ec", week: "#fff8dc", repeat: "#eaf6fb", timetable: "#f2eefc", diary: "#fde9ee" };
+const modBg = id => { const p = getPal(); return p["mod:" + id] || p.mods || MOD_TINT[id] || "#fdf9ef"; };
+function paintMods() { try { document.querySelectorAll("#modsArea>[data-mod]").forEach(el => { const bg = modBg(el.dataset.mod); el.style.setProperty("--bm", bg); el.style.setProperty("--lm", lineOf(bg)); }); } catch (_) {} }
 function themeUI() {
   const cur = getTheme();
   $("thSw").innerHTML = Object.entries(THEMES).map(([k, t]) => `<button type="button" data-theme="${k}" class="${k === cur ? "on" : ""}"><span class="chips">${[1, 2, 4, 3].map(i => `<i style="background:${t.c[i][0]};border-color:${t.c[i][1]}"></i>`).join("")}</span>${esc(t.name)}<span class="en">${esc(t.en)}</span></button>`).join("");
@@ -1101,16 +1108,19 @@ function loadMod(id) {
   modLoading[id] = true;
   const s = document.createElement("script"); s.src = `./mod-${id}.js?v=${APP_VER_MODS}`; s.onload = () => renderMods(); s.onerror = () => { modLoading[id] = false; }; document.head.appendChild(s);
 }
-const APP_VER_MODS = "20261104a";
+const APP_VER_MODS = "20261104b";
 function renderMods() {
   const on = getMods(), area = $("modsArea"); $("modsCard").hidden = !on.length;
   for (const id of on) {
     if (!window.YadoMods?.[id]) { loadMod(id); continue; }
     let el = area.querySelector(`[data-mod="${id}"]`);
-    if (!el) { el = document.createElement("div"); el.dataset.mod = id; area.appendChild(el); }
+    if (!el) { el = document.createElement("section"); el.className = "card"; el.dataset.mod = id; area.appendChild(el); }
     try { window.YadoMods[id].mount(el); } catch (e) { console.error(e); }
   }
   area.querySelectorAll("[data-mod]").forEach(el => { if (!on.includes(el.dataset.mod)) el.remove(); });
+  paintMods();
+  /* 色の板に、足した部品の名前を並べ直す（足す・外すに合わせる） */
+  const pb = document.getElementById("palBody"); if (pb && pb.dataset.mods !== on.join()) { pb.dataset.mods = on.join(); try { palUI(); } catch (_) {} }
 }
 function modShelfUI() {
   const on = getMods();
@@ -1266,7 +1276,7 @@ document.addEventListener("click", e => {
   const th = e.target.closest("[data-theme]"); if (th) { try { localStorage.setItem(THEME_KEY, th.dataset.theme); } catch (_) {} applyTheme(); themeUI(); palUI(); return; }
   const pp = e.target.closest("[data-palpart]"); if (pp) { palPart = pp.dataset.palpart; palUI(); return; }
   const pc = e.target.closest("[data-palc]"); if (pc) { setPal(palPart, pc.dataset.palc); return; }
-  const pr = e.target.closest("[data-palreset]"); if (pr) { if (pr.dataset.palreset === "*") { try { localStorage.removeItem(PAL_KEY); } catch (_) {} applyTheme(); palUI(); } else setPal(pr.dataset.palreset, ""); return; }
+  const pr = e.target.closest("[data-palreset]"); if (pr) { if (pr.dataset.palreset === "*") { try { localStorage.removeItem(PAL_KEY); } catch (_) {} applyTheme(); palUI(); paintMods(); } else setPal(pr.dataset.palreset, ""); return; }
   const mt = e.target.closest("[data-modtog]");
   if (mt) { const v = getMods(), id = mt.dataset.modtog; setMods(v.includes(id) ? v.filter(x => x !== id) : [...v, id]); modShelfUI(); renderMods(); if (!v.includes(id)) setTimeout(() => $("modsCard").scrollIntoView({ behavior: "smooth", block: "start" }), 300); return; }
   const fd = e.target.closest("[data-fixdel]");
@@ -1370,7 +1380,7 @@ render();
 <!-- 新しい版の知らせ（版を上げるときは version.json とこの APP_VER を同じにする） -->
 <script>
 (() => {
-  const APP_VER = "20261104a";
+  const APP_VER = "20261104b";
   let shown = false;
   const check = () => {
     if (shown || !navigator.onLine) return;
