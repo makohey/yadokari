@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>暗号工房（ヤドカリ）</title>
+<!-- 暗号工房：ヤドカリの別ページ。飛んできて、暗号にしてコピーして、手帳へ戻る。
+     外にはつながない（字体も読み込まない・鍵もしまわない）。全部この端末の中で計算する -->
+<style>
+  :root{ --bg:#f7f0e8; --panel:#fffaf3; --ink:#3a2c24; --muted:#8b786b; --line:#eadccc; --accent:#f3a7a2; --brass:#b5853a; --brass-soft:#fff3dc; --ok:#2e7d5b; --sel:#6b5bb5;
+    --mono:ui-monospace,Menlo,"Noto Sans Egyptian Hieroglyphs","Noto Sans Cuneiform","Segoe UI Historic",monospace; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;line-height:1.7;-webkit-text-size-adjust:100%;
+    padding:max(14px,env(safe-area-inset-top)) max(14px,env(safe-area-inset-right)) 40px max(14px,env(safe-area-inset-left))}
+  .wrap{max-width:720px;margin:0 auto}
+  .top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
+  .back{font-size:14px;color:var(--ink);text-decoration:none;border:1px solid var(--line);background:#fffaf5;border-radius:999px;padding:6px 14px;white-space:nowrap;cursor:pointer;font-family:inherit}
+  h1{font-size:22px;margin:0;letter-spacing:.04em}h1 span{color:var(--brass)}
+  .en{font-size:.62em;font-weight:500;color:var(--muted);margin-left:5px}
+  .lead{font-size:13.5px;color:var(--muted);margin:4px 0 0}
+  section{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:12px 14px;margin:10px 0;box-shadow:0 6px 18px rgba(72,45,28,.06)}
+  .label{font-size:12.5px;font-weight:700;color:var(--muted);margin:0 0 6px}
+  .chips{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px}
+  .chip{font:inherit;text-align:left;background:#fff;color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:6px 10px;cursor:pointer;display:flex;flex-direction:column;gap:1px;min-width:0}
+  .chip b{font-size:14px}.chip small{font-size:10.5px;color:var(--muted);overflow-wrap:anywhere;line-height:1.4}
+  .chip[aria-pressed="true"]{border-color:var(--sel);box-shadow:inset 0 0 0 1px var(--sel);background:#f6f3fd}.chip[aria-pressed="true"] b{color:var(--sel)}
+  .info{background:var(--brass-soft);border:1px solid #f0d9ae;border-radius:12px;padding:8px 12px;font-size:13.5px}
+  .info strong{display:block;font-size:14.5px}
+  .safety{display:flex;align-items:center;gap:8px;margin:6px 0 0;flex-wrap:wrap}
+  .meter{display:flex;gap:3px}.meter i{width:20px;height:8px;border-radius:3px;background:#e8dccd}
+  .lv0 i:nth-child(-n+1){background:var(--muted)}.lv1 i:nth-child(-n+2),.lv2 i:nth-child(-n+3){background:var(--brass)}.lv3 i{background:var(--ok)}
+  .safety b{font-size:13px}.why{display:block;color:var(--muted);font-size:12.5px}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:999px;padding:3px;gap:3px;background:#fff}
+  .seg button{font:inherit;font-weight:700;font-size:14px;border:0;background:transparent;color:var(--muted);padding:5px 16px;border-radius:999px;cursor:pointer}
+  .seg button[aria-pressed="true"]{background:var(--ink);color:#fff}
+  .field{display:flex;flex-direction:column;gap:4px;margin-top:10px;min-width:0}
+  .field label,.field .lab{font-weight:700;font-size:13.5px}
+  .hint{font-size:12px;color:var(--muted)}
+  input,textarea{font-family:var(--mono);font-size:16px;color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px 10px;width:100%}
+  textarea{min-height:90px;resize:vertical}
+  .out{font-family:var(--mono);background:#fff;border:1.5px dashed var(--brass);border-radius:12px;padding:10px;min-height:64px;white-space:pre-wrap;overflow-wrap:anywhere;font-size:17px;font-weight:600;letter-spacing:.03em}
+  .out.err{color:#a3461f;font-family:inherit;font-weight:400;font-size:14px;letter-spacing:0}
+  .row{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;align-items:center}
+  .btn{font:inherit;font-weight:700;font-size:14px;border:1px solid var(--line);color:var(--ink);background:#fff;border-radius:999px;padding:6px 14px;cursor:pointer}
+  .btn.main{background:#ffe7c7;border-color:#f0c48e}
+  .toast{font-size:12.5px;color:var(--ok)}
+  .note{font-size:12.5px;color:var(--muted)}
+  [hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1>暗号<span>工房</span><span class="en">Cipher</span></h1>
+    <button type="button" class="back" id="goBack">← 手帳へ戻る</button>
+  </div>
+  <p class="lead">文を暗号にして、コピーして、手帳へ戻ります。暗号にした文を読みたいときは、手帳からコピーしてここに貼り、「元に戻す」で読めます。鍵（パスワード）はどこにもしまいません。自分で覚えておいてください。</p>
+
+  <section>
+    <p class="label">暗号をえらぶ</p>
+    <div class="chips" id="chips"></div>
+  </section>
+
+  <div class="info" id="info"></div>
+
+  <section>
+    <div class="seg" role="group" aria-label="モード">
+      <button type="button" id="m-enc" aria-pressed="true">暗号にする</button>
+      <button type="button" id="m-dec" aria-pressed="false">元に戻す</button>
+    </div>
+    <div class="field" id="keyField">
+      <label for="key" id="keyLabel">鍵</label>
+      <input id="key" autocomplete="off" autocapitalize="characters">
+      <span class="hint" id="keyHint"></span>
+    </div>
+    <div class="field">
+      <label for="src" id="srcLabel">元の文</label>
+      <textarea id="src" spellcheck="false" placeholder="ここに書く・貼る">Apple</textarea>
+      <span class="hint">例として「Apple」が入っています。自由に書き換えてOK。</span>
+    </div>
+    <div class="field">
+      <span class="lab" id="outLabel">暗号文</span>
+      <div class="out" id="out" aria-live="polite"></div>
+      <div class="row">
+        <button type="button" class="btn main" id="copyBack">コピーして手帳へ戻る</button>
+        <button type="button" class="btn" id="copy">コピーだけ</button>
+        <button type="button" class="btn" id="swap">結果を入力に移して逆にする</button>
+        <span class="toast" id="toast"></span>
+      </div>
+    </div>
+  </section>
+
+  <p class="note">AES 以外は本気の暗号ではなく、遊びの暗号です。解かれることがあるので、本当に見られたくないことは AES を選んでください。アルファベット以外（ひらがな・漢字・数字など）は、文字をずらす系の暗号ではそのまま残ります。日本語ごと変えたいときは Base64・2進数・AES を使ってください。</p>
+  <p class="note">ヒエログリフ・楔形文字は、端末にその字体がないと □ に見えることがあります（中身は正しく残っています）。</p>
+</div>
+
+<script>
+"use strict";
+const AZ='ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const isU=c=>c>='A'&&c<='Z', isL=c=>c>='a'&&c<='z';
+function mapLetters(t,f){let i=0;return Array.from(t).map(c=>{
+  if(isU(c))return f(c.charCodeAt(0)-65,i++,false);
+  if(isL(c))return f(c.charCodeAt(0)-97,i++,true);return c}).join('')}
+const L=(n,low)=>{const c=AZ[((n%26)+26)%26];return low?c.toLowerCase():c};
+function caesar(t,n,dec){n=parseInt(n)||0;if(dec)n=-n;return mapLetters(t,(x,i,l)=>L(x+n,l))}
+function atbash(t){return mapLetters(t,(x,i,l)=>L(25-x,l))}
+function kwAlpha(k){const s=[...new Set((k.toUpperCase().match(/[A-Z]/g)||[]).concat([...AZ]))];return s.join('')}
+function keyword(t,k,dec){const a=kwAlpha(k);return mapLetters(t,(x,i,l)=>{
+  const c=dec?AZ[a.indexOf(AZ[x])]:a[x];return l?c.toLowerCase():c})}
+function vigenere(t,k,dec){const ks=(k.toUpperCase().match(/[A-Z]/g)||[]).map(c=>c.charCodeAt(0)-65);
+  if(!ks.length)throw new Error('鍵にアルファベットを1文字以上入れてください。');
+  return mapLetters(t,(x,i,l)=>L(x+(dec?-1:1)*ks[i%ks.length],l))}
+function railPattern(n,r){const p=[];let row=0,d=1;for(let i=0;i<n;i++){p.push(row);if(r>1){if(row===0)d=1;else if(row===r-1)d=-1;row+=d}}return p}
+function rail(t,r,dec){r=parseInt(r)||2;if(r<2)throw new Error('段の数は2以上にしてください。');
+  const ch=Array.from(t),p=railPattern(ch.length,r);
+  const order=[];for(let k=0;k<r;k++)p.forEach((v,i)=>{if(v===k)order.push(i)});
+  if(!dec)return order.map(i=>ch[i]).join('');
+  const res=new Array(ch.length);order.forEach((pos,j)=>res[pos]=ch[j]);return res.join('')}
+const MORSE={A:'.-',B:'-...',C:'-.-.',D:'-..',E:'.',F:'..-.',G:'--.',H:'....',I:'..',J:'.---',K:'-.-',L:'.-..',M:'--',N:'-.',O:'---',P:'.--.',Q:'--.-',R:'.-.',S:'...',T:'-',U:'..-',V:'...-',W:'.--',X:'-..-',Y:'-.--',Z:'--..',
+ 0:'-----',1:'.----',2:'..---',3:'...--',4:'....-',5:'.....',6:'-....',7:'--...',8:'---..',9:'----.','.':'.-.-.-',',':'--..--','?':'..--..','!':'-.-.--','-':'-....-','/':'-..-.','@':'.--.-.'};
+const RMORSE=Object.fromEntries(Object.entries(MORSE).map(([a,b])=>[b,a]));
+function morse(t,dec){if(!dec)return t.toUpperCase().trim().split(/\s+/).map(w=>Array.from(w).map(c=>MORSE[c]||'?').join(' ')).join(' / ');
+  return t.replace(/[・･]/g,'.').replace(/[ー－—―]/g,'-').trim().split(/\s*\/\s*/).map(w=>w.split(/\s+/).map(c=>RMORSE[c]||'?').join('')).join(' ')}
+const enc=new TextEncoder(),decd=new TextDecoder('utf-8',{fatal:true});
+function b64e(bytes){let s='';bytes.forEach(b=>s+=String.fromCharCode(b));return btoa(s)}
+function b64d(s){const b=atob(s.replace(/\s+/g,''));return Uint8Array.from(b,c=>c.charCodeAt(0))}
+function base64(t,dec){if(!dec)return b64e(enc.encode(t));
+  try{return decd.decode(b64d(t))}catch(e){throw new Error('Base64として読めない文字が入っているみたいです。')}}
+function binary(t,dec){if(!dec)return Array.from(enc.encode(t)).map(b=>b.toString(2).padStart(8,'0')).join(' ');
+  const bits=t.replace(/[^01]/g,'');if(bits.length%8)throw new Error('0と1の数が8の倍数になっていません。');
+  const by=bits.match(/.{8}/g).map(x=>parseInt(x,2));try{return decd.decode(Uint8Array.from(by))}catch(e){throw new Error('文字として読めない並びになっています。')}}
+async function aes(t,pw,dec){if(!pw)throw new Error('パスワードを入れてください。');
+  if(!(window.crypto&&crypto.subtle))throw new Error('この開き方では AES が使えません（Safari で開いてください）。');
+  const base=await crypto.subtle.importKey('raw',enc.encode(pw),'PBKDF2',false,['deriveKey']);
+  const derive=salt=>crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:100000,hash:'SHA-256'},base,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+  if(!dec){const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12));
+    const ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},await derive(salt),enc.encode(t)));
+    const all=new Uint8Array(28+ct.length);all.set(salt);all.set(iv,16);all.set(ct,28);return b64e(all)}
+  let all;try{all=b64d(t)}catch(e){throw new Error('AESの暗号文として読めない形です。')}
+  try{const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:all.slice(16,28)},await derive(all.slice(0,16)),all.slice(28));return new TextDecoder().decode(pt)}
+  catch(e){throw new Error('パスワードが違うか、暗号文が途中で欠けているみたいです。')}}
+const HIERO=[0x1313F,0x130C0,0x1337F,0x130A7,0x131CB,0x13191,0x133BC,0x13254,0x133ED,0x13193,0x133A1,0x130ED,0x13153,0x13216,0x1336F,0x132AA,0x1320E,0x1308B,0x132F4,0x133CF,0x13171,0x13219,0x1309D,0x13121,0x131CC,0x132C3].map(c=>String.fromCodePoint(c));
+const CUNEI=[0x12000,0x12040,0x12157,0x12055,0x1208A,0x1204D,0x120B5,0x12129,0x1213F,0x12363,0x121A0,0x121B7,0x12220,0x1223E,0x1230B,0x1227A,0x121AA,0x1228F,0x122D3,0x122EB,0x12311,0x1227F,0x12328,0x121A4,0x12140,0x1235D].map(c=>String.fromCodePoint(c));
+function glyph(t,tbl,dec){if(!dec)return Array.from(t).map(c=>{const u=c.toUpperCase();return /^[A-Z]$/.test(u)?tbl[u.charCodeAt(0)-65]:c}).join('');
+  return Array.from(t).map(c=>{const i=tbl.indexOf(c);return i>=0?AZ[i]:c}).join('')}
+const LVNAME=['見た目だけ','遊び','ちょっと手ごわい','本気'];
+const LV={vig:2,caesar:1,rot13:0,atbash:0,kw:1,rail:1,morse:0,bin:0,b64:0,aes:3,hiero:0,cunei:0};
+const WHY={
+ vig:'鍵が分からなければ手間はかかる。でも長い文章だと19世紀に見つかった解読法で解かれてしまう。',
+ caesar:'ずらし方は25通りしかないので、全部試せばすぐ解ける。',
+ rot13:'鍵がなく、誰でも同じ操作で戻せる。',
+ atbash:'鍵がなく、誰でも同じ操作で戻せる。',
+ kw:'英語はEやTがよく出るので、文字の出る回数を数えると解読されやすい。鍵が分からなければ少しは安全。',
+ rail:'文字そのものは変わらないので、段の数を何通りか試すと読めてしまう。',
+ morse:'暗号ではなく世界共通の符号。知っている人なら誰でも読める。',
+ bin:'コンピューターの基本表記なので、変換ツールで誰でも戻せる。',
+ b64:'一目で読めないだけで、変換ツールで誰でも戻せる。',
+ aes:'パスワードが短いと総当たりで当てられることがある。長めにしてね。',
+ hiero:'見た目は古代文字だけど、中身は1文字ずつの置き換え。対応表があれば誰でも戻せる。',
+ cunei:'見た目は古代文字だけど、中身は1文字ずつの置き換え。対応表があれば誰でも戻せる。'};
+const CIPHERS=[
+ {id:'vig',name:'ヴィジュネル暗号',en:'Vigenère（ヴィジュネル）',key:'text',def:'KEY',
+  info:'16世紀フランス生まれ。鍵の文字ごとにずらす量を変えるので、同じ文字でも毎回ちがう文字になる。約300年「解読不能の暗号」と呼ばれた。',run:(t,k,d)=>vigenere(t,k,d)},
+ {id:'caesar',name:'シーザー暗号',en:'Caesar（シーザー）',key:'shift',def:'3',
+  info:'古代ローマのユリウス・カエサルが使ったとされる、最古級の暗号。全部の文字を同じ数だけずらす。',run:(t,k,d)=>caesar(t,k,d)},
+ {id:'rot13',name:'ROT13',en:'ROT13（ロット・サーティーン）＝13回転',key:null,
+  info:'13文字ずらすシーザー暗号。アルファベットは26文字なので、もう一度かけると元に戻る。ネット掲示板のネタバレ隠しで使われてきた。',run:(t)=>caesar(t,13,false)},
+ {id:'atbash',name:'アトバシュ暗号',en:'Atbash（アトバシュ）',key:null,
+  info:'古代ヘブライ語由来。AとZ、BとYのようにアルファベットを鏡うつしにする。鍵いらずで、かけ直すと元に戻る。',run:(t)=>atbash(t)},
+ {id:'kw',name:'キーワード暗号',en:'Keyword（キーワード）＝鍵となる単語',key:'text',def:'KEY',
+  info:'鍵の単語（重複は除く）を先頭に並べ、残りの文字を続けて対応表を作る置き換え暗号。',run:(t,k,d)=>keyword(t,k,d)},
+ {id:'rail',name:'レールフェンス暗号',en:'Rail Fence（レール・フェンス）＝柵',key:'rails',def:'3',
+  info:'文字をジグザグに数段へ書き、段ごとに読み出す並べ替え暗号。文字そのものは変わらず、順番だけが入れ替わる。',run:(t,k,d)=>rail(t,k,d)},
+ {id:'morse',name:'モールス信号',en:'Morse（モールス）',key:null,
+  info:'1830年代、サミュエル・モールスらが電信用に作った符号。正確には暗号ではなく「符号化」だけど、トン（.）とツー（-）の組み合わせは今も無線で現役。',run:(t,k,d)=>morse(t,d)},
+ {id:'bin',name:'2進数',en:'Binary（バイナリー）＝2進法',key:null,
+  info:'文字をコンピューターの中身そのもの、0と1の並びにする。日本語は1文字が3バイト（UTF-8）になる。',run:(t,k,d)=>binary(t,d)},
+ {id:'b64',name:'Base64',en:'Base64（ベース・シックスティーフォー）＝64進表記',key:null,
+  info:'メールの添付ファイルなどで使われる変換。誰でも戻せるので秘密を守る力はないけど、日本語もまるごと英数字に変えられる。',run:(t,k,d)=>base64(t,d)},
+ {id:'aes',name:'AES',en:'AES（エーイーエス）＝高度暗号化標準',key:'pw',def:'',
+  info:'2001年に米国の標準になった、いま世界で一番使われている現代暗号。パスワードがないと実質解読できない。同じ文でも毎回ちがう暗号文になるのが正常な動き。',run:(t,k,d)=>aes(t,k,d)},
+ {id:'hiero',name:'ヒエログリフ',en:'Hieroglyph（ヒエログリフ）＝聖なる刻み文字',key:null,
+  info:'古代エジプトの文字。本来は音と意味がまざった文字だけど、ここでは音の近い記号をアルファベット1文字ずつに当てはめている。大文字・小文字の区別は消える。',run:(t,k,d)=>glyph(t,HIERO,d)},
+ {id:'cunei',name:'楔形文字（くさびがたもじ）',en:'Cuneiform（キュニフォーム）＝くさび形の文字',key:null,
+  info:'約5000年前、シュメール人が粘土板に葦のペンで刻んだ世界最古級の文字。ここでは音の近い記号をアルファベット1文字ずつに当てはめた遊びの置き換え。大文字・小文字の区別は消える。',run:(t,k,d)=>glyph(t,CUNEI,d)},
+];
+const KEYCFG={
+ text:{label:'鍵（アルファベットの単語）',hint:'例として「KEY」が入っています。好きな単語に変えてOK。',type:'text'},
+ shift:{label:'ずらす数',hint:'1〜25がおすすめ。3が伝統的な値。',type:'number'},
+ rails:{label:'段の数',hint:'2以上。段が多いほど混ざり方が変わる。',type:'number'},
+ pw:{label:'パスワード',hint:'日本語も使えます。どこにもしまわないので、忘れると元に戻せません。',type:'text'}};
+const keyVals={};CIPHERS.forEach(c=>{if(c.key)keyVals[c.id]=c.def});
+let cur=CIPHERS[0],dec=false,runId=0;
+const $=id=>document.getElementById(id);
+function renderChips(){$('chips').innerHTML='';CIPHERS.forEach(c=>{const b=document.createElement('button');b.type='button';b.className='chip';
+  b.setAttribute('aria-pressed',c===cur);b.innerHTML=`<b>${c.name}</b><small>${c.en}</small>`;b.onclick=()=>{cur=c;renderAll()};$('chips').appendChild(b)})}
+function renderAll(){renderChips();
+  const lv=LV[cur.id];
+  $('info').innerHTML=`<strong>${cur.name}　<span style="font-weight:400;font-size:.85em">${cur.en}</span></strong>${cur.info}<div class="safety"><div class="meter lv${lv}" aria-hidden="true"><i></i><i></i><i></i><i></i></div><b>安全度：${LVNAME[lv]}</b></div><span class="why">${WHY[cur.id]}</span>`;
+  if(cur.key){const k=KEYCFG[cur.key];$('keyField').hidden=false;$('keyLabel').textContent=k.label;$('keyHint').textContent=k.hint;
+    $('key').type=k.type;$('key').inputMode=k.type==='number'?'numeric':'text';$('key').value=keyVals[cur.id]??''}
+  else $('keyField').hidden=true;
+  $('m-enc').setAttribute('aria-pressed',!dec);$('m-dec').setAttribute('aria-pressed',dec);
+  $('srcLabel').textContent=dec?'暗号文（手帳からコピーして貼る）':'元の文';$('outLabel').textContent=dec?'元に戻した文':'暗号文';
+  update()}
+async function update(){const id=++runId,o=$('out');
+  try{const r=await cur.run($('src').value,keyVals[cur.id]??'',dec);if(id!==runId)return;o.className='out';o.textContent=r}
+  catch(e){if(id!==runId)return;o.className='out err';o.textContent=e.message}}
+$('src').addEventListener('input',update);
+$('key').addEventListener('input',e=>{keyVals[cur.id]=e.target.value;update()});
+$('m-enc').onclick=()=>{dec=false;renderAll()};$('m-dec').onclick=()=>{dec=true;renderAll()};
+$('swap').onclick=()=>{if($('out').classList.contains('err'))return;$('src').value=$('out').textContent;dec=!dec;renderAll()};
+/* 手帳へ戻る：手帳から来たなら「戻る」（手帳の画面がそのまま残る）。そうでなければ手帳を開く */
+function goBack(){try{const r=document.referrer;if(r&&new URL(r).origin===location.origin&&history.length>1){history.back();return}}catch(_){}location.href='./dashboard.html'}
+async function copyOut(){const t=$('out').textContent;if(!t||$('out').classList.contains('err'))return false;
+  try{await navigator.clipboard.writeText(t);$('toast').textContent='コピーしました';return true}
+  catch(e){const r=document.createRange();r.selectNodeContents($('out'));const s=getSelection();s.removeAllRanges();s.addRange(r);$('toast').textContent='選んだので、長押しでコピーしてください';return false}
+  finally{setTimeout(()=>$('toast').textContent='',2200)}}
+$('copy').onclick=()=>copyOut();
+$('copyBack').onclick=async()=>{if(await copyOut())setTimeout(goBack,450)};
+$('goBack').onclick=goBack;
+/* 開いたときは毎回まっさら（入れた文も鍵も、この端末にもしまわない） */
+renderAll();
+</script>
+</body>
+</html>
