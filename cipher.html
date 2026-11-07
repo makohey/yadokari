@@ -90,7 +90,7 @@
     </div>
   </section>
 
-  <p class="note">AES 以外は本気の暗号ではなく、遊びの暗号です。解かれることがあるので、本当に見られたくないことは AES を選んでください。アルファベット以外（ひらがな・漢字・数字など）は、文字をずらす系の暗号ではそのまま残ります。日本語ごと変えたいときは Base64・2進数・AES を使ってください。</p>
+  <p class="note">AES 以外は本気の暗号ではなく、遊びの暗号です。解かれることがあるので、本当に見られたくないことは AES を選んでください。アルファベット以外（ひらがな・漢字・数字など）は、文字をずらす系の暗号ではそのまま残ります。日本語ごと変えたいときは 点字（ひらがな）・Base64・2進数・AES を使ってください。</p>
   <p class="note">ヒエログリフ・楔形文字は、端末にその字体がないと □ に見えることがあります（中身は正しく残っています）。</p>
 </div>
 
@@ -143,9 +143,65 @@ const HIERO=[0x1313F,0x130C0,0x1337F,0x130A7,0x131CB,0x13191,0x133BC,0x13254,0x1
 const CUNEI=[0x12000,0x12040,0x12157,0x12055,0x1208A,0x1204D,0x120B5,0x12129,0x1213F,0x12363,0x121A0,0x121B7,0x12220,0x1223E,0x1230B,0x1227A,0x121AA,0x1228F,0x122D3,0x122EB,0x12311,0x1227F,0x12328,0x121A4,0x12140,0x1235D].map(c=>String.fromCodePoint(c));
 function glyph(t,tbl,dec){if(!dec)return Array.from(t).map(c=>{const u=c.toUpperCase();return /^[A-Z]$/.test(u)?tbl[u.charCodeAt(0)-65]:c}).join('');
   return Array.from(t).map(c=>{const i=tbl.indexOf(c);return i>=0?AZ[i]:c}).join('')}
+/* エニグマ（I・II・III、反射板B、リングはA、差込盤なし）。同じ初めの位置でもう一度かけると元に戻る */
+const ROT=[['EKMFLGDQVZNTOWYHXUSPAIBRCJ',16],['AJDKSIRUXBLHWTMCQGZNPYFVOE',4],['BDFHJLCPRTXVZNYEIWGAKMUSQO',21]],REFB='YRUHQSLDPXNGOKMIEBFZCWVJAT';
+const ROTINV=ROT.map(([w])=>{const v=new Array(26);[...w].forEach((c,i)=>v[c.charCodeAt(0)-65]=i);return v});
+function enigma(t,k){const ks=(k||'').toUpperCase().replace(/[^A-Z]/g,'');if(ks.length!==3)throw new Error('鍵はアルファベット3文字にしてください（例：ABC）。');
+  let p=[...ks].map(c=>c.charCodeAt(0)-65);
+  const fw=(i,x)=>(ROT[i][0].charCodeAt((x+p[i])%26)-65-p[i]+26)%26, bw=(i,x)=>(ROTINV[i][(x+p[i])%26]-p[i]+26)%26;
+  return mapLetters(t,(x,i,l)=>{
+    if(p[1]===ROT[1][1]){p[1]=(p[1]+1)%26;p[0]=(p[0]+1)%26}else if(p[2]===ROT[2][1])p[1]=(p[1]+1)%26;
+    p[2]=(p[2]+1)%26;
+    let c=fw(2,x);c=fw(1,c);c=fw(0,c);c=REFB.charCodeAt(c)-65;c=bw(0,c);c=bw(1,c);c=bw(2,c);return L(c,l)})}
+/* プレイフェア：鍵の単語で5×5の表（JはI）。2文字ずつ置き換える */
+function pfSquare(k){return [...new Set(((k||'').toUpperCase().replace(/J/g,'I').match(/[A-Z]/g)||[]).concat([...'ABCDEFGHIKLMNOPQRSTUVWXYZ']))]}
+function playfair(t,k,dec){const sq=pfSquare(k),at=c=>sq.indexOf(c),ch=(r,c)=>sq[((r+5)%5)*5+((c+5)%5)];
+  let a=(t.toUpperCase().replace(/J/g,'I').match(/[A-Z]/g)||[]);if(!a.length)throw new Error('アルファベットを入れてください（プレイフェアは英字だけを使います）。');
+  const pr=[];if(dec){if(a.length%2)throw new Error('暗号文の文字の数が奇数です。途中で欠けていないか見てください。');for(let i=0;i<a.length;i+=2)pr.push([a[i],a[i+1]])}
+  else{for(let i=0;i<a.length;){const x=a[i],y=a[i+1];if(y===undefined){pr.push([x,x==='X'?'Q':'X']);i++}else if(x===y){pr.push([x,x==='X'?'Q':'X']);i++}else{pr.push([x,y]);i+=2}}}
+  const d=dec?-1:1;
+  return pr.map(([x,y])=>{const ix=at(x),iy=at(y),rx=ix/5|0,cx=ix%5,ry=iy/5|0,cy=iy%5;
+    if(rx===ry)return ch(rx,cx+d)+ch(ry,cy+d);if(cx===cy)return ch(rx+d,cx)+ch(ry+d,cy);return ch(rx,cy)+ch(ry,cx)}).join(' ')}
+/* ポリュビオス：5×5の表の「行と列の番号」（JはI）。言葉の切れ目は / */
+const PB='ABCDEFGHIKLMNOPQRSTUVWXYZ';
+function polybius(t,dec){if(!dec)return t.trim().split(/\s+/).map(w=>Array.from(w).map(c=>{const u=c.toUpperCase().replace('J','I'),i=PB.indexOf(u);return /^[A-Z]$/.test(u)&&i>=0?`${(i/5|0)+1}${i%5+1}`:c}).join(' ')).join(' / ');
+  return t.trim().split(/\s*\/\s*/).map(w=>w.split(/\s+/).map(x=>/^[1-5][1-5]$/.test(x)?PB[(x[0]-1)*5+(x[1]-1)]:x).join('')).join(' ')}
+/* 日本の点字：ひらがな・カタカナ・数字。漢字や英字はそのまま */
+const KANA='あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをんっー';
+const KB='⠁⠃⠉⠋⠊⠡⠣⠩⠫⠪⠱⠳⠹⠻⠺⠕⠗⠝⠟⠞⠅⠇⠍⠏⠎⠥⠧⠭⠯⠮⠵⠷⠽⠿⠾⠌⠬⠜⠑⠓⠙⠛⠚⠄⠔⠴⠂⠒';
+const K2B=Object.fromEntries([...KANA].map((c,i)=>[c,KB[i]])),B2K=Object.fromEntries([...KANA].map((c,i)=>[KB[i],c]));
+const DIG='⠚⠁⠃⠉⠙⠑⠋⠛⠓⠊',PUNC={'。':'⠲','、':'⠰','？':'⠢','?':'⠢','！':'⠖','!':'⠖'},RPUNC={'⠲':'。','⠰':'、','⠢':'？','⠖':'！'};
+const YROWS=['かきくけこ','さしすせそ','たちつてと','なにぬねの','はひふへほ','まみむめも','らりるれろ'];
+const YOON={'ゃ':'あ','ゅ':'う','ょ':'お'},SMALL={'ぁ':'あ','ぃ':'い','ぅ':'う','ぇ':'え','ぉ':'お','ゎ':'わ','ゕ':'か','ゖ':'け'};
+const toHira=t=>Array.from(t.normalize('NFC')).map(c=>{const n=c.charCodeAt(0);return n>=0x30A1&&n<=0x30F6?String.fromCharCode(n-0x60):c}).join('');
+function braille(t,dec){
+  if(!dec){const a=Array.from(toHira(t));let o='',num=false;
+    for(let i=0;i<a.length;i++){let c=a[i];
+      if(/[0-9０-９]/.test(c)){const d=+String.fromCharCode(c.charCodeAt(0)>0xff?c.charCodeAt(0)-0xFEE0:c.charCodeAt(0));if(!num)o+='⠼';num=true;o+=DIG[d];continue}
+      c=SMALL[c]||c;const nf=c.normalize('NFD'),base=nf[0],mark=nf[1]==='゙'?1:nf[1]==='゚'?2:0;
+      const y=YOON[a[i+1]];let cell='',pre='';
+      if(y&&'きしちにひみり'.includes(base)){const row=KANA.indexOf(base)-1,col='あうお'.indexOf(y)*2;cell=KB[row+(col===0?0:col===2?2:4)];pre=['⠈','⠘','⠨'][mark];i++}
+      else if(K2B[base]){cell=K2B[base];pre=['','⠐','⠠'][mark]}
+      else if(PUNC[c]){o+=PUNC[c];num=false;continue}
+      else{o+=c;num=false;continue}
+      if(num&&!pre&&'⠁⠃⠉⠋⠊⠑⠓⠙⠛⠚'.includes(cell))o+='⠤';num=false;o+=pre+cell}
+    return o}
+  const a=Array.from(t);let o='',num=false;
+  for(let i=0;i<a.length;i++){const c=a[i];
+    if(c==='⠼'){num=true;continue}if(c==='⠤'){num=false;continue}
+    if(num&&DIG.includes(c)){o+=DIG.indexOf(c);continue}num=false;
+    if('⠐⠠⠈⠘⠨'.includes(c)&&B2K[a[i+1]]){const k=B2K[a[++i]],m={'⠐':1,'⠠':2,'⠈':0,'⠘':1,'⠨':2}[c];
+      if('⠈⠘⠨'.includes(c)){const row=YROWS.find(w=>w.includes(k));if(row){const col=row.indexOf(k);o+=(row[1]+(m===1?'\u3099':m===2?'\u309A':'')).normalize('NFC')+({0:'ゃ',2:'ゅ',4:'ょ'}[col]||'')}else o+=k}
+      else o+=(k+(m===1?'゙':'゚')).normalize('NFC');continue}
+    o+=B2K[c]||RPUNC[c]||c}
+  return o}
 const LVNAME=['見た目だけ','遊び','ちょっと手ごわい','本気'];
-const LV={vig:2,caesar:1,rot13:0,atbash:0,kw:1,rail:1,morse:0,bin:0,b64:0,aes:3,hiero:0,cunei:0};
+const LV={enigma:2,playfair:1,polybius:0,braille:0,vig:2,caesar:1,rot13:0,atbash:0,kw:1,rail:1,morse:0,bin:0,b64:0,aes:3,hiero:0,cunei:0};
 const WHY={
+ enigma:'初めの位置は17,576通り。本物は差込盤でもっと何兆通りにもなったけど、それでも数学者アラン・チューリングたちに解かれた。ここは差込盤なしの簡単版。',
+ playfair:'2文字ずつの組み合わせの出る回数を数えると解かれる。鍵が分からなければ少しは手間がかかる。',
+ polybius:'鍵がなく、表を知っていれば誰でも戻せる。',
+ braille:'暗号ではなく、目の見えない人のための文字。点字を知っている人なら誰でも読める。',
  vig:'鍵が分からなければ手間はかかる。でも長い文章だと19世紀に見つかった解読法で解かれてしまう。',
  caesar:'ずらし方は25通りしかないので、全部試せばすぐ解ける。',
  rot13:'鍵がなく、誰でも同じ操作で戻せる。',
@@ -171,8 +227,16 @@ const CIPHERS=[
   info:'鍵の単語（重複は除く）を先頭に並べ、残りの文字を続けて対応表を作る置き換え暗号。',run:(t,k,d)=>keyword(t,k,d)},
  {id:'rail',name:'レールフェンス暗号',en:'Rail Fence（レール・フェンス）＝柵',key:'rails',def:'3',
   info:'文字をジグザグに数段へ書き、段ごとに読み出す並べ替え暗号。文字そのものは変わらず、順番だけが入れ替わる。',run:(t,k,d)=>rail(t,k,d)},
+ {id:'playfair',name:'プレイフェア暗号',en:'Playfair（プレイフェア）',key:'text',def:'KEY',
+  info:'1854年にホイートストンが考え、友人のプレイフェア卿が広めた。鍵の単語で5×5の表を作り、2文字ずつ置き換える。第一次世界大戦でイギリス軍も使った。JはIとして扱い、同じ文字が並ぶとXをはさむので、元に戻すとXが入ることがある。記号や空白は消える。',run:(t,k,d)=>playfair(t,k,d)},
+ {id:'polybius',name:'ポリュビオス暗号',en:'Polybius（ポリュビオス）',key:null,
+  info:'紀元前2世紀、古代ギリシャの歴史家ポリュビオスが書き残した方法。文字を5×5の表の「行と列の番号」に変える。たいまつの数で遠くへ伝える方法としても考えられた。JはIとして扱う。',run:(t,k,d)=>polybius(t,d)},
+ {id:'enigma',name:'エニグマ',en:'Enigma（エニグマ）＝なぞ',key:'rotor',def:'ABC',
+  info:'第二次世界大戦でドイツ軍が使った暗号機。キーを押すたびにローター（回る円盤）が回るので、同じ文字でも毎回ちがう文字になる。同じ初めの位置でもう一度かけると元に戻る。ここではローター3枚（I・II・III）と反射板Bの形。',run:(t,k)=>enigma(t,k)},
  {id:'morse',name:'モールス信号',en:'Morse（モールス）',key:null,
   info:'1830年代、サミュエル・モールスらが電信用に作った符号。正確には暗号ではなく「符号化」だけど、トン（.）とツー（-）の組み合わせは今も無線で現役。',run:(t,k,d)=>morse(t,d)},
+ {id:'braille',name:'点字',en:'Braille（ブライユ）＝点字',key:null,
+  info:'1820年代にフランスのルイ・ブライユが考えた、6つの点の組み合わせで表す文字。日本の点字は1890年に石川倉次が作った。ここでは、ひらがな・カタカナ・数字を点字にする。漢字はそのまま残るので、ひらがなに直して書いてね。',run:(t,k,d)=>braille(t,d)},
  {id:'bin',name:'2進数',en:'Binary（バイナリー）＝2進法',key:null,
   info:'文字をコンピューターの中身そのもの、0と1の並びにする。日本語は1文字が3バイト（UTF-8）になる。',run:(t,k,d)=>binary(t,d)},
  {id:'b64',name:'Base64',en:'Base64（ベース・シックスティーフォー）＝64進表記',key:null,
@@ -188,6 +252,7 @@ const KEYCFG={
  text:{label:'鍵（アルファベットの単語）',hint:'例として「KEY」が入っています。好きな単語に変えてOK。',type:'text'},
  shift:{label:'ずらす数',hint:'1〜25がおすすめ。3が伝統的な値。',type:'number'},
  rails:{label:'段の数',hint:'2以上。段が多いほど混ざり方が変わる。',type:'number'},
+ rotor:{label:'ローターの初めの位置（アルファベット3文字）',hint:'例：ABC。書く人と読む人で同じ3文字にすると読めます。',type:'text'},
  pw:{label:'パスワード',hint:'日本語も使えます。どこにもしまわないので、忘れると元に戻せません。',type:'text'}};
 const keyVals={};CIPHERS.forEach(c=>{if(c.key)keyVals[c.id]=c.def});
 let cur=CIPHERS[0],dec=false,runId=0;
@@ -204,7 +269,7 @@ function renderAll(){renderChips();
   $('srcLabel').textContent=dec?'暗号文（手帳からコピーして貼る）':'元の文';$('outLabel').textContent=dec?'元に戻した文':'暗号文';
   update()}
 async function update(){const id=++runId,o=$('out');
-  try{const r=await cur.run($('src').value,keyVals[cur.id]??'',dec);if(id!==runId)return;o.className='out';o.textContent=r}
+  try{const r=await cur.run($('src').value,keyVals[cur.id]??'',dec);if(id!==runId)return;o.className='out';o.style.fontSize=cur.id==='braille'&&!dec?'26px':'';o.textContent=r}
   catch(e){if(id!==runId)return;o.className='out err';o.textContent=e.message}}
 $('src').addEventListener('input',update);
 $('key').addEventListener('input',e=>{keyVals[cur.id]=e.target.value;update()});
