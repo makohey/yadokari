@@ -221,7 +221,7 @@
   .rvStar{border:0;background:none;font-size:18px;padding:0 2px;color:#ddd;cursor:pointer}.rvStar.on{color:#f0b429}
   .rvMig{display:flex;gap:4px;flex:0 0 auto}.rvMig button{font-size:11px;padding:2px 7px}
   /* 入力欄と今日のあいだの、細い1行の入口 */
-  .cipherLine{display:block;text-align:center;font-size:12px;line-height:1.4;color:var(--muted);text-decoration:none;margin:-2px 0;padding:3px 0;opacity:.85}.cipherLine .en{font-size:10px}
+  .cipherLine{display:flex;align-items:center;justify-content:center;gap:4px;width:fit-content;margin:2px auto;font-size:12.5px;line-height:1.3;color:var(--ink);text-decoration:none;background:#fffaf5;border:1px solid var(--line);border-radius:999px;padding:4px 14px;box-shadow:0 2px 6px rgba(72,45,28,.06)}.cipherLine .en{font-size:10px}.cipherLine::after{content:"›";color:var(--muted);font-size:15px;margin-left:2px}.cipherLine:active{background:#f3ece4}
   .card[data-block="mods"]{background:var(--b-mods);border-color:var(--l-mods)}
   .card[data-block="memo"],.card[data-block="dup"],.card[data-block="undated"]{background:var(--b-misc);border-color:var(--l-misc)}
   .card[data-block="modShelf"],.card[data-block="acts"],.card[data-block="theme"]{background:var(--b-set);border-color:var(--l-set)}
@@ -310,7 +310,7 @@
     </details>
   </section>
 
-  <a class="cipherLine" data-block="cipherLink" href="./cipher.html">🔐 暗号工房<span class="en">Cipher</span></a>
+  <a class="cipherLine" data-block="cipherLink" href="./cipher.html">🔐 暗号工房をひらく<span class="en">Cipher</span></a>
   <section class="card" data-block="today">
     <div class="sect">今日とこれから<span class="en">Today</span></div>
     <div id="today"></div>
@@ -438,7 +438,7 @@
     <div id="sOut"></div>
   </div>
 </div>
-<script src="./plan-core.js?v=20261107b"></script>
+<script src="./plan-core.js?v=20261108a"></script>
 <script>
 (() => {
 "use strict";
@@ -1111,7 +1111,7 @@ function loadMod(id) {
   modLoading[id] = true;
   const s = document.createElement("script"); s.src = `./mod-${id}.js?v=${APP_VER_MODS}`; s.onload = () => renderMods(); s.onerror = () => { modLoading[id] = false; }; document.head.appendChild(s);
 }
-const APP_VER_MODS = "20261107b";
+const APP_VER_MODS = "20261108a";
 function renderMods() {
   const on = getMods(), area = $("modsArea"); $("modsCard").hidden = !on.length;
   for (const id of on) {
@@ -1383,7 +1383,7 @@ render();
 <!-- 新しい版の知らせ（版を上げるときは version.json とこの APP_VER を同じにする） -->
 <script>
 (() => {
-  const APP_VER = "20261107b";
+  const APP_VER = "20261108a";
   let shown = false;
   const check = () => {
     if (shown || !navigator.onLine) return;
