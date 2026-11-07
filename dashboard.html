@@ -220,6 +220,8 @@
   .rvLine{display:flex;align-items:flex-start;gap:6px;font-size:13.5px;padding:3px 0;border-bottom:1px dashed var(--line)}.rvLine .t{flex:1;min-width:0}
   .rvStar{border:0;background:none;font-size:18px;padding:0 2px;color:#ddd;cursor:pointer}.rvStar.on{color:#f0b429}
   .rvMig{display:flex;gap:4px;flex:0 0 auto}.rvMig button{font-size:11px;padding:2px 7px}
+  /* 入力欄と今日のあいだの、細い1行の入口 */
+  .cipherLine{display:block;text-align:center;font-size:12px;line-height:1.4;color:var(--muted);text-decoration:none;margin:-2px 0;padding:3px 0;opacity:.85}.cipherLine .en{font-size:10px}
   .card[data-block="mods"]{background:var(--b-mods);border-color:var(--l-mods)}
   .card[data-block="memo"],.card[data-block="dup"],.card[data-block="undated"]{background:var(--b-misc);border-color:var(--l-misc)}
   .card[data-block="modShelf"],.card[data-block="acts"],.card[data-block="theme"]{background:var(--b-set);border-color:var(--l-set)}
@@ -308,6 +310,7 @@
     </details>
   </section>
 
+  <a class="cipherLine" data-block="cipherLink" href="./cipher.html">🔐 暗号工房<span class="en">Cipher</span></a>
   <section class="card" data-block="today">
     <div class="sect">今日とこれから<span class="en">Today</span></div>
     <div id="today"></div>
@@ -435,7 +438,7 @@
     <div id="sOut"></div>
   </div>
 </div>
-<script src="./plan-core.js?v=20261107a"></script>
+<script src="./plan-core.js?v=20261107b"></script>
 <script>
 (() => {
 "use strict";
@@ -787,7 +790,7 @@ function today(items) {
     + (sel === t0 ? shareBox(t0) : "");
 }
 /* 並び順の表：ここを入れ替えれば画面の並びが変わる（あとで使う人が選べるようにする時の土台） */
-const BLOCK_ORDER = ["inbox", "today", "month", "day", "tiles", "review", "mods", "memo", "dup", "undated", "modShelf", "theme", "acts", "calendarLink", "backup"];
+const BLOCK_ORDER = ["inbox", "cipherLink", "today", "month", "day", "tiles", "review", "mods", "memo", "dup", "undated", "modShelf", "theme", "acts", "calendarLink", "backup"];
 (function arrange() {
   const wrap = document.querySelector(".wrap"), tail = wrap.querySelector(":scope > p.note:last-of-type");
   for (const k of BLOCK_ORDER) { const el = wrap.querySelector(`:scope > [data-block="${k}"]`); if (el) wrap.insertBefore(el, tail); }
@@ -1108,7 +1111,7 @@ function loadMod(id) {
   modLoading[id] = true;
   const s = document.createElement("script"); s.src = `./mod-${id}.js?v=${APP_VER_MODS}`; s.onload = () => renderMods(); s.onerror = () => { modLoading[id] = false; }; document.head.appendChild(s);
 }
-const APP_VER_MODS = "20261107a";
+const APP_VER_MODS = "20261107b";
 function renderMods() {
   const on = getMods(), area = $("modsArea"); $("modsCard").hidden = !on.length;
   for (const id of on) {
@@ -1380,7 +1383,7 @@ render();
 <!-- 新しい版の知らせ（版を上げるときは version.json とこの APP_VER を同じにする） -->
 <script>
 (() => {
-  const APP_VER = "20261107a";
+  const APP_VER = "20261107b";
   let shown = false;
   const check = () => {
     if (shown || !navigator.onLine) return;
