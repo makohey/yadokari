@@ -31,8 +31,11 @@ function getActs() {
     const v = JSON.parse(localStorage.getItem(ACTS_KEY) || "{}");
     const add = (Array.isArray(v.add) ? v.add : []).filter(x => typeof x === "string").map(x => x.trim().slice(0, 10)).filter(x => x && !ACTS.includes(x));
     const hide = (Array.isArray(v.hide) ? v.hide : []).filter(x => ACTS.includes(x) && !FIXED_ACTS.includes(x));
-    return { add: [...new Set(add)].slice(0, 12), hide: [...new Set(hide)] };
-  } catch (_) { return { add: [], hide: [] }; }
+    const addL = [...new Set(add)].slice(0, 12), col = {};
+    /* 自分で足した種類の色（月表示・週表示の色）。#xxxxxx だけ受け取る */
+    if (v.col && typeof v.col === "object") for (const k of addL) if (/^#[0-9a-f]{6}$/i.test(v.col[k] || "")) col[k] = v.col[k];
+    return { add: addL, hide: [...new Set(hide)], col };
+  } catch (_) { return { add: [], hide: [], col: {} }; }
 }
 function setActs(v) { try { localStorage.setItem(ACTS_KEY, JSON.stringify(v)); } catch (_) {} }
 /* 選べる並び（隠したものは出さない。足したものは「その他」の前） */
@@ -208,7 +211,9 @@ async function importPlan(file) {
   /* 先に「自分の すること」を足し合わせる（でないと、その種類の予定が「その他」になる） */
   const inActs = data.acts && Array.isArray(data.acts.add) ? data.acts.add : [];
   const actsBefore = getActs();
-  if (inActs.length) { const a = getActs(); setActs({ add: [...a.add, ...inActs.filter(x => typeof x === "string")], hide: a.hide }); }
+  if (inActs.length) { const a = getActs(), inCol = data.acts.col && typeof data.acts.col === "object" ? data.acts.col : {}, col = { ...a.col };
+    for (const [k, c] of Object.entries(inCol)) if (!col[k] && typeof c === "string") col[k] = c; /* この端末で決めた色が先 */
+    setActs({ add: [...a.add, ...inActs.filter(x => typeof x === "string")], hide: a.hide, col }); }
   const inItems = data.items.map(cleanItem).filter(Boolean), inFixes = (Array.isArray(data.fixes) ? data.fixes : []).map(cleanFix).filter(Boolean);
   const cur = load(), seen = new Set(cur.map(x => x.id)), sig = x => `${x.date}|${x.time}|${x.what}|${x.src}`, seenSig = new Set(cur.map(sig));
   const add = inItems.filter(x => !seen.has(x.id) && !seenSig.has(sig(x)));

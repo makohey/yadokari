@@ -329,7 +329,7 @@
     <p class="note" id="swipeNote" style="text-align:center;margin:2px 0 4px">左右に指を滑らせても月が変わります</p>
     <div class="cal" id="cal"></div>
     <div class="wdSw"><span class="g"><span>はじまり <span class="en">Start</span></span><button type="button" data-ws="mon">月</button><button type="button" data-ws="sun">日</button></span><span class="g"><span>曜日 <span class="en">Days</span></span><button type="button" data-wd="ja">月火水</button><button type="button" data-wd="en">Mon Tue</button></span></div>
-    <div class="legend"><span><i style="background:var(--work)"></i>出勤<span class="en">Work</span></span><span><i style="background:var(--off)"></i>休み<span class="en">Off</span></span><span><i style="background:var(--go)"></i>出かける用事<span class="en">Out</span></span><span><i style="background:var(--todo)"></i>家のこと・習慣<span class="en">Home</span></span><span><i style="background:var(--other)"></i>その他<span class="en">Other</span></span></div>
+    <div class="legend" id="legend"><span><i style="background:var(--work)"></i>出勤<span class="en">Work</span></span><span><i style="background:var(--off)"></i>休み<span class="en">Off</span></span><span><i style="background:var(--go)"></i>出かける用事<span class="en">Out</span></span><span><i style="background:var(--todo)"></i>家のこと・習慣<span class="en">Home</span></span><span><i style="background:var(--other)"></i>その他<span class="en">Other</span></span></div>
   </section>
 
   <section class="card" id="dayCard" data-block="day"></section>
@@ -438,7 +438,7 @@
     <div id="sOut"></div>
   </div>
 </div>
-<script src="./plan-core.js?v=20261108b"></script>
+<script src="./plan-core.js?v=20261109a"></script>
 <script>
 (() => {
 "use strict";
@@ -455,6 +455,12 @@ const save = items => { try { localStorage.setItem(KEY, JSON.stringify(items)); 
 function todayStr() { const j = new Date(Date.now() + 9 * 3600000); return `${j.getUTCFullYear()}-${z(j.getUTCMonth() + 1)}-${z(j.getUTCDate())}`; }
 const DF = d => { if (!d) return "日付なし"; const t = new Date(Date.parse(d + "T12:00:00+09:00")); return `${t.getUTCMonth() + 1}/${t.getUTCDate()}（${WD[t.getUTCDay()]}）`; };
 const color = it => it.activity === "出勤" ? "work" : it.activity === "休み" ? "off" : (["外出", "手続き", "買い物", "通院", "移動", "遊び"].includes(it.activity) || getActs().add.includes(it.activity)) ? "go" : (it.activity === "家のこと" || it.kind === "習慣" || it.kind === "やること") ? "todo" : "other";
+/* 自分で足した種類に選んだ色：点・帯は その色、月のマスの札は うすくした色 */
+const ACT_PAL = ["#f3a7a2", "#f6c28b", "#efd36a", "#a8d8a0", "#8fd3c8", "#9fcfe8", "#a9b8f0", "#c7a8ec", "#e8a8d0", "#c9bfb4", "#b9a48f"];
+const mineHex = a => (getActs().col || {})[a] || "";
+const lightOf = h => { const n = parseInt(h.slice(1), 16), m = c => Math.round(c + (255 - c) * .68); return `rgb(${m(n >> 16)},${m((n >> 8) & 255)},${m(n & 255)})`; };
+const cvar = it => mineHex(it.activity) || `var(--${color(it)})`;
+const tagStyle = it => { const h = mineHex(it.activity); return h ? ` style="background:${lightOf(h)}"` : ""; };
 const isSudden = it => /急遽|急に|急な|代わり|代打|ヘルプ/.test((it.src || "") + (it.what || "") + (it.memo || ""));
 const sortKey = it => `${it.date || "9999"} ${it.time || ({ 朝: "07:00", 昼: "12:00", 夕方: "17:00" }[it.part] || (it.part ? "20:00" : "99:99"))}`;
 
@@ -541,15 +547,17 @@ function tiles(items) {
   $("emoCount").innerHTML = top.length ? `<span class="emoLbl" style="width:100%">今月の絵文字</span>` + top.map(([e, n]) => `<span>${esc(e)}<b>${n}</b></span>`).join("") : "";
 }
 /* ---------- すること の並び：足す・隠す（出勤・休み・その他 は動かさない） ---------- */
+let actPick = "";
 function actsUI() {
   const a = getActs(), chip = (label, attr, on, lock) => `<button type="button" ${attr} style="font-size:13px;padding:4px 10px;border-radius:999px;margin:3px 2px;${on ? "" : "opacity:.45;text-decoration:line-through;"}${lock ? "cursor:default;" : ""}">${esc(label)}${lock ? " 🔒" : ""}</button>`;
   $("actsBody").innerHTML =
     `<p class="note" style="margin:6px 0 2px">いつもの種類（押すと隠す／戻す。🔒は動かせません）</p><div>` +
     ACTS.map(x => FIXED_ACTS.includes(x) ? chip(x, "data-actlock", true, true) : chip(x, `data-acthide="${esc(x)}"`, !a.hide.includes(x), false)).join("") + `</div>` +
     `<p class="note" style="margin:8px 0 2px">自分で足した種類（✕で外す。前に入れた予定はそのまま）</p><div>` +
-    (a.add.length ? a.add.map(x => `<button type="button" data-actdel="${esc(x)}" style="font-size:13px;padding:4px 10px;border-radius:999px;margin:3px 2px">${esc(x)} ✕</button>`).join("") : `<span class="note">まだありません</span>`) + `</div>` +
+    (a.add.length ? a.add.map(x => { const h = a.col[x] || "var(--go)"; return `<span style="display:inline-flex;align-items:center;margin:3px 2px;border:1px solid var(--line);border-radius:999px;background:#fff;${actPick === x ? "box-shadow:0 0 0 2px var(--ink);" : ""}"><button type="button" data-actpick="${esc(x)}" aria-label="${esc(x)}の色をえらぶ" style="font-size:13px;padding:4px 4px 4px 10px;border:0;background:none;display:inline-flex;align-items:center;gap:5px"><i style="width:12px;height:12px;border-radius:50%;background:${h};display:inline-block"></i>${esc(x)}</button><button type="button" data-actdel="${esc(x)}" aria-label="${esc(x)}を外す" style="font-size:12px;padding:4px 9px 4px 4px;border:0;background:none;color:var(--muted)">✕</button></span>`; }).join("") : `<span class="note">まだありません</span>`) + `</div>` +
+    (actPick && a.add.includes(actPick) ? `<div style="margin:6px 0 2px;padding:8px;border:1px solid var(--line);border-radius:12px;background:#fff"><div class="note" style="margin:0 0 4px">「${esc(actPick)}」の色（月表示・週表示の色になります）</div><div style="display:flex;flex-wrap:wrap;gap:7px">${ACT_PAL.map(h => `<button type="button" data-actcol="${h}" aria-label="色" style="width:28px;height:28px;border-radius:50%;padding:0;border:1px solid var(--line);background:${h};${a.col[actPick] === h ? "outline:2px solid var(--ink);outline-offset:1px;" : ""}"></button>`).join("")}<button type="button" data-actcol="" style="font-size:12px;padding:3px 10px">色なし（出かける用事の色）</button><button type="button" data-actpick="" style="font-size:12px;padding:3px 10px">閉じる</button></div></div>` : "") +
     `<div style="display:flex;gap:6px;margin-top:6px"><input id="actIn" maxlength="10" placeholder="例：釣り・ジム・推し活" style="flex:1;min-width:0;font-size:16px;padding:5px 8px;border:1px solid var(--line);border-radius:10px"><button type="button" id="actAdd">足す</button></div>` +
-    `<p class="note" style="margin:6px 0 0">足した種類の言葉が文に入っていると、その種類を選びます（例：「日曜 釣り」→ 釣り）。確認カードで直すと手本帳が覚えます。今月使った分はタイルで数えます。控えにも入ります（最大12）。</p>`;
+    `<p class="note" style="margin:6px 0 0">名前を押すと色を選べます。足した種類の言葉が文に入っていると、その種類を選びます（例：「日曜 釣り」→ 釣り）。確認カードで直すと手本帳が覚えます。今月使った分はタイルで数えます。控えにも入ります（最大12）。</p>`;
 }
 /* ---------- 絵文字：見た目が同じなら同じものとして数える（見えない印 FE0F をそろえる） ---------- */
 const EMO_RE = /\p{Extended_Pictographic}|\p{Regional_Indicator}/u;
@@ -569,6 +577,8 @@ function calendar(items) {
   document.querySelectorAll("[data-wd]").forEach(b => b.classList.toggle("on", (b.dataset.wd === "en") === wdEn()));
   document.querySelectorAll("[data-ws]").forEach(b => { b.classList.toggle("on", (b.dataset.ws === "sun") === wsSun()); b.textContent = WD[b.dataset.ws === "sun" ? 0 : 1]; });
   $("swipeNote").innerHTML = view === "week" ? `左右に指を滑らせても週が変わります<span class="en">Swipe</span>` : `左右に指を滑らせても月が変わります<span class="en">Swipe</span>`;
+  /* 色のしるしに、自分で色を決めた種類も並べる */
+  { const lg = $("legend"); if (lg) { lg.dataset.base ||= lg.innerHTML; const c = getActs().col; lg.innerHTML = lg.dataset.base + Object.entries(c).map(([k, h]) => `<span><i style="background:${h}"></i>${esc(k)}</span>`).join(""); } }
   if (view === "week") return weekView(items);
   $("cal").className = "cal";
   $("thisMonth").innerHTML = `今月へ<span class="en">This month</span>`;
@@ -582,7 +592,7 @@ function calendar(items) {
   for (let d = 1; d <= days; d++) {
     const ds = `${ym.y}-${z(ym.m)}-${z(d)}`, wd = new Date(Date.UTC(ym.y, ym.m - 1, d)).getUTCDay();
     const list = items.filter(it => it.date === ds).sort((a, b) => sortKey(a) < sortKey(b) ? -1 : 1);
-    const tags = list.slice(0, 2).map(it => `<span class="tag t-${color(it)}">${esc(cleanWhat(it.what))}</span>`).join("");
+    const tags = list.slice(0, 2).map(it => `<span class="tag t-${color(it)}"${tagStyle(it)}>${esc(cleanWhat(it.what))}</span>`).join("");
     cells += `<button type="button" class="day${holiday(ds) ? " hday" : ""}${ds === t0 ? " today" : ""}${ds === sel ? " sel" : ""}" data-d="${ds}"><span class="n ${wd === 0 || holiday(ds) ? "sun" : wd === 6 ? "sat" : ""}">${d}</span>${(() => { const mk = modMark(ds); return mk ? `<span class="mk">${esc(mk)}</span>` : ""; })()}${holiday(ds) ? `<span class="hol">${esc(holiday(ds))}</span>` : ""}${tags}${list.length > 2 ? `<span class="more">ほか${list.length - 2}件</span>` : ""}</button>`;
   }
   $("cal").innerHTML = heads + cells;
@@ -597,7 +607,7 @@ function weekView(items) {
   $("cal").innerHTML = days.map(ds => {
     const t = new Date(ds + "T12:00:00Z"), wd = t.getUTCDay(), h = holiday(ds);
     const list = items.filter(it => it.date === ds).sort((a, b) => sortKey(a) < sortKey(b) ? -1 : 1);
-    const lines = list.slice(0, 5).map(it => `<div><span class="dot" style="background:var(--${color(it)})"></span>${esc(it.time || it.part || "")} ${esc(cleanWhat(it.what))}</div>`).join("") + (list.length > 5 ? `<div class="none">ほか${list.length - 5}件</div>` : "");
+    const lines = list.slice(0, 5).map(it => `<div><span class="dot" style="background:${cvar(it)}"></span>${esc(it.time || it.part || "")} ${esc(cleanWhat(it.what))}</div>`).join("") + (list.length > 5 ? `<div class="none">ほか${list.length - 5}件</div>` : "");
     return `<button type="button" class="wrow${h ? " hday" : ""}${ds === t0 ? " today" : ""}${ds === sel ? " sel" : ""}" data-d="${ds}"><span class="wd ${wd === 0 || h ? "sun" : wd === 6 ? "sat" : ""}" style="color:${wd === 0 || h ? "#c0504d" : wd === 6 ? "#3d6fb0" : "inherit"}">${t.getUTCDate()}<small>${WD[wd]}${t.getUTCDate() === 1 || ds === wk ? `・${wdEn() ? ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][t.getUTCMonth()] : `${t.getUTCMonth() + 1}月`}` : ""}</small>${h ? `<span class="hn">${esc(h)}</span>` : ""}${(() => { const mk = modMark(ds); return mk ? `<span class="mk">${esc(mk)}</span>` : ""; })()}</span><span class="wl">${lines || '<div class="none">—</div>'}</span></button>`;
   }).join("");
 }
@@ -1111,7 +1121,7 @@ function loadMod(id) {
   modLoading[id] = true;
   const s = document.createElement("script"); s.src = `./mod-${id}.js?v=${APP_VER_MODS}`; s.onload = () => renderMods(); s.onerror = () => { modLoading[id] = false; }; document.head.appendChild(s);
 }
-const APP_VER_MODS = "20261108b";
+const APP_VER_MODS = "20261109a";
 function renderMods() {
   const on = getMods(), area = $("modsArea"); $("modsCard").hidden = !on.length;
   for (const id of on) {
@@ -1160,6 +1170,7 @@ function review() {
   const byAct = {}; for (const it of plans) byAct[it.activity] = (byAct[it.activity] || 0) + 1;
   const acts_ = Object.entries(byAct).sort((a, b) => b[1] - a[1]).slice(0, 6), amax = Math.max(1, ...acts_.map(a => a[1]));
   const actColor = a => color({ activity: a, kind: "予定" });
+  const actBg = a => mineHex(a) || `var(--${actColor(a)})`;
   const diary = (getJ("yadokari.diary", []) || []).filter(e => e.id.startsWith(rvYM));
   const cnt = f => { const m = {}; for (const e of diary) if (e[f]) m[e[f]] = (m[e[f]] || 0) + 1; return Object.entries(m).sort((a, b) => b[1] - a[1]); };
   const ws = cnt("w"), ms = cnt("m");
@@ -1180,7 +1191,7 @@ function review() {
   $("reviewArea").innerHTML = `<div class="sect" style="display:flex;justify-content:space-between;align-items:center"><span>🗓️ 月のふりかえり<span class="en">Review</span></span><span style="display:flex;gap:4px;align-items:center"><button type="button" data-rvm="-1" aria-label="前の月" style="padding:2px 10px">‹</button><b style="font-size:14px">${Y}年${M}月</b><button type="button" data-rvm="1" aria-label="次の月" style="padding:2px 10px">›</button></span></div>
     ${!ended ? `<div class="bkSub">まだ途中の月です（${+T.slice(8, 10)}日まで）。月が終わったら、ここでふりかえれます</div>` : ""}
     <div class="tiles" style="margin-top:6px">${tile("予定", plans.length, "件", `すること ${acts_.length}種類`)}${tile("出勤", work.size, "日", `うち急な出勤 ${sudden}回`)}${tile("休み", off.size, "日", "OFF・有給など")}</div>
-    ${acts_.length ? `<div class="rvGrp"><div class="k">すること</div>${acts_.map(([a, n]) => `<div class="rvBar"><span>${esc(a)}</span><span style="flex:1"><i style="width:${Math.max(4, Math.round(n / amax * 100))}%;background:var(--${actColor(a)})"></i></span><b>${n}</b></div>`).join("")}</div>` : ""}
+    ${acts_.length ? `<div class="rvGrp"><div class="k">すること</div>${acts_.map(([a, n]) => `<div class="rvBar"><span>${esc(a)}</span><span style="flex:1"><i style="width:${Math.max(4, Math.round(n / amax * 100))}%;background:${actBg(a)}"></i></span><b>${n}</b></div>`).join("")}</div>` : ""}
     ${ws.length || ms.length ? `<div class="rvGrp"><div class="k">天気と気分（${diary.filter(e => e.w || e.m).length}日）</div><div class="dyCount" style="margin-top:4px">${ws.map(([k, n]) => `<span>${esc(k)}<b>${n}</b></span>`).join("")}${ws.length && ms.length ? `<span class="dySep"></span>` : ""}${ms.map(([k, n]) => `<span>${esc(k)}<b>${n}</b></span>`).join("")}</div></div>` : ""}
     ${habits.length ? `<div class="rvGrp"><div class="k">習慣</div>${habits.map(h => `<div class="rvBar"><span>${esc(h.name)}</span><span style="flex:1"><i style="width:${Math.max(4, Math.round(h.n / last * 100))}%;background:#bfe0c1"></i></span><b>${h.n}日・いちばん続いた${h.best}日</b></div>`).join("")}</div>` : ""}
     ${books.length ? `<div class="rvGrp"><div class="k">読書</div><div style="font-size:13.5px">📖 ${books.length}冊 読み終えた${bAvg != null ? `（平均${bAvg}日）` : ""}：${books.map(b => esc(b.title)).join("・")}</div></div>` : ""}
@@ -1286,6 +1297,10 @@ document.addEventListener("click", e => {
   if (fd) { const f = getFixes(), x = f[+fd.dataset.fixdel]; if (!x || !confirm(`手本帳から「${x.key}」→ ${x.fixKind ? x.kind : x.activity} を外します。いい？`)) return; f.splice(+fd.dataset.fixdel, 1); setJ(K.fixes, f); fixListUI(); showFix(); return; }
   const ah = e.target.closest("[data-acthide]");
   if (ah) { const a = getActs(), x = ah.dataset.acthide; a.hide = a.hide.includes(x) ? a.hide.filter(y => y !== x) : [...a.hide, x]; setActs(a); actsUI(); return; }
+  const ap = e.target.closest("[data-actpick]");
+  if (ap) { actPick = actPick === ap.dataset.actpick ? "" : ap.dataset.actpick; actsUI(); return; }
+  const ac = e.target.closest("[data-actcol]");
+  if (ac) { const a = getActs(); if (ac.dataset.actcol) a.col[actPick] = ac.dataset.actcol; else delete a.col[actPick]; setActs(a); actsUI(); render(); return; }
   const ad = e.target.closest("[data-actdel]");
   if (ad) { const x = ad.dataset.actdel; if (!confirm(`「${x}」を種類の並びから外します。前に入れた予定の種類はそのまま残ります。いい？`)) return; const a = getActs(); a.add = a.add.filter(y => y !== x); setActs(a); actsUI(); render(); return; }
   if (e.target.closest("#actAdd")) {
@@ -1293,7 +1308,8 @@ document.addEventListener("click", e => {
     if (!v) return;
     if (ACTS.includes(v)) { $("actIn").value = ""; $("actIn").placeholder = `「${v}」はもうあります`; return; }
     if (a.add.length >= 12) { alert("足せるのは12までです"); return; }
-    if (!a.add.includes(v)) a.add.push(v); setActs(a); actsUI(); render(); setTimeout(() => { const x = $("actIn"); if (x) x.focus(); }, 50); return;
+    /* 足したら、そのまま色を選ぶ板を開く（選ばなくてもOK） */
+    if (!a.add.includes(v)) a.add.push(v); setActs(a); actPick = v; actsUI(); render(); return;
   }
   const sh = e.target.closest("[data-share]");
   if (sh) {
@@ -1383,7 +1399,7 @@ render();
 <!-- 新しい版の知らせ（版を上げるときは version.json とこの APP_VER を同じにする） -->
 <script>
 (() => {
-  const APP_VER = "20261108b";
+  const APP_VER = "20261109a";
   let shown = false;
   const check = () => {
     if (shown || !navigator.onLine) return;
