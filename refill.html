@@ -28,6 +28,7 @@
   .size{font:inherit;text-align:left;background:#fff;color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:6px 10px;cursor:pointer;display:flex;flex-direction:column;gap:0;min-width:0}
   .size b{font-size:14px}.size small{font-size:11px;color:var(--muted)}
   .size[aria-pressed="true"]{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink);background:#fff7ec}
+  input[type="date"]{font:inherit;font-size:16px;color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:12px;padding:5px 8px;min-width:0}
   select{font:inherit;font-size:16px;color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:12px;padding:6px 10px}
   .rowx{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
   .hint{font-size:12px;color:var(--muted);margin:4px 0 0}
@@ -74,8 +75,11 @@
     <div class="grp"><p class="lab">サイズ</p><div class="sizes" id="sizes"></div></div>
     <div class="grp" id="grpMonth"><p class="lab">はじまりの月と、何か月分</p>
       <div class="rowx"><select id="calYear" aria-label="年"></select><select id="calMonth" aria-label="月"></select><select id="calCount" aria-label="何か月分"></select></div></div>
-    <div class="grp" id="grpWeekCount"><p class="lab">何枚分（A4の紙の枚数）</p>
-      <div class="rowx"><select id="weekSheets" aria-label="何枚分"></select></div></div>
+    <div class="grp" id="grpWeekCount"><p class="lab">日付</p>
+      <div class="seg" id="segWeekDated"><button type="button" data-v="0">入れない（白いまま）</button><button type="button" data-v="1">入れる</button></div>
+      <div class="rowx" id="weekBlank" style="margin-top:8px"><span class="hint" style="margin:0">何枚分（A4の紙）</span><select id="weekSheets" aria-label="何枚分"></select></div>
+      <div class="rowx" id="weekDates" style="margin-top:8px"><input type="date" id="weekFrom" aria-label="はじまりの日"><span>〜</span><input type="date" id="weekTo" aria-label="おわりの日"></div>
+      <p class="hint" id="weekHint"></p></div>
     <div class="grp"><p class="lab">週のはじまり・曜日の言葉</p>
       <div class="rowx"><div class="seg" id="segStart"><button type="button" data-v="mon">月曜</button><button type="button" data-v="sun">日曜</button></div>
       <div class="seg" id="segLang"><button type="button" data-v="ja">月 火 水</button><button type="button" data-v="en">Mon Tue</button></div></div></div>
@@ -100,6 +104,7 @@
   </section>
 
   <div class="tip"><b>印刷するとき</b>：用紙はA4、倍率は100%（「用紙に合わせる」は切る）。余白なしにできるプリンターなら余白なし。iPhone・iPad で PDF にしたいときは、印刷の画面で共有のボタンを押して「ファイルに保存」。</div>
+  <p class="note">祝日は赤で出ます（2022〜2099年。春分の日・秋分の日は計算で出した目安で、正式には前の年の2月に国立天文台が発表します）。</p>
   <p class="note">線の細さはプリンターによって乱れることがあります。気になるときは「線の濃さ」を変えてください。設定（サイズなど）だけは次に開いたときのために、この端末の中に覚えておきます。</p>
 </div>
 <div id="printArea"></div>
@@ -126,7 +131,7 @@ const BIND_LABEL = { short:"両面にするときは、プリンターで「短�
 
 /* ===== 設定（この端末の中だけ。予定の中身ではない） ===== */
 const KEY = "yadokari.refill";
-const DEF = { mode:"cal", size:"micro5v", calStyle:"simple", weeklyStyle:"horizontal", start:"mon", lang:"ja", lineAlpha:"0.35", holeAlpha:"0.35", cut:"trim", sides:"single", backRotate:"0", calCount:4, weekSheets:1 };
+const DEF = { mode:"cal", size:"micro5v", calStyle:"simple", weeklyStyle:"horizontal", start:"mon", lang:"ja", lineAlpha:"0.35", holeAlpha:"0.35", cut:"trim", sides:"single", backRotate:"0", calCount:4, weekSheets:1, weekDated:"0", weekFrom:"", weekTo:"" };
 const getLS = k => { try{ return localStorage.getItem(k); }catch(_){ return null; } };
 const state = (() => {
   let v = {}; try{ v = JSON.parse(getLS(KEY) || "{}") || {}; }catch(_){}
@@ -151,6 +156,50 @@ const WD = { ja:["日","月","火","水","木","金","土"], en:["Sun","Mon","Tu
 const dowOrder = () => state.start === "sun" ? [0,1,2,3,4,5,6] : [1,2,3,4,5,6,0];
 const dayCol = (dow, base) => dow === 6 ? "#4a8fd4" : dow === 0 ? "#d44a4a" : base;
 const calHeader = (y, m) => state.lang === "en" ? `${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][m]} ${y}` : `${y}年 ${m + 1}月`;
+
+/* ===== 日付と祝日（手帳と同じ計算。外にはつながない） ===== */
+const z = n => String(n).padStart(2, "0");
+const iso = (y, m, d) => `${y}-${z(m + 1)}-${z(d)}`;
+const addDays = (s, n) => new Date(Date.parse(s + "T12:00:00Z") + n * 86400000).toISOString().slice(0, 10);
+const dowOf = s => new Date(s + "T12:00:00Z").getUTCDay();
+const todayISO = () => { const t = new Date(); return iso(t.getFullYear(), t.getMonth(), t.getDate()); };
+const okISO = s => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(Date.parse(s + "T12:00:00Z"));
+/* いまの祝日法の決まり（2022年以降）。春分・秋分は式で出す目安。式で出せない臨時の祝日は HOL_EXTRA に手で足す */
+const HOL_EXTRA = {};
+const holCache = new Map();
+function holidaysOf(y){
+  if(holCache.has(y)) return holCache.get(y);
+  const m = new Map();
+  if(y >= 2022 && y <= 2099){
+    const k = (mo, dd) => `${y}-${z(mo)}-${z(dd)}`;
+    const nthMon = (mo, n) => { const w = new Date(Date.UTC(y, mo - 1, 1)).getUTCDay(); return 1 + ((8 - w) % 7) + (n - 1) * 7; };
+    const spring = Math.floor(20.8431 + 0.242194 * (y - 1980) - Math.floor((y - 1980) / 4));
+    const autumn = Math.floor(23.2488 + 0.242194 * (y - 1980) - Math.floor((y - 1980) / 4));
+    [[1, 1, "元日"], [1, nthMon(1, 2), "成人の日"], [2, 11, "建国記念の日"], [2, 23, "天皇誕生日"], [3, spring, "春分の日"],
+     [4, 29, "昭和の日"], [5, 3, "憲法記念日"], [5, 4, "みどりの日"], [5, 5, "こどもの日"], [7, nthMon(7, 3), "海の日"],
+     [8, 11, "山の日"], [9, nthMon(9, 3), "敬老の日"], [9, autumn, "秋分の日"], [10, nthMon(10, 2), "スポーツの日"],
+     [11, 3, "文化の日"], [11, 23, "勤労感謝の日"]].forEach(([mo, dd, n]) => m.set(k(mo, dd), n));
+    /* 国民の休日：祝日にはさまれた平日 */
+    for(const s of [...m.keys()]){ const mid = addDays(s, 1), next = addDays(s, 2); if(!m.has(mid) && m.has(next) && dowOf(mid) !== 0) m.set(mid, "国民の休日"); }
+    /* 振替休日：日曜の祝日のあと、最初の祝日でない日 */
+    for(const s of [...m.keys()].sort()) if(dowOf(s) === 0){ let t = addDays(s, 1); while(m.has(t)) t = addDays(t, 1); m.set(t, "振替休日"); }
+  }
+  for(const [s, n] of Object.entries(HOL_EXTRA)) if(s.startsWith(y + "-")) m.set(s, n);
+  holCache.set(y, m); return m;
+}
+const holiday = s => holidaysOf(+s.slice(0, 4)).get(s) || "";
+/* 日付の色：祝日と日曜は赤、土曜は青 */
+const dateCol = (s, base) => holiday(s) ? "#d44a4a" : dayCol(dowOf(s), base);
+/* 週のはじまりにそろえる */
+const weekStartOf = s => addDays(s, -((dowOf(s) - (state.start === "sun" ? 0 : 1) + 7) % 7));
+const MAX_WEEKS = 60;
+function weekList(){
+  let from = state.weekFrom, to = state.weekTo;
+  if(to < from) to = from;
+  const out = []; for(let w = weekStartOf(from); w <= to && out.length < MAX_WEEKS; w = addDays(w, 7)) out.push(w);
+  return out;
+}
+const md = s => `${+s.slice(5, 7)}/${+s.slice(8, 10)}`;
 
 /* ===== 月のカレンダー（週のはじまりに合わせる） ===== */
 function buildCalendarData(year, month){
@@ -179,7 +228,7 @@ function renderCalPrintHTML(cal, s){
   h += "</div>";
   cal.rows.forEach(row => {
     h += `<div style="display:flex;height:${cellH}mm;">`;
-    row.forEach((d, i) => { h += `<div style="flex:1;display:flex;align-items:center;justify-content:center;border-bottom:0.3pt solid ${lcl};">`; if(d > 0) h += `<span style="font-size:${nfs}pt;font-weight:${NFW};color:${dayCol(ord[i], "#222")};">${d}</span>`; h += "</div>"; });
+    row.forEach((d, i) => { h += `<div style="flex:1;display:flex;align-items:center;justify-content:center;border-bottom:0.3pt solid ${lcl};">`; if(d > 0) h += `<span style="font-size:${nfs}pt;font-weight:${NFW};color:${dateCol(iso(cal.year, cal.month, d), "#222")};">${d}</span>`; h += "</div>"; });
     h += "</div>";
   });
   return h + "</div>";
@@ -201,7 +250,7 @@ function renderCalGridBoxPrintHTML(cal, s){
     h += `<div style="display:flex;height:${cellH}mm;">`;
     row.forEach((d, i) => {
       h += `<div style="width:${cellW}mm;border-right:${i < 6 ? "0.3pt solid #ddd" : "none"};border-bottom:0.3pt solid #ddd;background:${d === 0 ? "#fafafa" : "white"};padding:0.3mm 0.5mm;box-sizing:border-box;">`;
-      if(d > 0) h += `<span style="font-size:${nfs}pt;font-weight:${NFW};color:${dayCol(ord[i], "#222")};">${d}</span>`;
+      if(d > 0) h += `<span style="font-size:${nfs}pt;font-weight:${NFW};color:${dateCol(iso(cal.year, cal.month, d), "#222")};">${d}</span>`;
       h += "</div>";
     });
     h += "</div>";
@@ -209,7 +258,7 @@ function renderCalGridBoxPrintHTML(cal, s){
   return h + "</div>";
 }
 /* ===== 週間（バーチカル：曜日が横に並ぶ） ===== */
-function renderWeeklyPrintHTML(s){
+function renderWeeklyPrintHTML(s, wk){
   const ord = dowOrder(), isTop = s.holeDir === "top";
   const cL = isTop ? 0 : s.mmHoleW, cT = isTop ? s.mmHoleW : 0, aW = s.mmW - cL, aH = s.mmH - cT;
   const colW = (aW / 7).toFixed(2), hH = isTop ? 3 : 5, dateH = isTop ? 2.5 : 4, bodyH = (aH - hH - dateH).toFixed(2);
@@ -219,14 +268,19 @@ function renderWeeklyPrintHTML(s){
   ord.forEach(w => { h += `<div style="width:${colW}mm;display:flex;align-items:center;justify-content:center;font-size:${fs}pt;font-weight:${FW};color:${dayCol(w, "#333")};border-right:0.3pt solid ${lcl};">${WD[state.lang][w]}</div>`; });
   h += "</div>";
   h += `<div style="display:flex;height:${dateH}mm;border-bottom:0.3pt solid ${lc};">`;
-  for(let i = 0; i < 7; i++) h += `<div style="width:${colW}mm;border-right:0.3pt solid ${lcl};"></div>`;
+  /* 日付を入れるときは、日付の段に数字（月のはじめと1日だけ「月/日」） */
+  const dfs = isTop ? "3.6" : "5";
+  for(let i = 0; i < 7; i++){
+    const ds = wk ? addDays(wk, i) : "", lab = ds ? ((i === 0 || ds.endsWith("-01")) ? md(ds) : String(+ds.slice(8, 10))) : "";
+    h += `<div style="width:${colW}mm;border-right:0.3pt solid ${lcl};display:flex;align-items:center;justify-content:center;font-size:${dfs}pt;font-weight:${NFW};color:${ds ? dateCol(ds, "#222") : "#222"};">${lab}</div>`;
+  }
   h += "</div>";
   h += `<div style="display:flex;height:${bodyH}mm;">`;
   for(let i = 0; i < 7; i++) h += `<div style="width:${colW}mm;border-right:0.3pt solid ${lc};${lc === "transparent" ? "" : `background-image:repeating-linear-gradient(to bottom,transparent,transparent ${lineH - 0.2}mm,${lcl} ${lineH - 0.2}mm,${lcl} ${lineH}mm);`}"></div>`;
   return h + "</div></div>";
 }
 /* ===== 週間（リスト：曜日が縦に並ぶ） ===== */
-function renderWeeklyVertPrintHTML(s){
+function renderWeeklyVertPrintHTML(s, wk){
   const ord = dowOrder(), isTop = s.holeDir === "top";
   const cL = isTop ? 0 : s.mmHoleW, cT = isTop ? s.mmHoleW : 0, aW = s.mmW - cL, aH = s.mmH - cT, pad = 1.5;
   const dayLabelW = Math.max(8, aW * 0.15).toFixed(1), dateW = Math.max(9, aW * 0.15).toFixed(1);
@@ -236,7 +290,7 @@ function renderWeeklyVertPrintHTML(s){
   ord.forEach((w, i) => {
     const y = (i * parseFloat(rowH)).toFixed(2);
     h += `<div style="position:absolute;top:${y}mm;left:0;width:${dayLabelW}mm;height:${rowH}mm;display:flex;align-items:flex-start;justify-content:center;padding-top:0.5mm;font-size:${fs}pt;font-weight:${FW};color:${dayCol(w, "#333")};border-bottom:0.3pt solid ${lc};border-right:0.3pt solid ${lcl};box-sizing:border-box;">${WD[state.lang][w]}</div>`;
-    h += `<div style="position:absolute;top:${y}mm;left:${dayLabelW}mm;width:${dateW}mm;height:${rowH}mm;border-bottom:0.3pt solid ${lc};border-right:0.3pt solid ${lcl};box-sizing:border-box;display:flex;align-items:flex-start;justify-content:center;padding-top:0.5mm;font-size:${parseFloat(fs) * 0.7}pt;color:#bbb;">/</div>`;
+    h += `<div style="position:absolute;top:${y}mm;left:${dayLabelW}mm;width:${dateW}mm;height:${rowH}mm;border-bottom:0.3pt solid ${lc};border-right:0.3pt solid ${lcl};box-sizing:border-box;display:flex;align-items:flex-start;justify-content:center;padding-top:0.5mm;font-size:${wk ? fs : parseFloat(fs) * 0.7}pt;${wk ? `font-weight:${NFW};color:${dateCol(addDays(wk, i), "#222")};` : "color:#bbb;"}">${wk ? md(addDays(wk, i)) : "/"}</div>`;
     h += `<div style="position:absolute;top:${y}mm;left:${(parseFloat(dayLabelW) + parseFloat(dateW)).toFixed(1)}mm;width:${memoW}mm;height:${rowH}mm;border-bottom:0.3pt solid ${lc};box-sizing:border-box;"></div>`;
   });
   return h + "</div>";
@@ -276,9 +330,9 @@ function buildCards(s, data, map){
     let inner = "";
     if(d !== null && d !== undefined){
       if(state.mode === "cal") inner = state.calStyle === "grid" ? renderCalGridBoxPrintHTML(d, s) : renderCalPrintHTML(d, s);
-      else inner = state.weeklyStyle === "vertical" ? renderWeeklyVertPrintHTML(s) : renderWeeklyPrintHTML(s);
+      else { const wk = typeof d === "string" ? d : null; inner = state.weeklyStyle === "vertical" ? renderWeeklyVertPrintHTML(s, wk) : renderWeeklyPrintHTML(s, wk); }
     }
-    /* 月の数が紙に足りないところは、白いまま（穴の印もつけない） */
+    /* 月や週の数が紙に足りないところは、白いまま（穴の印もつけない） */
     return `<div style="position:absolute;width:${s.mmW}mm;height:${s.mmH}mm;top:${(pos.top * 0.5).toFixed(1)}mm;left:${(pos.left * 0.5).toFixed(1)}mm;overflow:hidden;box-sizing:border-box;background:white;">${inner ? makeHolesMmHTML(s) + inner : ""}</div>`;
   }).join("");
 }
@@ -302,14 +356,18 @@ const isDuplex = () => state.sides === "duplex" && canDuplex(SIZES[state.size]);
 function buildPages(){
   const s = SIZES[state.size], n = s.cardsPerSheet, dup = isDuplex();
   const pages = [];
-  if(state.mode === "cal"){
-    const y0 = +$("calYear").value, m0 = +$("calMonth").value, count = state.calCount;
-    const months = Array.from({ length: count }, (_, i) => { const m = m0 + i; return buildCalendarData(y0 + Math.floor(m / 12), m % 12); });
-    const per = dup ? n * 2 : n, sheets = Math.max(1, Math.ceil(count / per));
+  const dated = state.mode === "weekly" && state.weekDated === "1";
+  if(state.mode === "cal" || dated){
+    let items;
+    if(state.mode === "cal"){
+      const y0 = +$("calYear").value, m0 = +$("calMonth").value;
+      items = Array.from({ length: state.calCount }, (_, i) => { const m = m0 + i; return buildCalendarData(y0 + Math.floor(m / 12), m % 12); });
+    } else items = weekList();
+    const count = items.length, per = dup ? n * 2 : n, sheets = Math.max(1, Math.ceil(count / per));
     for(let sh = 0; sh < sheets; sh++){
-      const data = Array.from({ length: per }, (_, i) => months[sh * per + i] ?? null);
+      const data = Array.from({ length: per }, (_, i) => items[sh * per + i] ?? null);
       if(dup){
-        /* カード1枚の表と裏が、続きの月になるように：表＝1,3,5,7番目　裏＝2,4,6,8番目 */
+        /* カード1枚の表と裏が、続きの月（週）になるように：表＝1,3,5,7番目　裏＝2,4,6,8番目 */
         const front = Array.from({ length: n }, (_, i) => i * 2), back = backPosMap(s).map(fi => fi * 2 + 1);
         pages.push({ html: sheetHTML(s, data, front), cap: `${sh + 1}枚目・表` });
         pages.push({ html: sheetHTML(s, data, back), cap: `${sh + 1}枚目・裏` });
@@ -337,6 +395,13 @@ function renderControls(){
   $("grpCalStyle").hidden = state.mode !== "cal"; $("grpMonth").hidden = state.mode !== "cal";
   $("grpWeekStyle").hidden = state.mode !== "weekly"; $("grpWeekCount").hidden = state.mode !== "weekly";
   syncSeg("segCalStyle", state.calStyle); syncSeg("segWeekStyle", state.weeklyStyle);
+  syncSeg("segWeekDated", state.weekDated);
+  const dated = state.weekDated === "1"; $("weekBlank").hidden = dated; $("weekDates").hidden = !dated; $("weekHint").hidden = !dated;
+  if(dated){
+    $("weekFrom").value = state.weekFrom; $("weekTo").value = state.weekTo;
+    const wl = weekList(), last = wl[wl.length - 1], rev = state.weekTo < state.weekFrom;
+    $("weekHint").textContent = `${md(wl[0])}（${WD.ja[dowOf(wl[0])]}）の週から ${md(last)}（${WD.ja[dowOf(last)]}）の週まで、${wl.length}週分。週のはじまりの曜日にそろえます。${wl.length >= MAX_WEEKS ? `いちどに出せるのは${MAX_WEEKS}週までです。` : ""}${rev ? "おわりの日がはじまりより前なので、1週分にしています。" : ""}`;
+  }
   syncSeg("segStart", state.start); syncSeg("segLang", state.lang);
   syncSeg("segLine", state.lineAlpha); syncSeg("segHole", state.holeAlpha); syncSeg("segCut", state.cut);
   const dupBtn = document.querySelector('#segSides [data-v="duplex"]'); dupBtn.disabled = !canDuplex(s);
@@ -348,9 +413,10 @@ function renderControls(){
 function renderPreview(){
   const s = SIZES[state.size], pages = buildPages(), box = $("previews");
   const pw = PAGE_W(s), ph = PAGE_H(s);
-  const per = state.mode === "cal" ? (isDuplex() ? s.cardsPerSheet * 2 : s.cardsPerSheet) : null;
+  const unit = state.mode === "cal" ? "か月" : state.weekDated === "1" ? "週" : "";
+  const per = unit ? (isDuplex() ? s.cardsPerSheet * 2 : s.cardsPerSheet) : null;
   const sheets = isDuplex() ? pages.length / 2 : pages.length;
-  $("sheetInfo").textContent = `A4 ${s.landscape ? "横" : "縦"}・${sheets}枚${isDuplex() ? "（両面）" : ""}${per ? `・1枚に${isDuplex() ? "表裏で" : ""}${per}か月` : `・1枚に${s.cardsPerSheet}枚`}`;
+  $("sheetInfo").textContent = `A4 ${s.landscape ? "横" : "縦"}・${sheets}枚${isDuplex() ? "（両面）" : ""}${per ? `・1枚に${isDuplex() ? "表裏で" : ""}${per}${unit}` : `・1枚に${s.cardsPerSheet}枚`}`;
   /* 見本は印刷と同じ組み立てをそのまま縮めて見せる（多いときは最初の4ページまで） */
   const show = pages.slice(0, 4);
   box.innerHTML = show.map(p => `<div class="pv"><p class="cap">${p.cap}</p><div class="pvBox">${p.html}</div></div>`).join("") + (pages.length > show.length ? `<p class="note">ほか ${pages.length - show.length} ページは印刷のときに出ます。</p>` : "");
@@ -378,10 +444,15 @@ function printNow(){
   for(let m = 0; m < 12; m++) mo.add(new Option((m + 1) + "月から", m, false, m === now.getMonth()));
   for(let k = 1; k <= 12; k++) cc.add(new Option(k + "か月分", k, false, k === state.calCount));
   for(let k = 1; k <= 5; k++) ws.add(new Option(k + "枚", k, false, k === state.weekSheets));
+  /* 週間の日付：はじめは今日から4週分。古い設定（今日より前に終わっている）は今日からにし直す */
+  const td = todayISO();
+  if(!okISO(state.weekFrom) || !okISO(state.weekTo) || state.weekTo < td){ state.weekFrom = td; state.weekTo = addDays(td, 27); }
   $("sizes").innerHTML = SIZE_ORDER.map(k => { const s = SIZES[k]; return `<button type="button" class="size" data-size="${k}"><b>${s.name}</b><small>${s.mmW}×${s.mmH}mm・A4に${s.cardsPerSheet}枚</small></button>`; }).join("");
   $("segMode").addEventListener("click", e => { const b = e.target.closest("[data-mode]"); if(b){ state.mode = b.dataset.mode; refresh(); } });
   const bindSeg = (id, key) => $(id).addEventListener("click", e => { const b = e.target.closest("[data-v]"); if(b && !b.disabled){ state[key] = b.dataset.v; refresh(); } });
-  bindSeg("segCalStyle", "calStyle"); bindSeg("segWeekStyle", "weeklyStyle"); bindSeg("segStart", "start"); bindSeg("segLang", "lang");
+  bindSeg("segCalStyle", "calStyle"); bindSeg("segWeekStyle", "weeklyStyle"); bindSeg("segWeekDated", "weekDated");
+  const onDate = (id, key) => $(id).addEventListener("change", () => { if(okISO($(id).value)){ state[key] = $(id).value; refresh(); } else renderControls(); });
+  onDate("weekFrom", "weekFrom"); onDate("weekTo", "weekTo"); bindSeg("segStart", "start"); bindSeg("segLang", "lang");
   bindSeg("segLine", "lineAlpha"); bindSeg("segHole", "holeAlpha"); bindSeg("segCut", "cut"); bindSeg("segSides", "sides"); bindSeg("segBackRot", "backRotate");
   $("sizes").addEventListener("click", e => { const b = e.target.closest("[data-size]"); if(b){ state.size = b.dataset.size; refresh(); } });
   yr.addEventListener("change", refresh); mo.addEventListener("change", refresh);
