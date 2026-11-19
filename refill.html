@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>リフィル工房（ヤドカリ）</title>
+<!-- リフィル工房：ヤドカリの別ページ。白い月間・週間のリフィルを、手帳のサイズに合わせてA4に並べて印刷する（PDFにもできる）。
+     予定は入れない。外にはつながない。元は「手帳リフィル A4印刷ツール v7」（makohey/ma47）の月間・週間の部分 -->
+<style>
+  :root{ --bg:#f7f0e8; --panel:#fffaf3; --ink:#3a2c24; --muted:#8b786b; --line:#eadccc; --brass:#b5853a; --brass-soft:#fff3dc; --ok:#2e7d5b; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;line-height:1.7;-webkit-text-size-adjust:100%;
+    padding:max(14px,env(safe-area-inset-top)) max(14px,env(safe-area-inset-right)) 40px max(14px,env(safe-area-inset-left))}
+  .wrap{max-width:760px;margin:0 auto}
+  .top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
+  .back{font-size:14px;color:var(--ink);text-decoration:none;border:1px solid var(--line);background:#fffaf5;border-radius:999px;padding:6px 14px;white-space:nowrap;cursor:pointer;font-family:inherit}
+  h1{font-size:22px;margin:0;letter-spacing:.04em}h1 span{color:var(--brass)}
+  .en{font-size:.62em;font-weight:500;color:var(--muted);margin-left:5px}
+  .lead{font-size:13.5px;color:var(--muted);margin:4px 0 0}
+  section{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:12px 14px;margin:10px 0;box-shadow:0 6px 18px rgba(72,45,28,.06)}
+  .grp{margin-top:10px}.grp:first-child{margin-top:0}
+  .lab{font-weight:700;font-size:13.5px;margin:0 0 4px}
+  .seg{display:inline-flex;flex-wrap:wrap;border:1px solid var(--line);border-radius:999px;padding:3px;gap:3px;background:#fff}
+  .seg button{font:inherit;font-weight:700;font-size:13.5px;border:0;background:transparent;color:var(--muted);padding:4px 13px;border-radius:999px;cursor:pointer}
+  .seg button[aria-pressed="true"]{background:var(--ink);color:#fff}
+  .seg button:disabled{opacity:.35;cursor:default}
+  .sizes{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px}
+  .size{font:inherit;text-align:left;background:#fff;color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:6px 10px;cursor:pointer;display:flex;flex-direction:column;gap:0;min-width:0}
+  .size b{font-size:14px}.size small{font-size:11px;color:var(--muted)}
+  .size[aria-pressed="true"]{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink);background:#fff7ec}
+  select{font:inherit;font-size:16px;color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:12px;padding:6px 10px}
+  .rowx{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .hint{font-size:12px;color:var(--muted);margin:4px 0 0}
+  .btn{font:inherit;font-weight:700;font-size:15px;border:1px solid #f0c48e;color:var(--ink);background:#ffe7c7;border-radius:999px;padding:8px 18px;cursor:pointer}
+  .sheetInfo{font-size:13px;color:var(--muted)}
+  #previews{display:grid;gap:10px;margin-top:8px}
+  .pv{background:#e9e1d6;border-radius:10px;padding:6px;overflow:hidden}
+  .pv .cap{font-size:11.5px;color:var(--muted);margin:0 0 4px 2px}
+  .pvBox{position:relative;overflow:hidden;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.12)}
+  .pvBox > .page{position:absolute;left:0;top:0;transform-origin:0 0;background:#fff}
+  .note{font-size:12.5px;color:var(--muted)}
+  .tip{background:var(--brass-soft);border:1px solid #f0d9ae;border-radius:12px;padding:8px 12px;font-size:13px;margin:10px 0}
+  [hidden]{display:none!important}
+  /* 印刷：このページの中の印刷用の場所だけを出す（iPhone・iPad は別の窓だと止められやすいため） */
+  #printArea{display:none}
+  @media print{
+    html,body{margin:0;padding:0;background:#fff}
+    body > *:not(#printArea){display:none!important}
+    #printArea{display:block!important;font-size:16px;line-height:normal;color:#000;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+    #printArea,#printArea *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    #printArea .page{position:relative;background:#fff;overflow:hidden;box-sizing:border-box;page-break-after:always;break-after:page;page-break-inside:avoid;break-inside:avoid}
+    #printArea .page:last-child{page-break-after:auto;break-after:auto}
+  }
+</style>
+<style id="printPageStyle"></style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1>リフィル<span>工房</span><span class="en">Refill</span></h1>
+    <button type="button" class="back" id="goBack">← 手帳へ戻る</button>
+  </div>
+  <p class="lead">白い月間・週間のリフィルを、手帳のサイズに合わせてA4の紙に並べて印刷します。予定は入りません。外にはつながりません。</p>
+
+  <section>
+    <div class="grp"><p class="lab">種類</p>
+      <div class="seg" id="segMode"><button type="button" data-mode="cal">月間</button><button type="button" data-mode="weekly">週間</button></div></div>
+    <div class="grp" id="grpCalStyle"><p class="lab">月間の形</p>
+      <div class="seg" id="segCalStyle"><button type="button" data-v="simple">シンプル</button><button type="button" data-v="grid">マス（枠つき）</button></div></div>
+    <div class="grp" id="grpWeekStyle"><p class="lab">週間の形</p>
+      <div class="seg" id="segWeekStyle"><button type="button" data-v="horizontal">バーチカル（曜日が横）</button><button type="button" data-v="vertical">リスト（曜日が縦）</button></div></div>
+    <div class="grp"><p class="lab">サイズ</p><div class="sizes" id="sizes"></div></div>
+    <div class="grp" id="grpMonth"><p class="lab">はじまりの月と、何か月分</p>
+      <div class="rowx"><select id="calYear" aria-label="年"></select><select id="calMonth" aria-label="月"></select><select id="calCount" aria-label="何か月分"></select></div></div>
+    <div class="grp" id="grpWeekCount"><p class="lab">何枚分（A4の紙の枚数）</p>
+      <div class="rowx"><select id="weekSheets" aria-label="何枚分"></select></div></div>
+    <div class="grp"><p class="lab">週のはじまり・曜日の言葉</p>
+      <div class="rowx"><div class="seg" id="segStart"><button type="button" data-v="mon">月曜</button><button type="button" data-v="sun">日曜</button></div>
+      <div class="seg" id="segLang"><button type="button" data-v="ja">月 火 水</button><button type="button" data-v="en">Mon Tue</button></div></div></div>
+  </section>
+
+  <section>
+    <div class="grp"><p class="lab">線の濃さ</p>
+      <div class="seg" id="segLine"><button type="button" data-v="0.15">うすい</button><button type="button" data-v="0.35">ふつう</button><button type="button" data-v="0.6">こい</button></div></div>
+    <div class="grp"><p class="lab">パンチ穴の印</p>
+      <div class="seg" id="segHole"><button type="button" data-v="0">なし</button><button type="button" data-v="0.2">うすい</button><button type="button" data-v="0.35">ふつう</button></div></div>
+    <div class="grp"><p class="lab">切るときの目印</p>
+      <div class="seg" id="segCut"><button type="button" data-v="trim">トンボ（角の印）</button><button type="button" data-v="border">枠の線</button></div></div>
+    <div class="grp"><p class="lab">印刷する面</p>
+      <div class="rowx"><div class="seg" id="segSides"><button type="button" data-v="single">片面</button><button type="button" data-v="duplex">両面</button></div>
+      <div class="seg" id="segBackRot"><button type="button" data-v="0">裏はそのまま</button><button type="button" data-v="1">裏を180°回す</button></div></div>
+      <p class="hint" id="bindHint"></p></div>
+  </section>
+
+  <section>
+    <div class="rowx" style="justify-content:space-between"><span class="sheetInfo" id="sheetInfo"></span><button type="button" class="btn" id="printBtn">🖨 印刷・PDFにする</button></div>
+    <div id="previews"></div>
+  </section>
+
+  <div class="tip"><b>印刷するとき</b>：用紙はA4、倍率は100%（「用紙に合わせる」は切る）。余白なしにできるプリンターなら余白なし。iPhone・iPad で PDF にしたいときは、印刷の画面で共有のボタンを押して「ファイルに保存」。</div>
+  <p class="note">線の細さはプリンターによって乱れることがあります。気になるときは「線の濃さ」を変えてください。設定（サイズなど）だけは次に開いたときのために、この端末の中に覚えておきます。</p>
+</div>
+<div id="printArea"></div>
+
+<script>
+"use strict";
+/* ===== サイズ（v7と同じ数字。位置はA4の上での位置で、半分にするとmmになる） ===== */
+const SIZES = {
+  micro5v:{ name:"Micro5 縦", mmW:62, mmH:105, holes:5, holeDir:"left", mmHoleW:8, mmHoleSize:"3mm", mmHolePad:"5mm", landscape:true, cols:4, rows:1, cardsPerSheet:4, bindType:"short",
+    positions:[{top:105,left:49},{top:105,left:173},{top:105,left:297},{top:105,left:421}] },
+  micro5h:{ name:"Micro5 横", mmW:105, mmH:62, holes:5, holeDir:"top", mmHoleW:7, mmHoleSize:"3mm", mmHolePad:"3mm", landscape:true, cols:2, rows:2, cardsPerSheet:4, bindType:"short",
+    positions:[{top:86,left:87},{top:86,left:297},{top:210,left:87},{top:210,left:297}] },
+  m6v:{ name:"M6 縦", mmW:80, mmH:127, holes:6, holeDir:"left", mmHoleW:10, mmHoleSize:"3.5mm", mmHolePad:"7mm", landscape:false, cols:2, rows:2, cardsPerSheet:4, bindType:"long",
+    positions:[{top:43,left:50},{top:43,left:210},{top:297,left:50},{top:297,left:210}] },
+  m6h:{ name:"M6 横", mmW:127, mmH:80, holes:6, holeDir:"top", mmHoleW:10, mmHoleSize:"3.5mm", mmHolePad:"5mm", landscape:true, cols:2, rows:2, cardsPerSheet:4, bindType:"short",
+    positions:[{top:50,left:43},{top:50,left:297},{top:210,left:43},{top:210,left:297}] },
+  bible:{ name:"バイブル", mmW:95, mmH:171, holes:6, holeDir:"left", mmHoleW:13, mmHoleSize:"4mm", mmHolePad:"10mm", landscape:false, cols:2, rows:1, cardsPerSheet:2, bindType:"short",
+    positions:[{top:126,left:20},{top:126,left:210}] },
+  a4:{ name:"A4", mmW:200, mmH:283, holes:4, holeDir:"left", mmHoleW:15, mmHoleSize:"5mm", mmHolePad:"15mm", landscape:false, cols:1, rows:1, cardsPerSheet:1, bindType:"none",
+    positions:[{top:14,left:10}] }
+};
+const SIZE_ORDER = ["micro5v", "micro5h", "m6v", "m6h", "bible", "a4"];
+const BIND_LABEL = { short:"両面にするときは、プリンターで「短辺とじ」を選んでください。", long:"両面にするときは、プリンターで「長辺とじ」を選んでください。", none:"A4は片面だけです。" };
+
+/* ===== 設定（この端末の中だけ。予定の中身ではない） ===== */
+const KEY = "yadokari.refill";
+const DEF = { mode:"cal", size:"micro5v", calStyle:"simple", weeklyStyle:"horizontal", start:"mon", lang:"ja", lineAlpha:"0.35", holeAlpha:"0.35", cut:"trim", sides:"single", backRotate:"0", calCount:4, weekSheets:1 };
+const getLS = k => { try{ return localStorage.getItem(k); }catch(_){ return null; } };
+const state = (() => {
+  let v = {}; try{ v = JSON.parse(getLS(KEY) || "{}") || {}; }catch(_){}
+  const s = Object.assign({}, DEF);
+  for(const k of Object.keys(DEF)) if(v[k] !== undefined && typeof v[k] === typeof DEF[k]) s[k] = v[k];
+  if(!SIZES[s.size]) s.size = DEF.size;
+  /* はじめて開いたときは、手帳の「週のはじまり」と「曜日の言葉」に合わせる */
+  if(v.start === undefined){ const w = getLS("yadokari.weekstart"); if(w === "sun" || w === "mon") s.start = w; }
+  if(v.lang === undefined){ const w = getLS("yadokari.wd"); if(w === "en" || w === "ja") s.lang = w; }
+  return s;
+})();
+const saveState = () => { try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(_){} };
+
+/* ===== 書くときの決まり ===== */
+const FF = "'Hiragino Kaku Gothic ProN','Hiragino Sans','Yu Gothic','Noto Sans JP',sans-serif";
+const FW = "700", NFW = "900";
+const LC  = () => { const a = parseFloat(state.lineAlpha); return a <= 0 ? "transparent" : `rgba(0,0,0,${a})`; };
+const LCL = () => { const a = parseFloat(state.lineAlpha) * 0.5; return a <= 0 ? "transparent" : `rgba(0,0,0,${a})`; };
+const HC  = () => { const a = parseFloat(state.holeAlpha); return a <= 0 ? "transparent" : `rgba(0,0,0,${a})`; };
+/* 曜日：週のはじまりに合わせて並べる。色は「本当の曜日」で決める（土＝青、日＝赤） */
+const WD = { ja:["日","月","火","水","木","金","土"], en:["Sun","Mon","Tue","Wed","Thu","Fri","Sat"] };
+const dowOrder = () => state.start === "sun" ? [0,1,2,3,4,5,6] : [1,2,3,4,5,6,0];
+const dayCol = (dow, base) => dow === 6 ? "#4a8fd4" : dow === 0 ? "#d44a4a" : base;
+const calHeader = (y, m) => state.lang === "en" ? `${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][m]} ${y}` : `${y}年 ${m + 1}月`;
+
+/* ===== 月のカレンダー（週のはじまりに合わせる） ===== */
+function buildCalendarData(year, month){
+  const fd = new Date(year, month, 1), td = new Date(year, month + 1, 0).getDate();
+  const sd = state.start === "sun" ? fd.getDay() : (fd.getDay() + 6) % 7;
+  const cells = [];
+  for(let i = 0; i < sd; i++) cells.push(0);
+  for(let d = 1; d <= td; d++) cells.push(d);
+  while(cells.length % 7 !== 0) cells.push(0);
+  while(cells.length < 42) cells.push(0);
+  const rows = []; for(let r = 0; r < cells.length / 7; r++) rows.push(cells.slice(r * 7, (r + 1) * 7));
+  return { year, month, rows };
+}
+
+/* ===== 月間（シンプル） ===== */
+function renderCalPrintHTML(cal, s){
+  const ord = dowOrder(), isTop = s.holeDir === "top";
+  const cL = isTop ? 0 : s.mmHoleW, cT = isTop ? s.mmHoleW : 0, nR = cal.rows.length;
+  const hH = isTop ? 4 : 8, dH = isTop ? 3 : 5, cellH = ((s.mmH - cT - hH - dH - 1) / nR).toFixed(2);
+  const hfs = isTop ? "5" : "6", dfs = isTop ? "4" : "5", nfs = isTop ? "6.5" : "7";
+  const lc = LC(), lcl = LCL();
+  let h = `<div style="position:absolute;top:${cT}mm;left:${cL}mm;right:0;bottom:0;font-family:${FF};">`;
+  h += `<div style="height:${hH}mm;display:flex;align-items:center;justify-content:center;font-size:${hfs}pt;font-weight:${FW};color:#333;border-bottom:0.3pt solid ${lc};">${calHeader(cal.year, cal.month)}</div>`;
+  h += `<div style="display:flex;height:${dH}mm;border-bottom:0.3pt solid ${lc};">`;
+  ord.forEach(w => { h += `<div style="flex:1;display:flex;align-items:center;justify-content:center;font-size:${dfs}pt;font-weight:${FW};color:${dayCol(w, "#888")};">${WD[state.lang][w]}</div>`; });
+  h += "</div>";
+  cal.rows.forEach(row => {
+    h += `<div style="display:flex;height:${cellH}mm;">`;
+    row.forEach((d, i) => { h += `<div style="flex:1;display:flex;align-items:center;justify-content:center;border-bottom:0.3pt solid ${lcl};">`; if(d > 0) h += `<span style="font-size:${nfs}pt;font-weight:${NFW};color:${dayCol(ord[i], "#222")};">${d}</span>`; h += "</div>"; });
+    h += "</div>";
+  });
+  return h + "</div>";
+}
+/* ===== 月間（マス・枠つき） ===== */
+function renderCalGridBoxPrintHTML(cal, s){
+  const ord = dowOrder(), isTop = s.holeDir === "top";
+  const cL = isTop ? 0 : s.mmHoleW, cT = isTop ? s.mmHoleW : 0, pad = 1;
+  const aW = s.mmW - cL - pad * 2, aH = s.mmH - cT - pad * 2, nR = cal.rows.length;
+  const headerH = isTop ? 4 : 6, dayHeaderH = isTop ? 3 : 4;
+  const cellH = ((aH - headerH - dayHeaderH) / nR).toFixed(2), cellW = (aW / 7).toFixed(2);
+  const hfs = isTop ? "5.5" : "7", dfs = isTop ? "4" : "5.5", nfs = isTop ? "5.5" : "7";
+  let h = `<div style="position:absolute;top:${cT + pad}mm;left:${cL + pad}mm;width:${(parseFloat(cellW) * 7).toFixed(2)}mm;height:${(headerH + dayHeaderH + parseFloat(cellH) * nR).toFixed(2)}mm;font-family:${FF};border:0.4pt solid #999;">`;
+  h += `<div style="height:${headerH}mm;display:flex;align-items:center;justify-content:center;font-size:${hfs}pt;font-weight:${FW};color:#333;background:#f5f3ef;border-bottom:0.4pt solid #bbb;">${calHeader(cal.year, cal.month)}</div>`;
+  h += `<div style="display:flex;height:${dayHeaderH}mm;background:#ece8e1;border-bottom:0.4pt solid #bbb;">`;
+  ord.forEach((w, i) => { h += `<div style="width:${cellW}mm;display:flex;align-items:center;justify-content:center;font-size:${dfs}pt;font-weight:bold;color:${dayCol(w, "#555")};${i < 6 ? "border-right:0.3pt solid #ccc;" : ""}">${WD[state.lang][w]}</div>`; });
+  h += "</div>";
+  cal.rows.forEach(row => {
+    h += `<div style="display:flex;height:${cellH}mm;">`;
+    row.forEach((d, i) => {
+      h += `<div style="width:${cellW}mm;border-right:${i < 6 ? "0.3pt solid #ddd" : "none"};border-bottom:0.3pt solid #ddd;background:${d === 0 ? "#fafafa" : "white"};padding:0.3mm 0.5mm;box-sizing:border-box;">`;
+      if(d > 0) h += `<span style="font-size:${nfs}pt;font-weight:${NFW};color:${dayCol(ord[i], "#222")};">${d}</span>`;
+      h += "</div>";
+    });
+    h += "</div>";
+  });
+  return h + "</div>";
+}
+/* ===== 週間（バーチカル：曜日が横に並ぶ） ===== */
+function renderWeeklyPrintHTML(s){
+  const ord = dowOrder(), isTop = s.holeDir === "top";
+  const cL = isTop ? 0 : s.mmHoleW, cT = isTop ? s.mmHoleW : 0, aW = s.mmW - cL, aH = s.mmH - cT;
+  const colW = (aW / 7).toFixed(2), hH = isTop ? 3 : 5, dateH = isTop ? 2.5 : 4, bodyH = (aH - hH - dateH).toFixed(2);
+  const fs = isTop ? "4" : "5.5", lc = LC(), lcl = LCL(), lineH = isTop ? 3 : 4;
+  let h = `<div style="position:absolute;top:${cT}mm;left:${cL}mm;right:0;bottom:0;font-family:${FF};">`;
+  h += `<div style="display:flex;height:${hH}mm;border-bottom:0.3pt solid ${lc};">`;
+  ord.forEach(w => { h += `<div style="width:${colW}mm;display:flex;align-items:center;justify-content:center;font-size:${fs}pt;font-weight:${FW};color:${dayCol(w, "#333")};border-right:0.3pt solid ${lcl};">${WD[state.lang][w]}</div>`; });
+  h += "</div>";
+  h += `<div style="display:flex;height:${dateH}mm;border-bottom:0.3pt solid ${lc};">`;
+  for(let i = 0; i < 7; i++) h += `<div style="width:${colW}mm;border-right:0.3pt solid ${lcl};"></div>`;
+  h += "</div>";
+  h += `<div style="display:flex;height:${bodyH}mm;">`;
+  for(let i = 0; i < 7; i++) h += `<div style="width:${colW}mm;border-right:0.3pt solid ${lc};${lc === "transparent" ? "" : `background-image:repeating-linear-gradient(to bottom,transparent,transparent ${lineH - 0.2}mm,${lcl} ${lineH - 0.2}mm,${lcl} ${lineH}mm);`}"></div>`;
+  return h + "</div></div>";
+}
+/* ===== 週間（リスト：曜日が縦に並ぶ） ===== */
+function renderWeeklyVertPrintHTML(s){
+  const ord = dowOrder(), isTop = s.holeDir === "top";
+  const cL = isTop ? 0 : s.mmHoleW, cT = isTop ? s.mmHoleW : 0, aW = s.mmW - cL, aH = s.mmH - cT, pad = 1.5;
+  const dayLabelW = Math.max(8, aW * 0.15).toFixed(1), dateW = Math.max(9, aW * 0.15).toFixed(1);
+  const memoW = (aW - parseFloat(dayLabelW) - parseFloat(dateW) - pad * 2).toFixed(1), rowH = ((aH - pad * 2) / 7).toFixed(2);
+  const fs = isTop ? "4" : "5.5", lc = LC(), lcl = LCL();
+  let h = `<div style="position:absolute;top:${cT + pad}mm;left:${cL + pad}mm;width:${(aW - pad * 2).toFixed(1)}mm;height:${(parseFloat(rowH) * 7).toFixed(1)}mm;font-family:${FF};">`;
+  ord.forEach((w, i) => {
+    const y = (i * parseFloat(rowH)).toFixed(2);
+    h += `<div style="position:absolute;top:${y}mm;left:0;width:${dayLabelW}mm;height:${rowH}mm;display:flex;align-items:flex-start;justify-content:center;padding-top:0.5mm;font-size:${fs}pt;font-weight:${FW};color:${dayCol(w, "#333")};border-bottom:0.3pt solid ${lc};border-right:0.3pt solid ${lcl};box-sizing:border-box;">${WD[state.lang][w]}</div>`;
+    h += `<div style="position:absolute;top:${y}mm;left:${dayLabelW}mm;width:${dateW}mm;height:${rowH}mm;border-bottom:0.3pt solid ${lc};border-right:0.3pt solid ${lcl};box-sizing:border-box;display:flex;align-items:flex-start;justify-content:center;padding-top:0.5mm;font-size:${parseFloat(fs) * 0.7}pt;color:#bbb;">/</div>`;
+    h += `<div style="position:absolute;top:${y}mm;left:${(parseFloat(dayLabelW) + parseFloat(dateW)).toFixed(1)}mm;width:${memoW}mm;height:${rowH}mm;border-bottom:0.3pt solid ${lc};box-sizing:border-box;"></div>`;
+  });
+  return h + "</div>";
+}
+
+/* ===== パンチ穴・切る目印 ===== */
+function makeHolesMmHTML(s){
+  const hc = HC(); if(hc === "transparent") return "";
+  const isTop = s.holeDir === "top";
+  const hi = Array.from({ length: s.holes }, () => `<div style="width:${s.mmHoleSize};height:${s.mmHoleSize};border-radius:50%;border:0.3pt solid ${hc};flex-shrink:0;"></div>`).join("");
+  return isTop
+    ? `<div style="position:absolute;left:0;top:0;right:0;height:${s.mmHoleW}mm;display:flex;flex-direction:row;justify-content:space-around;align-items:center;padding:0 ${s.mmHolePad};">${hi}</div>`
+    : `<div style="position:absolute;left:0;top:0;bottom:0;width:${s.mmHoleW}mm;display:flex;flex-direction:column;justify-content:space-around;align-items:center;padding:${s.mmHolePad} 0;">${hi}</div>`;
+}
+function makeTrimMarksMm(s){
+  const len = 3, col = "#555", th = "0.3pt"; let html = "";
+  s.positions.forEach(pos => {
+    const x = (pos.left * 0.5).toFixed(1), y = (pos.top * 0.5).toFixed(1), r = (pos.left * 0.5 + s.mmW).toFixed(1), b = (pos.top * 0.5 + s.mmH).toFixed(1);
+    [{ cx:x, cy:y, dx:1, dy:1 }, { cx:r, cy:y, dx:-1, dy:1 }, { cx:x, cy:b, dx:1, dy:-1 }, { cx:r, cy:b, dx:-1, dy:-1 }].forEach(c => {
+      const hx = c.dx > 0 ? (parseFloat(c.cx) - len).toFixed(1) : c.cx, vy = c.dy > 0 ? (parseFloat(c.cy) - len).toFixed(1) : c.cy;
+      html += `<div style="position:absolute;left:${hx}mm;top:${c.cy}mm;width:${len}mm;height:0;border-top:${th} solid ${col};"></div>`;
+      html += `<div style="position:absolute;left:${c.cx}mm;top:${vy}mm;width:0;height:${len}mm;border-left:${th} solid ${col};"></div>`;
+    });
+  });
+  return html;
+}
+function makeCardBordersMm(s){
+  return s.positions.map(pos => `<div style="position:absolute;left:${(pos.left * 0.5).toFixed(1)}mm;top:${(pos.top * 0.5).toFixed(1)}mm;width:${s.mmW}mm;height:${s.mmH}mm;border:0.3pt solid #888;box-sizing:border-box;z-index:99;"></div>`).join("");
+}
+const cutBefore = s => state.cut === "trim" ? makeTrimMarksMm(s) : "";
+const cutAfter  = s => state.cut === "border" ? makeCardBordersMm(s) : "";
+
+/* ===== 1枚の紙の上に、カードを並べる ===== */
+function buildCards(s, data, map){
+  return s.positions.map((pos, i) => {
+    const d = data[map[i]];
+    let inner = "";
+    if(d !== null && d !== undefined){
+      if(state.mode === "cal") inner = state.calStyle === "grid" ? renderCalGridBoxPrintHTML(d, s) : renderCalPrintHTML(d, s);
+      else inner = state.weeklyStyle === "vertical" ? renderWeeklyVertPrintHTML(s) : renderWeeklyPrintHTML(s);
+    }
+    /* 月の数が紙に足りないところは、白いまま（穴の印もつけない） */
+    return `<div style="position:absolute;width:${s.mmW}mm;height:${s.mmH}mm;top:${(pos.top * 0.5).toFixed(1)}mm;left:${(pos.left * 0.5).toFixed(1)}mm;overflow:hidden;box-sizing:border-box;background:white;">${inner ? makeHolesMmHTML(s) + inner : ""}</div>`;
+  }).join("");
+}
+const sheetHTML = (s, data, map) => `<div class="page">${cutBefore(s)}${buildCards(s, data, map)}${cutAfter(s)}</div>`;
+
+/* 裏の並び：紙を裏返したときに、同じカードの裏に来る位置（v7と同じ考え方） */
+function backPosMap(s){
+  const { cols, rows, cardsPerSheet: n, landscape: isL } = s;
+  const flipRow = (isL && s.bindType === "long") || (!isL && s.bindType === "short");
+  const order = new Array(n);
+  for(let r = 0; r < rows; r++) for(let c = 0; c < cols; c++){
+    const br = flipRow ? (rows - 1 - r) : r, bc = flipRow ? c : (cols - 1 - c);
+    order[br * cols + bc] = r * cols + c;
+  }
+  return order;
+}
+const canDuplex = s => s.bindType !== "none";
+const isDuplex = () => state.sides === "duplex" && canDuplex(SIZES[state.size]);
+
+/* ===== 紙を組み立てる（表・裏・表・裏…の順） ===== */
+function buildPages(){
+  const s = SIZES[state.size], n = s.cardsPerSheet, dup = isDuplex();
+  const pages = [];
+  if(state.mode === "cal"){
+    const y0 = +$("calYear").value, m0 = +$("calMonth").value, count = state.calCount;
+    const months = Array.from({ length: count }, (_, i) => { const m = m0 + i; return buildCalendarData(y0 + Math.floor(m / 12), m % 12); });
+    const per = dup ? n * 2 : n, sheets = Math.max(1, Math.ceil(count / per));
+    for(let sh = 0; sh < sheets; sh++){
+      const data = Array.from({ length: per }, (_, i) => months[sh * per + i] ?? null);
+      if(dup){
+        /* カード1枚の表と裏が、続きの月になるように：表＝1,3,5,7番目　裏＝2,4,6,8番目 */
+        const front = Array.from({ length: n }, (_, i) => i * 2), back = backPosMap(s).map(fi => fi * 2 + 1);
+        pages.push({ html: sheetHTML(s, data, front), cap: `${sh + 1}枚目・表` });
+        pages.push({ html: sheetHTML(s, data, back), cap: `${sh + 1}枚目・裏` });
+      } else {
+        pages.push({ html: sheetHTML(s, data, Array.from({ length: n }, (_, i) => i)), cap: `${sh + 1}枚目` });
+      }
+    }
+  } else {
+    const data = Array.from({ length: n }, () => 1), map = Array.from({ length: n }, (_, i) => i);
+    for(let sh = 0; sh < state.weekSheets; sh++){
+      pages.push({ html: sheetHTML(s, data, map), cap: dup ? `${sh + 1}枚目・表` : `${sh + 1}枚目` });
+      if(dup) pages.push({ html: sheetHTML(s, data, map), cap: `${sh + 1}枚目・裏` });
+    }
+  }
+  return pages;
+}
+
+/* ===== 画面：設定のボタンと、紙の見本 ===== */
+const $ = id => document.getElementById(id);
+const PAGE_W = s => s.landscape ? 297 : 210, PAGE_H = s => s.landscape ? 210 : 297;
+function syncSeg(id, val, attr = "v"){ document.querySelectorAll(`#${id} button`).forEach(b => b.setAttribute("aria-pressed", String(b.dataset[attr] === String(val)))); }
+function renderControls(){
+  const s = SIZES[state.size];
+  syncSeg("segMode", state.mode, "mode");
+  $("grpCalStyle").hidden = state.mode !== "cal"; $("grpMonth").hidden = state.mode !== "cal";
+  $("grpWeekStyle").hidden = state.mode !== "weekly"; $("grpWeekCount").hidden = state.mode !== "weekly";
+  syncSeg("segCalStyle", state.calStyle); syncSeg("segWeekStyle", state.weeklyStyle);
+  syncSeg("segStart", state.start); syncSeg("segLang", state.lang);
+  syncSeg("segLine", state.lineAlpha); syncSeg("segHole", state.holeAlpha); syncSeg("segCut", state.cut);
+  const dupBtn = document.querySelector('#segSides [data-v="duplex"]'); dupBtn.disabled = !canDuplex(s);
+  syncSeg("segSides", isDuplex() ? "duplex" : "single");
+  $("segBackRot").hidden = !isDuplex(); syncSeg("segBackRot", state.backRotate);
+  $("bindHint").textContent = canDuplex(s) ? (isDuplex() ? BIND_LABEL[s.bindType] + "とじ方を選べないプリンターなら「裏を180°回す」。" : "") : BIND_LABEL.none;
+  document.querySelectorAll("#sizes .size").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.size === state.size)));
+}
+function renderPreview(){
+  const s = SIZES[state.size], pages = buildPages(), box = $("previews");
+  const pw = PAGE_W(s), ph = PAGE_H(s);
+  const per = state.mode === "cal" ? (isDuplex() ? s.cardsPerSheet * 2 : s.cardsPerSheet) : null;
+  const sheets = isDuplex() ? pages.length / 2 : pages.length;
+  $("sheetInfo").textContent = `A4 ${s.landscape ? "横" : "縦"}・${sheets}枚${isDuplex() ? "（両面）" : ""}${per ? `・1枚に${isDuplex() ? "表裏で" : ""}${per}か月` : `・1枚に${s.cardsPerSheet}枚`}`;
+  /* 見本は印刷と同じ組み立てをそのまま縮めて見せる（多いときは最初の4ページまで） */
+  const show = pages.slice(0, 4);
+  box.innerHTML = show.map(p => `<div class="pv"><p class="cap">${p.cap}</p><div class="pvBox">${p.html}</div></div>`).join("") + (pages.length > show.length ? `<p class="note">ほか ${pages.length - show.length} ページは印刷のときに出ます。</p>` : "");
+  box.querySelectorAll(".pvBox").forEach(b => {
+    const page = b.firstElementChild; page.style.width = pw + "mm"; page.style.height = ph + "mm";
+    const fit = () => { const k = b.clientWidth / page.offsetWidth; page.style.transform = `scale(${k})`; b.style.height = (page.offsetHeight * k) + "px"; };
+    fit(); requestAnimationFrame(fit);
+  });
+}
+function refresh(){ renderControls(); renderPreview(); saveState(); }
+
+/* ===== 印刷：同じページの中の印刷用の場所に流しこんで、すぐ印刷を呼ぶ ===== */
+function printNow(){
+  const s = SIZES[state.size], pages = buildPages(), pw = PAGE_W(s) + "mm", ph = PAGE_H(s) + "mm";
+  $("printPageStyle").textContent = `@page{size:A4 ${s.landscape ? "landscape" : "portrait"};margin:0;}@media print{html,body{width:${pw};}#printArea .page{width:${pw};height:${ph};}}`;
+  $("printArea").innerHTML = pages.map(p => p.html).join("");
+  if(isDuplex() && state.backRotate === "1") $("printArea").querySelectorAll(".page").forEach((p, i) => { if(i % 2 === 1) p.style.transform = "rotate(180deg)"; });
+  window.print();
+}
+
+/* ===== はじめの用意 ===== */
+(function init(){
+  const now = new Date(), yr = $("calYear"), mo = $("calMonth"), cc = $("calCount"), ws = $("weekSheets");
+  for(let y = now.getFullYear() - 1; y <= now.getFullYear() + 3; y++) yr.add(new Option(y + "年", y, false, y === now.getFullYear()));
+  for(let m = 0; m < 12; m++) mo.add(new Option((m + 1) + "月から", m, false, m === now.getMonth()));
+  for(let k = 1; k <= 12; k++) cc.add(new Option(k + "か月分", k, false, k === state.calCount));
+  for(let k = 1; k <= 5; k++) ws.add(new Option(k + "枚", k, false, k === state.weekSheets));
+  $("sizes").innerHTML = SIZE_ORDER.map(k => { const s = SIZES[k]; return `<button type="button" class="size" data-size="${k}"><b>${s.name}</b><small>${s.mmW}×${s.mmH}mm・A4に${s.cardsPerSheet}枚</small></button>`; }).join("");
+  $("segMode").addEventListener("click", e => { const b = e.target.closest("[data-mode]"); if(b){ state.mode = b.dataset.mode; refresh(); } });
+  const bindSeg = (id, key) => $(id).addEventListener("click", e => { const b = e.target.closest("[data-v]"); if(b && !b.disabled){ state[key] = b.dataset.v; refresh(); } });
+  bindSeg("segCalStyle", "calStyle"); bindSeg("segWeekStyle", "weeklyStyle"); bindSeg("segStart", "start"); bindSeg("segLang", "lang");
+  bindSeg("segLine", "lineAlpha"); bindSeg("segHole", "holeAlpha"); bindSeg("segCut", "cut"); bindSeg("segSides", "sides"); bindSeg("segBackRot", "backRotate");
+  $("sizes").addEventListener("click", e => { const b = e.target.closest("[data-size]"); if(b){ state.size = b.dataset.size; refresh(); } });
+  yr.addEventListener("change", refresh); mo.addEventListener("change", refresh);
+  cc.addEventListener("change", () => { state.calCount = +cc.value; refresh(); });
+  ws.addEventListener("change", () => { state.weekSheets = +ws.value; refresh(); });
+  $("printBtn").addEventListener("click", printNow);
+  let t = 0; addEventListener("resize", () => { clearTimeout(t); t = setTimeout(renderPreview, 150); });
+  /* 手帳へ戻る：手帳から来たなら「戻る」（手帳の画面がそのまま残る）。そうでなければ手帳を開く */
+  $("goBack").addEventListener("click", () => { try{ const r = document.referrer; if(r && new URL(r).origin === location.origin && history.length > 1){ history.back(); return; } }catch(_){} location.href = "./dashboard.html"; });
+  refresh();
+})();
+</script>
+</body>
+</html>
