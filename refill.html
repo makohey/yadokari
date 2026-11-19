@@ -71,7 +71,7 @@
     <div class="grp" id="grpCalStyle"><p class="lab">月間の形</p>
       <div class="seg" id="segCalStyle"><button type="button" data-v="simple">シンプル</button><button type="button" data-v="grid">マス（枠つき）</button></div></div>
     <div class="grp" id="grpWeekStyle"><p class="lab">週間の形</p>
-      <div class="seg" id="segWeekStyle"><button type="button" data-v="horizontal">バーチカル（曜日が横）</button><button type="button" data-v="vertical">リスト（曜日が縦）</button></div></div>
+      <div class="seg" id="segWeekStyle"><button type="button" data-v="days">1日1段（書きこみ向き）</button><button type="button" data-v="horizontal">バーチカル（細いマス）</button><button type="button" data-v="vertical">リスト（3列）</button></div></div>
     <div class="grp"><p class="lab">サイズ</p><div class="sizes" id="sizes"></div></div>
     <div class="grp" id="grpMonth"><p class="lab">はじまりの月と、何か月分</p>
       <div class="rowx"><select id="calYear" aria-label="年"></select><select id="calMonth" aria-label="月"></select><select id="calCount" aria-label="何か月分"></select></div></div>
@@ -131,7 +131,7 @@ const BIND_LABEL = { short:"両面にするときは、プリンターで「短�
 
 /* ===== 設定（この端末の中だけ。予定の中身ではない） ===== */
 const KEY = "yadokari.refill";
-const DEF = { mode:"cal", size:"micro5v", calStyle:"simple", weeklyStyle:"horizontal", start:"mon", lang:"ja", lineAlpha:"0.35", holeAlpha:"0.35", cut:"trim", sides:"single", backRotate:"0", calCount:4, weekSheets:1, weekDated:"0", weekFrom:"", weekTo:"" };
+const DEF = { mode:"cal", size:"micro5v", calStyle:"simple", weeklyStyle:"days", start:"mon", lang:"ja", lineAlpha:"0.35", holeAlpha:"0.35", cut:"trim", sides:"single", backRotate:"0", calCount:4, weekSheets:1, weekDated:"0", weekFrom:"", weekTo:"" };
 const getLS = k => { try{ return localStorage.getItem(k); }catch(_){ return null; } };
 const state = (() => {
   let v = {}; try{ v = JSON.parse(getLS(KEY) || "{}") || {}; }catch(_){}
@@ -257,6 +257,37 @@ function renderCalGridBoxPrintHTML(cal, s){
   });
   return h + "</div>";
 }
+/* ===== 週間（1日1段：1日を横長の段にして、上から並べる。段の中はうすい罫線で、その日の予定を何行か書ける）
+   縦長のカードは7段。横長のカード（Micro5 横・M6 横）は段が細くなりすぎるので、左に4日・右に3日とメモの2列 ===== */
+function renderWeeklyDaysPrintHTML(s, wk){
+  const ord = dowOrder(), isTop = s.holeDir === "top";
+  const cL = isTop ? 0 : s.mmHoleW, cT = isTop ? s.mmHoleW : 0, pad = 1.5;
+  const aW = s.mmW - cL - pad * 2, aH = s.mmH - cT - pad * 2;
+  const cols = s.mmW > s.mmH ? 2 : 1, perCol = cols === 2 ? 4 : 7, gap = 2;
+  const headH = isTop ? 3.5 : 5, colW = (aW - (cols - 1) * gap) / cols, rowH = (aH - headH) / perCol;
+  const fs = isTop ? 4.2 : 5.5, labH = isTop ? 3 : 4, ruleH = isTop ? 3.5 : 4.5, lc = LC(), lcl = LCL();
+  /* 段の中の罫線は1本ずつ置く（くり返し模様だと、印刷の細かさしだいで消えたり重なったりするため）。
+     段を同じ高さの行に分けて、1行目に曜日と日付、2行目からが書きこむ行 */
+  const nLines = Math.max(2, Math.round(rowH / ruleH)), lineGap = rowH / nLines;
+  const rules = lcl === "transparent" ? "" : Array.from({ length: nLines - 1 }, (_, i) => `<div style="position:absolute;left:0;right:0;top:${((i + 1) * lineGap).toFixed(2)}mm;border-top:0.3pt solid ${lcl};"></div>`).join("");
+  let h = `<div style="position:absolute;top:${cT + pad}mm;left:${cL + pad}mm;width:${aW.toFixed(2)}mm;height:${aH.toFixed(2)}mm;font-family:${FF};">`;
+  /* 上の段：日付を入れるときは「11/16 – 11/22」、入れないときは書きこむための「 / 〜 / 」 */
+  const head = wk ? `${wk.slice(0, 4)}　${md(wk)} – ${md(addDays(wk, 6))}` : `<span style="color:#bbb;letter-spacing:1.5mm;">／　〜　／</span>`;
+  h += `<div style="position:absolute;top:0;left:0;right:0;height:${headH}mm;display:flex;align-items:center;font-size:${fs}pt;font-weight:${FW};color:#333;border-bottom:0.5pt solid ${lc};">${head}</div>`;
+  for(let k = 0; k < cols * perCol; k++){
+    const col = Math.floor(k / perCol), row = k % perCol;
+    const x = (col * (colW + gap)).toFixed(2), y = (headH + row * rowH).toFixed(2);
+    let lab;
+    if(k < 7){
+      const w = ord[k], ds = wk ? addDays(wk, k) : "", hol = ds ? holiday(ds) : "";
+      const c = ds ? dateCol(ds, "#333") : dayCol(w, "#333");
+      lab = `<span style="color:${c};">${WD[state.lang][w]}</span>${ds ? `<span style="margin-left:1.2mm;color:${c};">${md(ds)}</span>` : ""}${hol ? `<span style="margin-left:1mm;font-size:${(fs * 0.75).toFixed(1)}pt;font-weight:400;color:#d44a4a;">${hol}</span>` : ""}`;
+    } else lab = `<span style="color:#999;">${state.lang === "en" ? "Memo" : "メモ"}</span>`;
+    h += `<div style="position:absolute;top:${y}mm;left:${x}mm;width:${colW.toFixed(2)}mm;height:${rowH.toFixed(2)}mm;border-bottom:0.3pt solid ${lc};box-sizing:border-box;">`;
+    h += `${rules}<div style="position:relative;height:${Math.min(labH, lineGap).toFixed(2)}mm;display:flex;align-items:center;font-size:${fs}pt;font-weight:${FW};white-space:nowrap;overflow:hidden;">${lab}</div></div>`;
+  }
+  return h + "</div>";
+}
 /* ===== 週間（バーチカル：曜日が横に並ぶ） ===== */
 function renderWeeklyPrintHTML(s, wk){
   const ord = dowOrder(), isTop = s.holeDir === "top";
@@ -330,7 +361,7 @@ function buildCards(s, data, map){
     let inner = "";
     if(d !== null && d !== undefined){
       if(state.mode === "cal") inner = state.calStyle === "grid" ? renderCalGridBoxPrintHTML(d, s) : renderCalPrintHTML(d, s);
-      else { const wk = typeof d === "string" ? d : null; inner = state.weeklyStyle === "vertical" ? renderWeeklyVertPrintHTML(s, wk) : renderWeeklyPrintHTML(s, wk); }
+      else { const wk = typeof d === "string" ? d : null; inner = state.weeklyStyle === "vertical" ? renderWeeklyVertPrintHTML(s, wk) : state.weeklyStyle === "horizontal" ? renderWeeklyPrintHTML(s, wk) : renderWeeklyDaysPrintHTML(s, wk); }
     }
     /* 月や週の数が紙に足りないところは、白いまま（穴の印もつけない） */
     return `<div style="position:absolute;width:${s.mmW}mm;height:${s.mmH}mm;top:${(pos.top * 0.5).toFixed(1)}mm;left:${(pos.left * 0.5).toFixed(1)}mm;overflow:hidden;box-sizing:border-box;background:white;">${inner ? makeHolesMmHTML(s) + inner : ""}</div>`;
