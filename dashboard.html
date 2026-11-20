@@ -222,6 +222,7 @@
   .rvMig{display:flex;gap:4px;flex:0 0 auto}.rvMig button{font-size:11px;padding:2px 7px}
   /* 入力欄と今日のあいだの、細い1行の入口 */
   /* 工房への入口は横に並べる（1行のまま） */
+  .toolLine .cipherLine.off{opacity:.45;filter:grayscale(1);pointer-events:none;cursor:default}
   .toolLine{display:flex;justify-content:center;flex-wrap:wrap;gap:8px;margin:2px 0}.toolLine .cipherLine{margin:0}
   /* 3つ並ぶと狭いので、iPhoneの幅では英語の小さな字を省いて1行に収める */
   @media(max-width:430px){.toolLine{gap:6px}.toolLine .en{display:none}.toolLine .cipherLine{padding:4px 11px}}
@@ -320,7 +321,7 @@
   <div class="toolLine" data-block="cipherLink">
     <a class="cipherLine" href="./cipher.html">🔐 暗号工房<span class="en">Cipher</span></a>
     <a class="cipherLine" href="./qr.html"><span class="qrIco" aria-hidden="true"></span>QR工房<span class="en">QR</span></a>
-    <a class="cipherLine" href="./refill.html">🖨 リフィル工房<span class="en">Refill</span></a>
+    <span class="cipherLine off" aria-disabled="true" title="リフィル工房はいま準備中">🖨 リフィル工房<span class="en">準備中</span></span>
   </div>
   <section class="card" data-block="today">
     <div class="sect">今日とこれから<span class="en">Today</span></div>
@@ -449,7 +450,7 @@
     <div id="sOut"></div>
   </div>
 </div>
-<script src="./plan-core.js?v=20261120c"></script>
+<script src="./plan-core.js?v=20261120d"></script>
 <script>
 (() => {
 "use strict";
@@ -1132,7 +1133,7 @@ function loadMod(id) {
   modLoading[id] = true;
   const s = document.createElement("script"); s.src = `./mod-${id}.js?v=${APP_VER_MODS}`; s.onload = () => renderMods(); s.onerror = () => { modLoading[id] = false; }; document.head.appendChild(s);
 }
-const APP_VER_MODS = "20261120c";
+const APP_VER_MODS = "20261120d";
 function renderMods() {
   const on = getMods(), area = $("modsArea"); $("modsCard").hidden = !on.length;
   for (const id of on) {
@@ -1410,7 +1411,7 @@ render();
 <!-- 新しい版の知らせ（版を上げるときは version.json とこの APP_VER を同じにする） -->
 <script>
 (() => {
-  const APP_VER = "20261120c";
+  const APP_VER = "20261120d";
   let shown = false;
   const check = () => {
     if (shown || !navigator.onLine) return;
