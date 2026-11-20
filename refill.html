@@ -450,9 +450,15 @@ function renderPreview(){
   const per = unit ? (isDuplex() ? s.cardsPerSheet * 2 : s.cardsPerSheet) : null;
   const sheets = isDuplex() ? pages.length / 2 : pages.length;
   $("sheetInfo").textContent = `A4 ${s.landscape ? "横" : "縦"}・${sheets}枚${isDuplex() ? "（両面）" : ""}${per ? `・1枚に${isDuplex() ? "表裏で" : ""}${per}${unit}` : `・1枚に${s.cardsPerSheet}枚`}`;
+  /* 空いている面があれば、あと何か月（何週）足すと埋まるかを出す */
+  let gap = "";
+  if(per){
+    const used = state.mode === "cal" ? state.calCount : weekList().length, empty = sheets * per - used;
+    if(empty > 0) gap = `<p class="beta" style="margin-top:0">トンボの中に、何も入っていない面が ${empty} 面あります（${used}${unit}分しか選んでいないため）。あと ${empty}${unit === "か月" ? "か月" : "週"}分ふやすと全部うまります。空いたままでも印刷はできます。</p>`;
+  }
   /* 見本は印刷と同じ組み立てをそのまま縮めて見せる（多いときは最初の4ページまで） */
   const show = pages.slice(0, 4);
-  box.innerHTML = show.map(p => `<div class="pv"><p class="cap">${p.cap}</p><div class="pvBox">${p.html}</div></div>`).join("") + (pages.length > show.length ? `<p class="note">ほか ${pages.length - show.length} ページは印刷のときに出ます。</p>` : "");
+  box.innerHTML = gap + show.map(p => `<div class="pv"><p class="cap">${p.cap}</p><div class="pvBox">${p.html}</div></div>`).join("") + (pages.length > show.length ? `<p class="note">ほか ${pages.length - show.length} ページは印刷のときに出ます。</p>` : "");
   box.querySelectorAll(".pvBox").forEach(b => {
     const page = b.firstElementChild; page.style.width = pw + "mm"; page.style.height = ph + "mm";
     const fit = () => { const k = b.clientWidth / page.offsetWidth; page.style.transform = `scale(${k})`; b.style.height = (page.offsetHeight * k) + "px"; };
