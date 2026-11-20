@@ -100,6 +100,8 @@
 
   <section>
     <div class="rowx" style="justify-content:space-between"><span class="sheetInfo" id="sheetInfo"></span><button type="button" class="btn" id="printBtn">🖨 印刷・PDFにする</button></div>
+    <div class="beta" id="noPrint" hidden><b>ホーム画面から開いたヤドカリでは、iPhone・iPad の決まりで印刷ができません。</b>Safari でこのページを開くと印刷できます。下のボタンでリンクをコピーして、Safari のアドレス欄に貼ってね（ホーム画面のヤドカリと Safari は保存場所が別なので、サイズなどは Safari でもう一度えらんでね）。<div class="rowx" style="margin-top:8px;gap:8px"><button type="button" class="btn" id="copyLink">🔗 リンクをコピー</button><button type="button" class="btn" id="shareLink" hidden>📤 共有から開く</button></div><small id="copyMsg"></small></div>
+    <small style="display:block;opacity:.7;margin-top:6px">押しても何も出ないときは、Safari（ホーム画面のアイコンではなく）で開いてみてね。</small>
     <div id="previews"></div>
   </section>
 
@@ -460,12 +462,16 @@ function renderPreview(){
 function refresh(){ renderControls(); renderPreview(); saveState(); }
 
 /* ===== 印刷：同じページの中の印刷用の場所に流しこんで、すぐ印刷を呼ぶ ===== */
+const IS_STANDALONE = (() => { try{ return navigator.standalone === true || matchMedia("(display-mode: standalone)").matches || matchMedia("(display-mode: fullscreen)").matches; }catch(_){ return false; } })();
+const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+function showNoPrint(){ const b = $("noPrint"); b.hidden = false; b.scrollIntoView({behavior:"smooth", block:"center"}); }
 function printNow(){
+  if(IS_STANDALONE && IS_IOS){ showNoPrint(); return; }
   const s = SIZES[state.size], pages = buildPages(), pw = PAGE_W(s) + "mm", ph = PAGE_H(s) + "mm";
   $("printPageStyle").textContent = `@page{size:A4 ${s.landscape ? "landscape" : "portrait"};margin:0;}@media print{html,body{width:${pw};}#printArea .page{width:${pw};height:${ph};}}`;
   $("printArea").innerHTML = pages.map(p => p.html).join("");
   if(isDuplex() && state.backRotate === "1") $("printArea").querySelectorAll(".page").forEach((p, i) => { if(i % 2 === 1) p.style.transform = "rotate(180deg)"; });
-  window.print();
+  try{ window.print(); }catch(_){ showNoPrint(); }
 }
 
 /* ===== はじめの用意 ===== */
@@ -490,6 +496,9 @@ function printNow(){
   cc.addEventListener("change", () => { state.calCount = +cc.value; refresh(); });
   ws.addEventListener("change", () => { state.weekSheets = +ws.value; refresh(); });
   $("printBtn").addEventListener("click", printNow);
+  const pageURL = location.href.split("#")[0];
+  $("copyLink").addEventListener("click", async () => { let ok = false; try{ await navigator.clipboard.writeText(pageURL); ok = true; }catch(_){ try{ const t = document.createElement("textarea"); t.value = pageURL; document.body.appendChild(t); t.select(); ok = document.execCommand("copy"); t.remove(); }catch(__){} } $("copyMsg").textContent = ok ? "コピーしたよ。Safari を開いてアドレス欄に貼ってね。" : pageURL; });
+  if(navigator.share){ $("shareLink").hidden = false; $("shareLink").addEventListener("click", () => { navigator.share({title:"リフィル工房", url:pageURL}).catch(() => {}); }); }
   let t = 0; addEventListener("resize", () => { clearTimeout(t); t = setTimeout(renderPreview, 150); });
   /* 手帳へ戻る：手帳から来たなら「戻る」（手帳の画面がそのまま残る）。そうでなければ手帳を開く */
   $("goBack").addEventListener("click", () => { try{ const r = document.referrer; if(r && new URL(r).origin === location.origin && history.length > 1){ history.back(); return; } }catch(_){} location.href = "./dashboard.html"; });
