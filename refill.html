@@ -100,6 +100,7 @@
 
   <section>
     <div class="rowx" style="justify-content:space-between"><span class="sheetInfo" id="sheetInfo"></span><button type="button" class="btn" id="printBtn">🖨 印刷・PDFにする</button></div>
+    <div id="manualDup" hidden style="margin-top:8px"><div class="rowx" style="gap:8px;justify-content:flex-end"><button type="button" class="btn" id="printFront">表だけ印刷</button><button type="button" class="btn" id="printBack">裏だけ印刷</button></div><small style="display:block;opacity:.75;margin-top:4px">印刷の画面に「両面」が出ない（プリンターが両面に対応していない）ときは、手で両面にできます：①「表だけ印刷」②出てきた紙を裏返して、もう一度プリンターに入れる ③「裏だけ印刷」。紙の向きはプリンターによってちがうので、はじめは1枚で試してね。</small></div>
     <div class="beta" id="noPrint" hidden><b>ホーム画面から開いたヤドカリでは、iPhone・iPad の決まりで印刷ができません。</b>Safari でこのページを開くと印刷できます。下のボタンでリンクをコピーして、Safari のアドレス欄に貼ってね（ホーム画面のヤドカリと Safari は保存場所が別なので、サイズなどは Safari でもう一度えらんでね）。<div class="rowx" style="margin-top:8px;gap:8px"><button type="button" class="btn" id="copyLink">🔗 リンクをコピー</button><button type="button" class="btn" id="shareLink" hidden>📤 共有から開く</button></div><small id="copyMsg"></small></div>
     <small style="display:block;opacity:.7;margin-top:6px">押しても何も出ないときは、Safari（ホーム画面のアイコンではなく）で開いてみてね。</small>
     <div id="previews"></div>
@@ -129,7 +130,7 @@ const SIZES = {
     positions:[{top:14,left:10}] }
 };
 const SIZE_ORDER = ["micro5v", "micro5h", "m6v", "m6h", "bible", "a4"];
-const BIND_LABEL = { short:"両面にするときは、プリンターで「短辺とじ」を選んでください。", long:"両面にするときは、プリンターで「長辺とじ」を選んでください。", none:"A4は片面だけです。" };
+const BIND_LABEL = { short:"ここで「両面」を選んでも、プリンターは片面のままです。印刷の画面で「両面」をオンにして「短辺とじ」を選んでください。", long:"ここで「両面」を選んでも、プリンターは片面のままです。印刷の画面で「両面」をオンにして「長辺とじ」を選んでください。", none:"A4は片面だけです。" };
 
 /* ===== 設定（この端末の中だけ。予定の中身ではない） ===== */
 const KEY = "yadokari.refill";
@@ -439,7 +440,7 @@ function renderControls(){
   syncSeg("segLine", state.lineAlpha); syncSeg("segHole", state.holeAlpha); syncSeg("segCut", state.cut);
   const dupBtn = document.querySelector('#segSides [data-v="duplex"]'); dupBtn.disabled = !canDuplex(s);
   syncSeg("segSides", isDuplex() ? "duplex" : "single");
-  $("segBackRot").hidden = !isDuplex(); syncSeg("segBackRot", state.backRotate);
+  $("segBackRot").hidden = !isDuplex(); $("manualDup").hidden = !isDuplex(); syncSeg("segBackRot", state.backRotate);
   $("bindHint").textContent = canDuplex(s) ? (isDuplex() ? BIND_LABEL[s.bindType] + "とじ方を選べないプリンターなら「裏を180°回す」。" : "") : BIND_LABEL.none;
   document.querySelectorAll("#sizes .size").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.size === state.size)));
 }
@@ -471,12 +472,12 @@ function refresh(){ renderControls(); renderPreview(); saveState(); }
 const IS_STANDALONE = (() => { try{ return navigator.standalone === true || matchMedia("(display-mode: standalone)").matches || matchMedia("(display-mode: fullscreen)").matches; }catch(_){ return false; } })();
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 function showNoPrint(){ const b = $("noPrint"); b.hidden = false; b.scrollIntoView({behavior:"smooth", block:"center"}); }
-function printNow(){
+function printNow(which){
   if(IS_STANDALONE && IS_IOS){ showNoPrint(); return; }
-  const s = SIZES[state.size], pages = buildPages(), pw = PAGE_W(s) + "mm", ph = PAGE_H(s) + "mm";
+  const s = SIZES[state.size], dup = isDuplex(), pages = buildPages().map((p, i) => ({ ...p, back: dup && i % 2 === 1 })).filter(p => which === "front" ? !p.back : which === "back" ? p.back : true), pw = PAGE_W(s) + "mm", ph = PAGE_H(s) + "mm";
   $("printPageStyle").textContent = `@page{size:A4 ${s.landscape ? "landscape" : "portrait"};margin:0;}@media print{html,body{width:${pw};}#printArea .page{width:${pw};height:${ph};}}`;
   $("printArea").innerHTML = pages.map(p => p.html).join("");
-  if(isDuplex() && state.backRotate === "1") $("printArea").querySelectorAll(".page").forEach((p, i) => { if(i % 2 === 1) p.style.transform = "rotate(180deg)"; });
+  if(dup && state.backRotate === "1") $("printArea").querySelectorAll(".page").forEach((el, i) => { if(pages[i].back) el.style.transform = "rotate(180deg)"; });
   try{ window.print(); }catch(_){ showNoPrint(); }
 }
 
@@ -501,7 +502,8 @@ function printNow(){
   yr.addEventListener("change", refresh); mo.addEventListener("change", refresh);
   cc.addEventListener("change", () => { state.calCount = +cc.value; refresh(); });
   ws.addEventListener("change", () => { state.weekSheets = +ws.value; refresh(); });
-  $("printBtn").addEventListener("click", printNow);
+  $("printBtn").addEventListener("click", () => printNow("all"));
+  $("printFront").addEventListener("click", () => printNow("front")); $("printBack").addEventListener("click", () => printNow("back"));
   const pageURL = location.href.split("#")[0];
   $("copyLink").addEventListener("click", async () => { let ok = false; try{ await navigator.clipboard.writeText(pageURL); ok = true; }catch(_){ try{ const t = document.createElement("textarea"); t.value = pageURL; document.body.appendChild(t); t.select(); ok = document.execCommand("copy"); t.remove(); }catch(__){} } $("copyMsg").textContent = ok ? "コピーしたよ。Safari を開いてアドレス欄に貼ってね。" : pageURL; });
   if(navigator.share){ $("shareLink").hidden = false; $("shareLink").addEventListener("click", () => { navigator.share({title:"リフィル工房", url:pageURL}).catch(() => {}); }); }
