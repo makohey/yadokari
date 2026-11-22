@@ -43,6 +43,10 @@
   .day.hday{border:1.5px solid #d9534f;background:#fdf0ef}
   .day.today{border:2px solid var(--accent)}
   .day.sel{background:#ffe7c7;border-color:#e8c9a8}
+  .day.glow,.wrow.glow{box-shadow:inset 0 0 0 3px #1fa596;background:#dcf4ef}
+  .glowBar{display:flex;align-items:flex-start;gap:8px;margin:0 0 6px;padding:6px 10px;border-radius:10px;background:#dcf4ef;border:1px solid #9fd9cf;font-size:13px;color:#14574f}.glowBar b{white-space:nowrap}.glowBar .ds{flex:1;min-width:0}.glowBar button{flex:0 0 auto;padding:1px 9px;font-size:12px}
+  .tile[data-glow]{cursor:pointer}.tile.glowOn{box-shadow:0 0 0 3px #1fa596;border-color:#1fa596}
+  .emoCount [data-glow]{cursor:pointer;border-radius:8px;padding:0 4px}.emoCount .glowOn{box-shadow:0 0 0 2px #1fa596;background:#dcf4ef}
   .day .n{font-weight:700;font-size:12px}
   .day .n.sun{color:#c0504d}.day .n.sat{color:#3d6fb0}
   .tag{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-radius:5px;padding:0 3px;margin-top:2px;font-size:10px;line-height:1.5}
@@ -341,6 +345,7 @@
     <div class="month"><button type="button" id="prev" aria-label="前の月">‹</button><div style="text-align:center"><h2 id="mTitle"></h2><button type="button" id="thisMonth" style="font-size:11px;padding:2px 10px;margin-top:2px;visibility:hidden">今月へ</button></div><button type="button" id="next" aria-label="次の月">›</button></div>
     <div class="viewSw"><button type="button" data-view="month">月<span class="en">Month</span></button><button type="button" data-view="week">週<span class="en">Week</span></button></div>
     <p class="note" id="swipeNote" style="text-align:center;margin:2px 0 4px">左右に指を滑らせても月が変わります</p>
+    <div id="glowBar"></div>
     <div class="cal" id="cal"></div>
     <div class="wdSw"><span class="g"><span>はじまり <span class="en">Start</span></span><button type="button" data-ws="mon">月</button><button type="button" data-ws="sun">日</button></span><span class="g"><span>曜日 <span class="en">Days</span></span><button type="button" data-wd="ja">月火水</button><button type="button" data-wd="en">Mon Tue</button></span></div>
     <div class="legend" id="legend"><span><i style="background:var(--work)"></i>出勤<span class="en">Work</span></span><span><i style="background:var(--off)"></i>休み<span class="en">Off</span></span><span><i style="background:var(--go)"></i>出かける用事<span class="en">Out</span></span><span><i style="background:var(--todo)"></i>家のこと・習慣<span class="en">Home</span></span><span><i style="background:var(--other)"></i>その他<span class="en">Other</span></span></div>
@@ -452,7 +457,7 @@
     <div id="sOut"></div>
   </div>
 </div>
-<script src="./plan-core.js?v=20261122b"></script>
+<script src="./plan-core.js?v=20261122c"></script>
 <script>
 (() => {
 "use strict";
@@ -529,6 +534,37 @@ const TILE_KEY = "yadokari.dash.tiles";
 const getCustomTiles = () => { try { const v = JSON.parse(localStorage.getItem(TILE_KEY) || "[]"); return Array.isArray(v) ? v.filter(t => t && typeof t.word === "string" && t.word.trim()).slice(0, 8) : []; } catch (_) { return []; } };
 const setCustomTiles = v => { try { localStorage.setItem(TILE_KEY, JSON.stringify(v.slice(0, 8))); } catch (_) {} };
 let tileEdit = false;
+/* 数えたタイルを押すと、その月の「入っている日」をカレンダーで光らせる（色は青緑：祝日の赤・選んだ日の橙と分ける） */
+let glow = null, glowPrevView = null;
+const hayOf = it => [it.what, it.place, it.memo, it.activity].join(" ");
+function glowMatch(key) {
+  const [t, v] = [key.slice(0, key.indexOf(":")), key.slice(key.indexOf(":") + 1)];
+  if (t === "plan") return it => it.kind === "予定";
+  if (t === "work") return it => it.activity === "出勤";
+  if (t === "off") return it => it.activity === "休み";
+  if (t === "word") return it => hayOf(it).includes(v);
+  if (t === "act") return it => it.activity === v;
+  if (t === "emo") return it => emojisIn([it.what, it.memo].join(" ")).includes(v);
+  return () => false;
+}
+function glowDays(items) {
+  if (!glow) return null;
+  const pre = `${ym.y}-${z(ym.m)}-`, f = glowMatch(glow.key), hit = items.filter(it => it.date && it.date.startsWith(pre) && f(it));
+  const per = new Map(); for (const it of hit) per.set(it.date, (per.get(it.date) || 0) + 1);
+  return { n: hit.length, days: per };
+}
+function glowBar(items) {
+  const g = glowDays(items), bar = $("glowBar"); if (!bar) return;
+  if (!g) { bar.innerHTML = ""; return; }
+  const list = [...g.days.keys()].sort().map(d => `${+d.slice(5, 7)}/${+d.slice(8, 10)}${g.days.get(d) > 1 ? `×${g.days.get(d)}` : ""}`).join("・");
+  bar.innerHTML = `<div class="glowBar"><b>${esc(glow.label)} ${ym.m}月 ${g.n}件</b><span class="ds">${list || "この月はありません"}</span><button type="button" data-glowoff>✕ 消す</button></div>`;
+}
+function setGlow(key, label) {
+  if (glow && glow.key === key) { glow = null; if (glowPrevView) { view = glowPrevView; glowPrevView = null; } render(); return; }
+  if (!glow) glowPrevView = view;
+  glow = { key, label }; view = "month"; render();
+  setTimeout(() => { const el = $("glowBar"); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 60);
+}
 function tiles(items) {
   const pre = `${ym.y}-${z(ym.m)}-`;
   const inMonth = items.filter(it => it.date && it.date.startsWith(pre));
@@ -537,19 +573,18 @@ function tiles(items) {
   const sudden = inMonth.filter(it => it.activity === "出勤" && isSudden(it));
   const offDays = new Set(inMonth.filter(it => it.activity === "休み").map(it => it.date));
   const rest = inMonth.filter(it => it.date >= t0 && it.kind === "予定").length;
-  const tile = (k, v, u, s, x = "") => `<div class="tile">${x}<div class="k">${k}</div><div class="v">${v}<span class="u">${u}</span></div><div class="s">${s}</div></div>`;
-  const hay = it => [it.what, it.src, it.place, it.memo, it.activity].join(" ");
+  const tile = (k, v, u, s, x = "", g = "", gl = "") => `<div class="tile${g && glow && glow.key === g ? " glowOn" : ""}"${g && !tileEdit ? ` data-glow="${esc(g)}" data-glowlabel="${esc(gl)}" role="button" tabindex="0"` : ""}>${x}<div class="k">${k}</div><div class="v">${v}<span class="u">${u}</span></div><div class="s">${s}</div></div>`;
   const custom = getCustomTiles().map((t, i) => {
-    const n = inMonth.filter(it => hay(it).includes(t.word)).length;
+    const n = inMonth.filter(it => hayOf(it).includes(t.word)).length;
     const del = tileEdit ? `<button type="button" data-tdel="${i}" aria-label="消す" style="float:right;padding:0 6px;font-size:12px;border:0;background:none;color:#c0504d">✕</button>` : "";
-    return tile(esc(t.label || t.word), n, "回", `今月の「${esc(t.word)}」`, del);
+    return tile(esc(t.label || t.word), n, "回", `今月の「${esc(t.word)}」`, del, "word:" + t.word, t.label || t.word);
   });
   $("tiles").innerHTML = [
-    tile("今月の予定", plans.length, "件", `これから ${rest}件`),
-    tile("出勤", workDays.size, "日", `うち急な出勤 ${sudden.length}回`),
-    tile("休み", offDays.size, "日", "OFF・有給など"),
+    tile("今月の予定", plans.length, "件", `これから ${rest}件`, "", "plan:", "予定"),
+    tile("出勤", workDays.size, "日", `うち急な出勤 ${sudden.length}回`, "", "work:", "出勤"),
+    tile("休み", offDays.size, "日", "OFF・有給など", "", "off:", "休み"),
     ...custom,
-    ...getActs().add.map(a => [a, inMonth.filter(it => it.activity === a).length]).filter(x => x[1]).map(([a, n]) => tile(esc(a), n, "回", "今月の すること"))
+    ...getActs().add.map(a => [a, inMonth.filter(it => it.activity === a).length]).filter(x => x[1]).map(([a, n]) => tile(esc(a), n, "回", "今月の すること", "", "act:" + a, a))
   ].join("");
   $("tileNote").innerHTML = tileEdit
     ? `<span style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><input id="tileWord" placeholder="数える言葉（例：通院・ジム・釣り）" maxlength="12" style="flex:1;min-width:150px;font-size:16px;padding:5px 8px;border:1px solid var(--line);border-radius:10px"><button type="button" id="tileAdd">足す</button><button type="button" id="tileDone">できた</button></span><span style="display:block;margin-top:4px">その言葉が「何・元の文・場所・備考・すること」に入っている今月の予定を数えます。✕で消せます（最大8つ）。</span>`
@@ -558,7 +593,7 @@ function tiles(items) {
   const cnt = new Map();
   for (const it of inMonth) for (const e of emojisIn([it.what, it.memo].join(" "))) cnt.set(e, (cnt.get(e) || 0) + 1);
   const top = [...cnt].sort((a, b) => b[1] - a[1]);
-  $("emoCount").innerHTML = top.length ? `<span class="emoLbl" style="width:100%">今月の絵文字</span>` + top.map(([e, n]) => `<span>${esc(e)}<b>${n}</b></span>`).join("") : "";
+  $("emoCount").innerHTML = top.length ? `<span class="emoLbl" style="width:100%">今月の絵文字</span>` + top.map(([e, n]) => `<span data-glow="emo:${esc(e)}" data-glowlabel="${esc(e)}" role="button" tabindex="0"${glow && glow.key === "emo:" + e ? ' class="glowOn"' : ""}>${esc(e)}<b>${n}</b></span>`).join("") : "";
 }
 /* ---------- すること の並び：足す・隠す（出勤・休み・その他 は動かさない） ---------- */
 let actPick = "";
@@ -602,12 +637,13 @@ function calendar(items) {
   const lead = leadOf(first.getUTCDay());
   const heads = weekOrder().map(i => `<div class="h ${i === 0 ? "sun" : i === 6 ? "sat" : ""}">${WD[i]}</div>`).join("");
   let cells = "";
+  const gd = glowDays(items); glowBar(items);
   for (let i = 0; i < lead; i++) cells += `<div class="day out"></div>`;
   for (let d = 1; d <= days; d++) {
     const ds = `${ym.y}-${z(ym.m)}-${z(d)}`, wd = new Date(Date.UTC(ym.y, ym.m - 1, d)).getUTCDay();
     const list = items.filter(it => it.date === ds).sort((a, b) => sortKey(a) < sortKey(b) ? -1 : 1);
     const tags = list.slice(0, 2).map(it => `<span class="tag t-${color(it)}"${tagStyle(it)}>${esc(cleanWhat(it.what))}</span>`).join("");
-    cells += `<button type="button" class="day${holiday(ds) ? " hday" : ""}${ds === t0 ? " today" : ""}${ds === sel ? " sel" : ""}" data-d="${ds}"><span class="n ${wd === 0 || holiday(ds) ? "sun" : wd === 6 ? "sat" : ""}">${d}</span>${(() => { const mk = modMark(ds); return mk ? `<span class="mk">${esc(mk)}</span>` : ""; })()}${holiday(ds) ? `<span class="hol">${esc(holiday(ds))}</span>` : ""}${tags}${list.length > 2 ? `<span class="more">ほか${list.length - 2}件</span>` : ""}</button>`;
+    cells += `<button type="button" class="day${holiday(ds) ? " hday" : ""}${ds === t0 ? " today" : ""}${ds === sel ? " sel" : ""}${gd && gd.days.has(ds) ? " glow" : ""}" data-d="${ds}"><span class="n ${wd === 0 || holiday(ds) ? "sun" : wd === 6 ? "sat" : ""}">${d}</span>${(() => { const mk = modMark(ds); return mk ? `<span class="mk">${esc(mk)}</span>` : ""; })()}${holiday(ds) ? `<span class="hol">${esc(holiday(ds))}</span>` : ""}${tags}${list.length > 2 ? `<span class="more">ほか${list.length - 2}件</span>` : ""}</button>`;
   }
   $("cal").innerHTML = heads + cells;
 }
@@ -615,6 +651,7 @@ function calendar(items) {
 function weekView(items) {
   const days = [...Array(7)].map((_, i) => addDaysStr(wk, i)), last = days[6];
   $("cal").className = "week";
+  const gd = glowDays(items); glowBar(items);
   $("mTitle").textContent = `${+wk.slice(5, 7)}/${+wk.slice(8, 10)}〜${+last.slice(5, 7)}/${+last.slice(8, 10)}`;
   $("thisMonth").innerHTML = `今週へ<span class="en">This week</span>`;
   $("thisMonth").style.visibility = wk === mondayOf(t0) ? "hidden" : "visible";
@@ -622,7 +659,7 @@ function weekView(items) {
     const t = new Date(ds + "T12:00:00Z"), wd = t.getUTCDay(), h = holiday(ds);
     const list = items.filter(it => it.date === ds).sort((a, b) => sortKey(a) < sortKey(b) ? -1 : 1);
     const lines = list.slice(0, 5).map(it => `<div><span class="dot" style="background:${cvar(it)}"></span>${esc(it.time || it.part || "")} ${esc(cleanWhat(it.what))}</div>`).join("") + (list.length > 5 ? `<div class="none">ほか${list.length - 5}件</div>` : "");
-    return `<button type="button" class="wrow${h ? " hday" : ""}${ds === t0 ? " today" : ""}${ds === sel ? " sel" : ""}" data-d="${ds}"><span class="wd ${wd === 0 || h ? "sun" : wd === 6 ? "sat" : ""}" style="color:${wd === 0 || h ? "#c0504d" : wd === 6 ? "#3d6fb0" : "inherit"}">${t.getUTCDate()}<small>${WD[wd]}${t.getUTCDate() === 1 || ds === wk ? `・${wdEn() ? ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][t.getUTCMonth()] : `${t.getUTCMonth() + 1}月`}` : ""}</small>${h ? `<span class="hn">${esc(h)}</span>` : ""}${(() => { const mk = modMark(ds); return mk ? `<span class="mk">${esc(mk)}</span>` : ""; })()}</span><span class="wl">${lines || '<div class="none">—</div>'}</span></button>`;
+    return `<button type="button" class="wrow${h ? " hday" : ""}${ds === t0 ? " today" : ""}${ds === sel ? " sel" : ""}${gd && gd.days.has(ds) ? " glow" : ""}" data-d="${ds}"><span class="wd ${wd === 0 || h ? "sun" : wd === 6 ? "sat" : ""}" style="color:${wd === 0 || h ? "#c0504d" : wd === 6 ? "#3d6fb0" : "inherit"}">${t.getUTCDate()}<small>${WD[wd]}${t.getUTCDate() === 1 || ds === wk ? `・${wdEn() ? ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][t.getUTCMonth()] : `${t.getUTCMonth() + 1}月`}` : ""}</small>${h ? `<span class="hn">${esc(h)}</span>` : ""}${(() => { const mk = modMark(ds); return mk ? `<span class="mk">${esc(mk)}</span>` : ""; })()}</span><span class="wl">${lines || '<div class="none">—</div>'}</span></button>`;
   }).join("");
 }
 
@@ -1136,7 +1173,7 @@ function loadMod(id) {
   modLoading[id] = true;
   const s = document.createElement("script"); s.src = `./mod-${id}.js?v=${APP_VER_MODS}`; s.onload = () => renderMods(); s.onerror = () => { modLoading[id] = false; }; document.head.appendChild(s);
 }
-const APP_VER_MODS = "20261122b";
+const APP_VER_MODS = "20261122c";
 function renderMods() {
   const on = getMods(), area = $("modsArea"); $("modsCard").hidden = !on.length;
   for (const id of on) {
@@ -1348,6 +1385,8 @@ document.addEventListener("click", e => {
   const cl = e.target.closest(".row [data-clear]"); if (cl) { const el = cl.closest(".row").querySelector(`[data-f="${cl.dataset.clear}"]`); if (el) el.value = ""; return; }
   const ed = e.target.closest("[data-edit]"); if (ed) { editing = ed.dataset.edit; const blk = ed.closest("[data-block]"); editWhere = ed.closest("#upcoming") ? "upcoming" : ed.closest("#today") ? "today" : blk ? ({ day: "day", undated: "undated" }[blk.dataset.block] || "") : ""; render(); return; }
   if (e.target.closest("[data-cancel]")) { editing = null; render(); return; }
+  const gw = e.target.closest("[data-glow]"); if (gw) { setGlow(gw.dataset.glow, gw.dataset.glowlabel || ""); return; }
+  if (e.target.closest("[data-glowoff]")) { glow = null; if (glowPrevView) { view = glowPrevView; glowPrevView = null; } render(); return; }
   /* 繰り越し：今日より前の予定は今日を起点に、明日・来週・来月の1日へ。回数を数える */
   const cy = e.target.closest("[data-carry]"); if (cy) { const b = cy.closest(".row").querySelector("[data-carrybox]"); if (b) b.hidden = !b.hidden; return; }
   const ct = e.target.closest("[data-carryto]");
@@ -1425,7 +1464,7 @@ render();
 <!-- 新しい版の知らせ（版を上げるときは version.json とこの APP_VER を同じにする） -->
 <script>
 (() => {
-  const APP_VER = "20261122b";
+  const APP_VER = "20261122c";
   let shown = false;
   const check = () => {
     if (shown || !navigator.onLine) return;
