@@ -166,6 +166,8 @@
   .pf span{font-size:12.5px;color:var(--muted)}
   .pf input,.pf select,.pf textarea{font-size:16px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:5px 8px;width:100%;min-width:0}
   .ctrl{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+  .carryBox{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:6px;padding:6px 8px;border:1px dashed var(--line);border-radius:10px;font-size:13px}.carryBox[hidden]{display:none}
+  .pk.mig3{background:#fdebd3;color:#8a5a14}
   .empty{font-size:13px;color:var(--muted);padding:6px 0}
   .inbox textarea{width:100%;min-height:52px;border:1px solid var(--line);border-radius:14px;padding:10px 12px;background:#fff;font-size:16px;resize:vertical}
   button.main{background:#ffe7c7;border-color:#e8c9a8;font-weight:700}
@@ -450,7 +452,7 @@
     <div id="sOut"></div>
   </div>
 </div>
-<script src="./plan-core.js?v=20261120d"></script>
+<script src="./plan-core.js?v=20261122a"></script>
 <script>
 (() => {
 "use strict";
@@ -639,13 +641,14 @@ function rowHtml(it, where) {
       <div class="pf"><span>場所</span><input data-f="place" value="${esc(it.place)}" placeholder="なければ空のまま"></div>
       <div class="pf"><span>すること</span><select data-f="act">${opts(actList(it.activity), it.activity)}</select></div>
       <div class="pf"><span>備考</span><textarea data-f="memo">${esc(it.memo)}</textarea></div>
-      <div class="ctrl"><button type="button" data-save="${esc(it.id)}">直す</button><button type="button" data-cancel>やめる</button><button type="button" data-del="${esc(it.id)}">消す</button></div>
+      <div class="ctrl"><button type="button" data-save="${esc(it.id)}">直す</button>${it.date ? `<button type="button" data-carry="${esc(it.id)}">↪ 繰り越し</button>` : ""}<button type="button" data-cancel>やめる</button><button type="button" data-del="${esc(it.id)}">消す</button></div>
+      ${it.date ? `<div class="carryBox" data-carrybox hidden><span>どこへ繰り越す？${it.mig ? `（これで${it.mig + 1}回目）` : ""}</span><button type="button" data-carryto="1|${esc(it.id)}">明日</button><button type="button" data-carryto="7|${esc(it.id)}">来週</button><button type="button" data-carryto="m|${esc(it.id)}">来月のはじめ</button></div>` : ""}
       ${it.src ? `<div class="note">元の文：${esc(it.src)}</div>` : ""}</div>`;
   }
   const calB = calAllowed() && it.date ? `<button type="button" class="calBtn" data-cal="${esc(it.id)}" aria-label="カレンダーへ">📅</button>` : "";
   const calM = it.calAt ? (it.calSig === calSig(it) ? `<div class="calMark">📅 カレンダーに出した（${esc(new Date(it.calAt).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }))}）</div>` : `<div class="calMark old">📅 出したあとに直しました。カレンダー側は古いままです（もう一度 📅 で出すか、カレンダーで直してね）</div>`) : "";
   return `<div class="row${it.calAt && it.calSig === calSig(it) ? " sent" : ""}"><button type="button" class="edit" data-edit="${esc(it.id)}" aria-label="直す">✏️</button>${calB}
-    <div><b>${esc(DF(it.date))}</b> ${esc(it.time || it.part || "")} <span class="pk">${esc(it.kind)}</span><span class="pk">${esc(it.activity)}</span>${it.done ? '<span class="pk ok">済</span>' : ""}${esc(cleanWhat(it.what))}${it.place ? ` <small>＠${esc(it.place)}</small>` : ""}${isSudden(it) && it.activity === "出勤" ? ' <span class="pk">急</span>' : ""}</div>
+    <div><b>${esc(DF(it.date))}</b> ${esc(it.time || it.part || "")} <span class="pk">${esc(it.kind)}</span><span class="pk">${esc(it.activity)}</span>${it.done ? '<span class="pk ok">済</span>' : ""}${it.mig ? `<span class="pk${it.mig >= 3 ? " mig3" : ""}" title="繰り越した回数">↪${it.mig}</span>` : ""}${esc(cleanWhat(it.what))}${it.place ? ` <small>＠${esc(it.place)}</small>` : ""}${isSudden(it) && it.activity === "出勤" ? ' <span class="pk">急</span>' : ""}</div>
     ${it.memo ? `<div class="memo">📝 ${esc(it.memo)}</div>` : ""}${calM}
     ${isOff((it.what || "") + " " + (it.src || "")) && it.activity !== "休み" ? `<div class="memo" style="color:#8a5a14">⚠ 「休み」と書いてあるのに、すること＝${esc(it.activity)} になっています。✏️ で直すと、休みの日数に入ります</div>` : ""}
     ${isWork((it.what || "") + " " + (it.src || "")) && it.activity !== "出勤" ? `<div class="memo" style="color:#8a5a14">⚠ 「出勤」と書いてあるのに、すること＝${esc(it.activity)} になっています。✏️ で直すと、出勤の日数に入ります</div>` : ""}</div>`;
@@ -746,7 +749,7 @@ function miniRow(it, where = "upcoming") {
   if (editing === it.id && editWhere === where) return rowHtml(it, where);
   const sent = it.calAt && it.calSig === calSig(it), cal = calAllowed() && it.date ? `<button type="button" class="calBtn" data-cal="${esc(it.id)}" aria-label="カレンダーへ" style="float:none;flex:0 0 auto;padding:0 4px">📅</button>` : "";
   const ic = it.activity === "出勤" ? "💼" : it.activity === "休み" ? "🌙" : it.kind === "やること" ? "☐" : "•";
-  return `<div class="todo" style="padding:5px 0;font-size:14px${sent ? ";opacity:.55" : ""}"><span style="flex:0 0 20px;text-align:center">${ic}</span><div class="t">${esc(it.time || it.part || "")} ${esc(cleanWhat(it.what))}${it.place ? ` <small>＠${esc(it.place)}</small>` : ""}</div>${cal}<button type="button" class="edit" data-edit="${esc(it.id)}" aria-label="直す" style="float:none;flex:0 0 auto;padding:0 4px">✏️</button></div>`;
+  return `<div class="todo" style="padding:5px 0;font-size:14px${sent ? ";opacity:.55" : ""}"><span style="flex:0 0 20px;text-align:center">${ic}</span><div class="t">${esc(it.time || it.part || "")} ${esc(cleanWhat(it.what))}${it.place ? ` <small>＠${esc(it.place)}</small>` : ""}${it.mig ? ` <span class="pk${it.mig >= 3 ? " mig3" : ""}" title="繰り越した回数">↪${it.mig}</span>` : ""}</div>${cal}<button type="button" class="edit" data-edit="${esc(it.id)}" aria-label="直す" style="float:none;flex:0 0 auto;padding:0 4px">✏️</button></div>`;
 }
 const miniDay = list => { let out = "", last = ""; for (const it of list) { if (it.date !== last) { out += `<div class="sub" style="font-size:12px;color:var(--muted);margin-top:4px">${esc(HDF(it.date))}</div>`; last = it.date; } out += miniRow(it); } return out; };
 /* 直近の予定：明日の分だけ開いて見せ、あさって以降は1行に畳む（今日の分は一番上の「今日とやること」にある） */
@@ -758,7 +761,7 @@ function lists(items) {
   const open = (() => { try { return localStorage.getItem(FOLD_KEY) === "1"; } catch (_) { return false; } })();
   const next = later[0];
   $("upcoming").innerHTML = `<div class="sub" style="font-size:12px;color:var(--muted)">${esc(HDF(tm))}・明日</div>`
-    + (tomorrow.length ? tomorrow.map(miniRow).join("") : '<div class="empty" style="padding:2px 0">明日の予定はありません</div>')
+    + (tomorrow.length ? tomorrow.map(it => miniRow(it)).join("") : '<div class="empty" style="padding:2px 0">明日の予定はありません</div>')
     + (later.length ? `<details id="laterBox"${open ? " open" : ""} style="margin-top:6px"><summary style="font-size:13px">あさって以降（${later.length}件${next ? `・次は ${esc(DF(next.date))} ${esc(cleanWhat(next.what))}` : ""}）</summary>${miniDay(later.slice(0, 30))}${later.length > 30 ? `<p class="note">ほか ${later.length - 30}件（カレンダーで見てね）</p>` : ""}</details>` : "");
   const lb = $("laterBox"); if (lb) lb.addEventListener("toggle", () => { try { localStorage.setItem(FOLD_KEY, lb.open ? "1" : "0"); } catch (_) {} });
   const un = items.filter(it => !it.date);
@@ -797,7 +800,7 @@ function today(items) {
   const doneToday = items.filter(it => it.kind === "やること" && it.done && new Date(it.done + 9 * 3600000).toISOString().slice(0, 10) === t0);
   const cb = it => calAllowed() && it.date ? `<button type="button" class="calBtn" data-cal="${esc(it.id)}" aria-label="カレンダーへ" style="float:none;flex:0 0 auto">📅</button>` : "";
   const plan = it => miniRow(it, "today");
-  const todo = it => `<div class="todo${it.done ? " done" : ""}"><label style="display:flex;gap:10px;flex:1;min-width:0;align-items:flex-start"><input type="checkbox" data-done="${esc(it.id)}"${it.done ? " checked" : ""}><div class="t">${esc(cleanWhat(it.what))}${it.date && it.date < t0 ? `<div class="sub">${esc(DF(it.date))}から</div>` : ""}${it.memo ? `<div class="sub">📝 ${esc(it.memo)}</div>` : ""}${it.calAt ? '<div class="sub">📅 出した</div>' : ""}</div></label>${cb(it)}</div>`;
+  const todo = it => `<div class="todo${it.done ? " done" : ""}"><label style="display:flex;gap:10px;flex:1;min-width:0;align-items:flex-start"><input type="checkbox" data-done="${esc(it.id)}"${it.done ? " checked" : ""}><div class="t">${esc(cleanWhat(it.what))}${it.mig ? ` <span class="pk${it.mig >= 3 ? " mig3" : ""}" title="繰り越した回数">↪${it.mig}</span>` : ""}${it.date && it.date < t0 ? `<div class="sub">${esc(DF(it.date))}から</div>` : ""}${it.memo ? `<div class="sub">📝 ${esc(it.memo)}</div>` : ""}${it.calAt ? '<div class="sub">📅 出した</div>' : ""}</div></label>${cb(it)}</div>`;
   $("today").innerHTML = `<div class="sub" style="font-size:12px;color:var(--muted)">${esc(HDF(t0))}・今日</div>`
     + (plans.length ? (() => {
         /* 時刻が過ぎた予定は薄くして下へ（「終わり」）。時刻のない予定（終日）は一日中そのまま */
@@ -1133,7 +1136,7 @@ function loadMod(id) {
   modLoading[id] = true;
   const s = document.createElement("script"); s.src = `./mod-${id}.js?v=${APP_VER_MODS}`; s.onload = () => renderMods(); s.onerror = () => { modLoading[id] = false; }; document.head.appendChild(s);
 }
-const APP_VER_MODS = "20261120d";
+const APP_VER_MODS = "20261122a";
 function renderMods() {
   const on = getMods(), area = $("modsArea"); $("modsCard").hidden = !on.length;
   for (const id of on) {
@@ -1209,7 +1212,7 @@ function review() {
     ${books.length ? `<div class="rvGrp"><div class="k">読書</div><div style="font-size:13.5px">📖 ${books.length}冊 読み終えた${bAvg != null ? `（平均${bAvg}日）` : ""}：${books.map(b => esc(b.title)).join("・")}</div></div>` : ""}
     ${lines.length ? `<div class="rvGrp"><div class="k">1行日記から「よかったこと」を選ぶ（★ 3つまで）</div>${lines.map(e => `<div class="rvLine"><button type="button" class="rvStar${rv.good.includes(e.id) ? " on" : ""}" data-rvgood="${e.id}" aria-label="よかったこと">★</button><span class="t"><small style="color:var(--muted)">${+e.id.slice(5, 7)}/${+e.id.slice(8, 10)} ${esc((e.w || "") + (e.m || ""))}</small> ${esc(e.t)}</span></div>`).join("")}</div>` : ""}
     <div class="rvGrp"><div class="k">この月をひとことで</div><textarea id="rvNote" rows="2" maxlength="400" placeholder="（なくてもOK）" style="width:100%;font-size:16px;border:1px solid var(--line);border-radius:10px;padding:6px 8px">${esc(rv.note || "")}</textarea></div>
-    ${mig.length ? `<div class="rvGrp"><div class="k">移しかえ：終わっていない「やること」（${mig.length}）</div>${mig.map(it => `<div class="rvLine"><span class="t">${esc(cleanWhat(it.what))} <small style="color:var(--muted)">${+it.date.slice(5, 7)}/${+it.date.slice(8, 10)}から</small></span><span class="rvMig"><button type="button" data-rvmig="next|${esc(it.id)}">来月へ</button><button type="button" data-rvmig="done|${esc(it.id)}">済んだ</button><button type="button" data-rvmig="drop|${esc(it.id)}">やめる</button></span></div>`).join("")}</div>` : ""}
+    ${mig.length ? `<div class="rvGrp"><div class="k">移しかえ：終わっていない「やること」（${mig.length}）</div>${mig.map(it => `<div class="rvLine"><span class="t">${esc(cleanWhat(it.what))} <small style="color:var(--muted)">${+it.date.slice(5, 7)}/${+it.date.slice(8, 10)}から</small>${it.mig ? ` <span class="pk${it.mig >= 3 ? " mig3" : ""}">↪${it.mig}</span>` : ""}</span><span class="rvMig"><button type="button" data-rvmig="next|${esc(it.id)}">来月へ</button><button type="button" data-rvmig="done|${esc(it.id)}">済んだ</button><button type="button" data-rvmig="drop|${esc(it.id)}">やめる</button></span></div>`).join("")}</div>` : ""}
     <div style="margin-top:10px"><button type="button" class="shareBtn" data-rvshare style="font-size:13px;padding:5px 12px">⤴︎ ふりかえりを送る<span class="en">Share</span></button></div>`;
 }
 function reviewText() {
@@ -1283,7 +1286,7 @@ document.addEventListener("click", e => {
   const mg = e.target.closest("[data-rvmig]");
   if (mg) {
     const [how, id] = mg.dataset.rvmig.split("|"), items = load(), it = items.find(x => x.id === id); if (!it) return;
-    if (how === "next") { const [y, m] = rvYM.split("-").map(Number), ny = m === 12 ? y + 1 : y, nm = m === 12 ? 1 : m + 1, nd = `${ny}-${z(nm)}-01`; it.date = nd < t0 ? t0 : nd; }
+    if (how === "next") { const [y, m] = rvYM.split("-").map(Number), ny = m === 12 ? y + 1 : y, nm = m === 12 ? 1 : m + 1, nd = `${ny}-${z(nm)}-01`; it.date = nd < t0 ? t0 : nd; it.mig = (it.mig || 0) + 1; }
     else if (how === "done") it.done = Date.now();
     else { if (!confirm(`「${cleanWhat(it.what)}」をやめます（消します）。いい？`)) return; items.splice(items.indexOf(it), 1); }
     save(items); render(); return;
@@ -1345,6 +1348,15 @@ document.addEventListener("click", e => {
   const cl = e.target.closest(".row [data-clear]"); if (cl) { const el = cl.closest(".row").querySelector(`[data-f="${cl.dataset.clear}"]`); if (el) el.value = ""; return; }
   const ed = e.target.closest("[data-edit]"); if (ed) { editing = ed.dataset.edit; const blk = ed.closest("[data-block]"); editWhere = ed.closest("#upcoming") ? "upcoming" : ed.closest("#today") ? "today" : blk ? ({ day: "day", undated: "undated" }[blk.dataset.block] || "") : ""; render(); return; }
   if (e.target.closest("[data-cancel]")) { editing = null; render(); return; }
+  /* 繰り越し：今日より前の予定は今日を起点に、明日・来週・来月の1日へ。回数を数える */
+  const cy = e.target.closest("[data-carry]"); if (cy) { const b = cy.closest(".row").querySelector("[data-carrybox]"); if (b) b.hidden = !b.hidden; return; }
+  const ct = e.target.closest("[data-carryto]");
+  if (ct) { const [how, id] = ct.dataset.carryto.split("|"), items = load(), it = items.find(x => x.id === id); if (!it || !it.date) return;
+    const base = it.date < t0 ? t0 : it.date;
+    let nd; if (how === "m") { const y = +base.slice(0, 4), m = +base.slice(5, 7); nd = m === 12 ? `${y + 1}-01-01` : `${y}-${z(m + 1)}-01`; } else nd = addDaysStr(base, +how);
+    it.date = nd; it.mig = (it.mig || 0) + 1;
+    if (save(items)) { editing = null; sel = nd; ym = { y: +nd.slice(0, 4), m: +nd.slice(5, 7) }; wk = mondayOf(nd); render(); }
+    return; }
   const sv = e.target.closest("[data-save]");
   if (sv) { const items = load(), it = items.find(x => x.id === sv.dataset.save); if (!it) return;
     /* 押した「直す」と同じ枠の中から読む（同じ予定が2か所に出ていても、まちがえない） */
@@ -1411,7 +1423,7 @@ render();
 <!-- 新しい版の知らせ（版を上げるときは version.json とこの APP_VER を同じにする） -->
 <script>
 (() => {
-  const APP_VER = "20261120d";
+  const APP_VER = "20261122a";
   let shown = false;
   const check = () => {
     if (shown || !navigator.onLine) return;
