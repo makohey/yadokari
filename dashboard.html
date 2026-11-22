@@ -166,7 +166,7 @@
   .pf span{font-size:12.5px;color:var(--muted)}
   .pf input,.pf select,.pf textarea{font-size:16px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:5px 8px;width:100%;min-width:0}
   .ctrl{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
-  .carryBox{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:6px;padding:6px 8px;border:1px dashed var(--line);border-radius:10px;font-size:13px}.carryBox[hidden]{display:none}
+  .carryBox{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:6px;padding:6px 8px;border:1px dashed var(--line);border-radius:10px;font-size:13px}.carryBox[hidden]{display:none}.carryPick{display:flex;flex-wrap:wrap;align-items:center;gap:6px;width:100%;border-top:1px dotted var(--line);padding-top:6px}.carryPick input{font-size:16px;padding:3px 6px;border:1px solid var(--line);border-radius:8px}
   .pk.mig3{background:#fdebd3;color:#8a5a14}
   .empty{font-size:13px;color:var(--muted);padding:6px 0}
   .inbox textarea{width:100%;min-height:52px;border:1px solid var(--line);border-radius:14px;padding:10px 12px;background:#fff;font-size:16px;resize:vertical}
@@ -452,7 +452,7 @@
     <div id="sOut"></div>
   </div>
 </div>
-<script src="./plan-core.js?v=20261122a"></script>
+<script src="./plan-core.js?v=20261122b"></script>
 <script>
 (() => {
 "use strict";
@@ -642,7 +642,7 @@ function rowHtml(it, where) {
       <div class="pf"><span>すること</span><select data-f="act">${opts(actList(it.activity), it.activity)}</select></div>
       <div class="pf"><span>備考</span><textarea data-f="memo">${esc(it.memo)}</textarea></div>
       <div class="ctrl"><button type="button" data-save="${esc(it.id)}">直す</button>${it.date ? `<button type="button" data-carry="${esc(it.id)}">↪ 繰り越し</button>` : ""}<button type="button" data-cancel>やめる</button><button type="button" data-del="${esc(it.id)}">消す</button></div>
-      ${it.date ? `<div class="carryBox" data-carrybox hidden><span>どこへ繰り越す？${it.mig ? `（これで${it.mig + 1}回目）` : ""}</span><button type="button" data-carryto="1|${esc(it.id)}">明日</button><button type="button" data-carryto="7|${esc(it.id)}">来週</button><button type="button" data-carryto="m|${esc(it.id)}">来月のはじめ</button></div>` : ""}
+      ${it.date ? `<div class="carryBox" data-carrybox hidden><span>どこへ繰り越す？${it.mig ? `（これで${it.mig + 1}回目）` : ""}</span><button type="button" data-carryto="1|${esc(it.id)}">明日</button><button type="button" data-carryto="7|${esc(it.id)}">来週</button><button type="button" data-carryto="m|${esc(it.id)}">来月のはじめ</button><span class="carryPick"><span>日と時間を選ぶ：</span><input type="date" data-carryd value="${esc(addDaysStr(it.date < t0 ? t0 : it.date, 1))}"><input type="time" data-carryt value="${esc(it.time || "")}"><button type="button" data-carryto="pick|${esc(it.id)}">ここへ繰り越す</button></span></div>` : ""}
       ${it.src ? `<div class="note">元の文：${esc(it.src)}</div>` : ""}</div>`;
   }
   const calB = calAllowed() && it.date ? `<button type="button" class="calBtn" data-cal="${esc(it.id)}" aria-label="カレンダーへ">📅</button>` : "";
@@ -1136,7 +1136,7 @@ function loadMod(id) {
   modLoading[id] = true;
   const s = document.createElement("script"); s.src = `./mod-${id}.js?v=${APP_VER_MODS}`; s.onload = () => renderMods(); s.onerror = () => { modLoading[id] = false; }; document.head.appendChild(s);
 }
-const APP_VER_MODS = "20261122a";
+const APP_VER_MODS = "20261122b";
 function renderMods() {
   const on = getMods(), area = $("modsArea"); $("modsCard").hidden = !on.length;
   for (const id of on) {
@@ -1353,8 +1353,10 @@ document.addEventListener("click", e => {
   const ct = e.target.closest("[data-carryto]");
   if (ct) { const [how, id] = ct.dataset.carryto.split("|"), items = load(), it = items.find(x => x.id === id); if (!it || !it.date) return;
     const base = it.date < t0 ? t0 : it.date;
-    let nd; if (how === "m") { const y = +base.slice(0, 4), m = +base.slice(5, 7); nd = m === 12 ? `${y + 1}-01-01` : `${y}-${z(m + 1)}-01`; } else nd = addDaysStr(base, +how);
-    it.date = nd; it.mig = (it.mig || 0) + 1;
+    let nd, nt = it.time;
+    if (how === "pick") { const bx = ct.closest("[data-carrybox]"); nd = bx.querySelector("[data-carryd]").value; nt = bx.querySelector("[data-carryt]").value; if (!/^\d{4}-\d\d-\d\d$/.test(nd)) { alert("日付を選んでね"); return; } if (nd === it.date && nt === (it.time || "")) { alert("今と同じ日と時間です"); return; } }
+    else if (how === "m") { const y = +base.slice(0, 4), m = +base.slice(5, 7); nd = m === 12 ? `${y + 1}-01-01` : `${y}-${z(m + 1)}-01`; } else nd = addDaysStr(base, +how);
+    it.date = nd; if (nt !== it.time) { it.time = nt || ""; if (it.time) it.part = ""; } it.mig = (it.mig || 0) + 1;
     if (save(items)) { editing = null; sel = nd; ym = { y: +nd.slice(0, 4), m: +nd.slice(5, 7) }; wk = mondayOf(nd); render(); }
     return; }
   const sv = e.target.closest("[data-save]");
@@ -1423,7 +1425,7 @@ render();
 <!-- 新しい版の知らせ（版を上げるときは version.json とこの APP_VER を同じにする） -->
 <script>
 (() => {
-  const APP_VER = "20261122a";
+  const APP_VER = "20261122b";
   let shown = false;
   const check = () => {
     if (shown || !navigator.onLine) return;
