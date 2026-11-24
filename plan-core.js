@@ -275,6 +275,20 @@ async function modelFor(key) {
   return { id: s.id, appConfig: { ...base, model_list: [...base.model_list, { model: s.repo, model_id: s.id, model_lib: lib }] } };
 }
 let loadingAI = false;
+/* iPad などで出やすい英語のエラーを、何が起きたか・どうすればいいかの日本語にする */
+function aiErr(e) {
+  const m = String(e?.message || e || "");
+  if (/disposed|device (was )?lost|DeviceLost|GPUDevice/i.test(m)) {
+    engine = null; curId = null; setBar("0");
+    return { txt: "AIが途中で止まっていました。ページを裏に回していた間やスリープ中に、iPad・iPhone がAI用の力（GPU：ジーピーユー＝絵や計算を受け持つ部品）を引き上げたためです。予定は消えていません。ページを開き直すと、また読み込めます。", reload: true };
+  }
+  if (/compatible GPU|WebGPU|requestAdapter|adapter/i.test(m)) {
+    engine = null;
+    return { txt: "いまこのページでは、AI用の力（GPU）が借りられない状態です。①ページを開き直す ②それでもだめなら Safari のタブを閉じて開き直す（ホーム画面のアイコンなら、アプリを上にスワイプして閉じる）③低電力モードやロックダウンモードがオンなら切る。端末の故障ではありません。", reload: true };
+  }
+  return { txt: m, reload: false };
+}
+const reloadBtn = `<button type="button" onclick="location.reload()" style="margin-left:6px">🔄 ページを開き直す</button>`;
 function showAIState() {
   const name = curId ? curId.split("-").slice(0, 2).join(" ") : "";
   const [cls, txt] = loadingAI ? ["wait", "🤖 AI：読み込み中…（終わるまでAIのボタンは押せません）"]
@@ -304,7 +318,7 @@ async function loadAI(key, auto = false) {
     engine = await webllm.CreateMLCEngine(m.id, { appConfig: m.appConfig, initProgressCallback: p => { log(`読み込み中：${Math.round((p.progress || 0) * 100)}%`); setBar(`${Math.round((p.progress || 0) * 100)}%`); } }, m.chatOpts);
     curId = m.id; try { localStorage.setItem(K.seat, key); } catch (_) {}
     log(`読み込み完了：${m.id}（${((performance.now() - t0) / 1000).toFixed(0)} 秒）。「AIに読み取ってもらう」が押せます。`);
-  } catch (e) { engine = null; log(`読み込めませんでした（${s.label}）：` + (e?.message || e)); }
+  } catch (e) { engine = null; const r = aiErr(e); log(`読み込めませんでした（${s.label}）：` + r.txt); if (r.reload) { const el = $("aiLog"); if (el) el.insertAdjacentHTML("beforeend", reloadBtn); } }
   finally { loadingAI = false; setBusy(false); }
 }
 async function delAI() {
@@ -546,7 +560,7 @@ async function go(useAi) {
       applyFixes(o, t); o.src = t; out.push(o); secs.push((performance.now() - s0) / 1000);
     }
     showCards(out, aiName() + "（" + curId.split("-").slice(0, 2).join(" ") + "）", secs);
-  } catch (e) { $("pOut").innerHTML = `<p class="ng">止まりました：${esc(e?.message || e)}</p>`; }
+  } catch (e) { const r = aiErr(e); $("pOut").innerHTML = `<p class="ng">止まりました：${esc(r.txt)}${r.reload ? reloadBtn : ""}</p>`; }
   finally { clearInterval(tick); setBusy(false); }
 }
 
